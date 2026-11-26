@@ -46,6 +46,10 @@ export default function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingFullVideo, setIsGeneratingFullVideo] = useState(false);
   const [isTestingGemini, setIsTestingGemini] = useState(false);
+  const [geminiTestResult, setGeminiTestResult] = useState<{
+    status: "testing" | "success" | "error";
+    message: string;
+  } | null>(null);
   const [isRendering, setIsRendering] = useState(false);
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderMessage, setRenderMessage] = useState("");
@@ -90,7 +94,10 @@ export default function App() {
         if (typeof payload !== "object" || payload === null || !("configured" in payload)) {
           throw new Error("Gemini server status response is invalid.");
         }
-        if (active) setGeminiConfigured(Boolean(payload.configured));
+        // A key may be saved while the initial status request is still in flight.
+        // Re-check session storage at response time so a stale "not configured"
+        // response cannot overwrite the newly saved tab key.
+        if (active) setGeminiConfigured(hasGeminiSessionKey() || Boolean(payload.configured));
       })
       .catch(() => {
         if (active) setGeminiConfigured(false);
@@ -211,6 +218,7 @@ export default function App() {
       setGeminiSessionKeyInput("");
       setGeminiSessionKeySaved(true);
       setGeminiConfigured(true);
+      setGeminiTestResult(null);
       setNotice("Gemini key saved for this browser tab. Test the connection before generating a video.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Could not save the Gemini key for this tab.");
@@ -221,6 +229,7 @@ export default function App() {
     clearGeminiSessionKey();
     setGeminiSessionKeySaved(false);
     setGeminiConfigured(null);
+    setGeminiTestResult(null);
     setNotice("The Gemini key was removed from this tab session.");
     fetch("/api/ai/status", { cache: "no-store" })
       .then((response) => response.json())
@@ -233,17 +242,22 @@ export default function App() {
   }
 
   async function handleTestGemini() {
-    setIsTestingGemini(true);
-    setNotice(geminiSessionKeySaved
+    const testingMessage = geminiSessionKeySaved
       ? "Testing the Gemini key saved in this browser tab…"
-      : "Testing the Gemini connection configured for this site…");
+      : "Testing the Gemini connection configured for this site…";
+    setIsTestingGemini(true);
+    setGeminiTestResult({ status: "testing", message: testingMessage });
+    setNotice(testingMessage);
     try {
       const result = await testGeminiConnection();
       setGeminiConfigured(true);
+      setGeminiTestResult({ status: "success", message: result });
       setNotice(result);
     } catch (error) {
+      const message = error instanceof Error ? error.message : "Gemini connection test failed.";
       setGeminiConfigured(false);
-      setNotice(error instanceof Error ? error.message : "Gemini connection test failed.");
+      setGeminiTestResult({ status: "error", message });
+      setNotice(message);
     } finally {
       setIsTestingGemini(false);
     }
@@ -785,7 +799,10 @@ export default function App() {
                       autoComplete="off"
                       spellCheck={false}
                       value={geminiSessionKeyInput}
-                      onChange={(event) => setGeminiSessionKeyInput(event.target.value)}
+                      onChange={(event) => {
+                        setGeminiSessionKeyInput(event.target.value);
+                        setGeminiTestResult(null);
+                      }}
                       placeholder={geminiSessionKeySaved ? "Key saved for this tab · enter a new key to replace it" : "Paste your Gemini API key"}
                     />
                     <div className="gemini-test-row">
@@ -794,8 +811,23 @@ export default function App() {
                       </span>
                       <button className="button button-primary" disabled={!geminiSessionKeyInput.trim()} onClick={handleSaveGeminiSessionKey}>Save key for this tab</button>
                       {geminiSessionKeySaved && <button className="text-button" onClick={handleClearGeminiSessionKey}>Remove saved key</button>}
-                      <button className="button button-secondary" disabled={isTestingGemini || isGenerating || isGeneratingFullVideo} onClick={handleTestGemini}>{isTestingGemini ? <><span className="spinner" /> Testing…</> : "Test Gemini connection"}</button>
+                      <button type="button" className="button button-secondary" disabled={isTestingGemini || isGenerating || isGeneratingFullVideo} onClick={handleTestGemini}>{isTestingGemini ? <><span className="spinner" /> Testing…</> : "Test Gemini connection"}</button>
                     </div>
+                    {geminiTestResult && (
+                      <div
+                        id="gemini-test-result"
+                        className={"gemini-test-result " + geminiTestResult.status}
+                        role={geminiTestResult.status === "error" ? "alert" : "status"}
+                        aria-live="polite"
+                        aria-atomic="true"
+                        aria-busy={geminiTestResult.status === "testing"}
+                      >
+                        <span className="gemini-test-icon" aria-hidden="true">
+                          {geminiTestResult.status === "success" ? "✓" : geminiTestResult.status === "error" ? "!" : "…"}
+                        </span>
+                        <span>{geminiTestResult.message}</span>
+                      </div>
+                    )}
                     <small>
                       The key is saved in this browser tab's session storage, survives refreshes in this tab and is removed when the tab session ends. It is not saved in your video project, IndexedDB or GitHub. For Gemini requests, this app sends it over HTTPS to its same-origin Cloudflare Function, which forwards it to Google. Session storage is not a password vault: scripts running on this site can access it, so use this only in a trusted browser and on a device you control. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Google AI Studio ↗</a>
                     </small>
