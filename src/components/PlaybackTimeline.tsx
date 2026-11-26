@@ -46,7 +46,6 @@ function drawFrame(
   sceneElapsed: number,
   sceneDuration: number,
   index: number,
-  sceneCount: number,
   projectElapsed: number,
   totalDuration: number,
 ) {
@@ -236,7 +235,7 @@ export default function PlaybackTimeline({
     if (!ctx) return;
     const position = getSceneAtTime(scenes, playheadRef.current);
     if (position) {
-      drawFrame(ctx, width, height, position.scene, imagesRef.current.get(position.scene.id), position.offset, position.scene.duration, position.index, scenes.length, playheadRef.current, totalDuration);
+      drawFrame(ctx, width, height, position.scene, imagesRef.current.get(position.scene.id), position.offset, position.scene.duration, position.index, playheadRef.current, totalDuration);
     }
   }, [width, height, scenes, playhead, totalDuration, imageVersion]);
 
@@ -269,7 +268,7 @@ export default function PlaybackTimeline({
       const position = getSceneAtTime(scenes, nextTime);
       if (position) {
         if (ctx) {
-          drawFrame(ctx, width, height, position.scene, imagesRef.current.get(position.scene.id), position.offset, position.scene.duration, position.index, scenes.length, nextTime, totalDuration);
+          drawFrame(ctx, width, height, position.scene, imagesRef.current.get(position.scene.id), position.offset, position.scene.duration, position.index, nextTime, totalDuration);
         }
         if (position.scene.id !== lastSelected) {
           lastSelected = position.scene.id;
