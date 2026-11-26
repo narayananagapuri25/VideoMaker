@@ -292,7 +292,7 @@ export async function exportMp4(
 
   output.setMetadataTags({ title: project.title || "SochoZara Studio", artist: "SochoZara" });
   const cancelOutput = () => {
-    if (output.state === "started") void output.cancel();
+    if (output.state === "started" || output.state === "finalizing") void output.cancel();
   };
   signal?.addEventListener("abort", cancelOutput);
   const totalFrames = Math.ceil(duration * fps);
