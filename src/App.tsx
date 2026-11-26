@@ -5,10 +5,12 @@ import { deriveTopicFromScript, makeProject, parsePastedNarration, scenesFromScr
 import { loadLatestProject, saveProject } from "./lib/storage";
 import { generateNarration } from "./lib/tts";
 import { buildSceneImagePrompt } from "./lib/art-prompt";
+import { buildGoogleFlowShotList } from "./lib/flow-prompts";
 import { getSceneStartTime, getTimelineDuration } from "./lib/timeline";
 import PlaybackTimeline from "./components/PlaybackTimeline";
 import CreatorKit from "./components/CreatorKit";
 import StockVideoPanel from "./components/StockVideoPanel";
+import GoogleFlowPanel from "./components/GoogleFlowPanel";
 import type { AspectRatio, Language, Scene, StudioProject } from "./types";
 import { getEmbeddedImageSize, getEmbeddedVideoSize, getProjectMediaSize, isSupportedImageMimeType, MAX_NARRATION_AUDIO_BYTES, MAX_PROJECT_MEDIA_BYTES, MAX_SCENE_IMAGE_BYTES } from "./lib/media-data";
 import { MAX_PROJECT_BACKUP_BYTES, restoreProjectBackup } from "./lib/project-backup";
@@ -542,6 +544,17 @@ export default function App() {
     setIsPlaying(false);
   }
 
+  function downloadGoogleFlowShotList() {
+    const blob = new Blob([buildGoogleFlowShotList(project)], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = (project.title || "sochozara-flow-shot-list").toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-flow-shot-list.txt";
+    anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+    setNotice("Google Flow shot list downloaded with a separate cinematic prompt for every storyboard scene.");
+  }
+
   function exportProjectBackup() {
     const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -757,7 +770,10 @@ export default function App() {
                 </article>
 
                 <article className="panel scene-panel">
-                  <div className="panel-heading"><div><span className="step-number">04</span><div><h2>Storyboard</h2><p>Select a scene to edit its visuals and captions.</p></div></div><button className="add-scene" onClick={addScene}>＋ Add</button></div>
+                  <div className="panel-heading"><div><span className="step-number">04</span><div><h2>Storyboard</h2><p>Select a scene to edit its visuals and captions.</p></div></div><div className="storyboard-header-actions">
+                    <button className="button button-secondary flow-shotlist-button" onClick={downloadGoogleFlowShotList}>↓ Flow shot list</button>
+                    <button className="add-scene" onClick={addScene}>＋ Add</button>
+                  </div></div>
                   <div className="scene-list">
                     {project.scenes.map((scene, index) => (
                       <button key={scene.id} className={"scene-row " + (scene.id === selectedScene?.id ? "selected" : "")} onClick={() => { setSelectedSceneId(scene.id); setIsPlaying(false); setPlayhead(getSceneStartTime(project.scenes, scene.id)); }}>
@@ -769,6 +785,7 @@ export default function App() {
                   </div>
                   {selectedScene && (
                     <div className="scene-editor">
+                      <GoogleFlowPanel scene={selectedScene} aspectRatio={project.aspectRatio} onNotice={setNotice} />
                       <div className="scene-editor-top"><strong>SCENE DETAILS</strong><div><button className="tiny-action" onClick={() => moveScene(selectedScene.id, -1)} title="Move up">↑</button><button className="tiny-action" onClick={() => moveScene(selectedScene.id, 1)} title="Move down">↓</button><button className="tiny-action danger-text" onClick={() => removeScene(selectedScene.id)} title="Delete scene">×</button></div></div>
                       <label className="field-label">SCENE TITLE</label>
                       <input value={selectedScene.title} onChange={(event) => updateScene(selectedScene.id, { title: event.target.value })} />
