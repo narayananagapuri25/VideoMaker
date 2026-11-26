@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AspectRatio, Scene } from "../types";
 import { getSceneAtTime, getSceneStartTime, getTimelineDuration } from "../lib/timeline";
+import { getSceneVideoSrc } from "../lib/stock-video";
 
 interface PlaybackTimelineProps {
   scenes: Scene[];
@@ -43,6 +44,7 @@ function drawFrame(
   height: number,
   scene: Scene,
   image: HTMLImageElement | undefined,
+  video: HTMLVideoElement | undefined,
   sceneElapsed: number,
   sceneDuration: number,
   index: number,
@@ -57,7 +59,14 @@ function drawFrame(
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 
-  if (image) {
+  if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+    const scale = Math.max(width / video.videoWidth, height / video.videoHeight) * (1.025 + progress * 0.025);
+    const drawWidth = video.videoWidth * scale;
+    const drawHeight = video.videoHeight * scale;
+    ctx.save();
+    ctx.drawImage(video, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
+    ctx.restore();
+  } else if (image) {
     const scale = Math.max(width / image.width, height / image.height) * (1.04 + progress * 0.045);
     const drawWidth = image.width * scale;
     const drawHeight = image.height * scale;
@@ -163,6 +172,11 @@ function drawFrame(
   ctx.fillStyle = "rgba(255,255,255,.62)";
   ctx.font = "500 " + Math.round(width * 0.021) + "px Arial";
   ctx.fillText("DUNIYA KE FACTS. EK NAYA ANGLE.", width * 0.075, height * 0.15);
+  if (scene.videoClipAuthor) {
+    ctx.fillStyle = "rgba(246,249,252,.72)";
+    ctx.font = "500 " + Math.round(width * 0.016) + "px Arial";
+    ctx.fillText("FOOTAGE: " + scene.videoClipAuthor + " · PIXABAY", width * 0.075, height * 0.94);
+  }
 
   ctx.fillStyle = "#20D9EC";
   ctx.font = "700 " + Math.round(width * 0.031) + "px Arial";
@@ -199,6 +213,7 @@ export default function PlaybackTimeline({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const imagesRef = useRef<Map<string, HTMLImageElement>>(new Map());
+  const videosRef = useRef<Map<string, HTMLVideoElement>>(new Map());
   const [imageVersion, setImageVersion] = useState(0);
   const playheadRef = useRef(playhead);
   const selectedRef = useRef(selectedSceneId);
@@ -227,6 +242,29 @@ export default function PlaybackTimeline({
   }, [scenes]);
 
   useEffect(() => {
+    const next = new Map<string, HTMLVideoElement>();
+    videosRef.current = next;
+    for (const scene of scenes) {
+      const source = getSceneVideoSrc(scene, "small");
+      if (!source) continue;
+      const video = document.createElement("video");
+      video.muted = true;
+      video.loop = true;
+      video.playsInline = true;
+      video.preload = "auto";
+      video.onloadeddata = () => setImageVersion((version) => version + 1);
+      video.onerror = () => onPlaybackError?.("The video clip for “" + scene.title + "” could not be loaded. Check the Pixabay service or replace the clip.");
+      video.src = source;
+      video.load();
+      next.set(scene.id, video);
+    }
+    return () => {
+      next.forEach((video) => { video.pause(); video.removeAttribute("src"); video.load(); });
+      videosRef.current = new Map();
+    };
+  }, [scenes, onPlaybackError]);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     canvas.width = width;
@@ -235,15 +273,25 @@ export default function PlaybackTimeline({
     if (!ctx) return;
     const position = getSceneAtTime(scenes, playheadRef.current);
     if (position) {
-      drawFrame(ctx, width, height, position.scene, imagesRef.current.get(position.scene.id), position.offset, position.scene.duration, position.index, playheadRef.current, totalDuration);
+      const video = videosRef.current.get(position.scene.id);
+      if (!isPlaying && video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        video.pause();
+        const start = Math.max(0, position.scene.videoClipStart || 0);
+        const target = Math.min(start + position.offset, Math.max(0, video.duration - 0.05));
+        if (Math.abs(video.currentTime - target) > 0.1) {
+          try { video.currentTime = target; } catch { /* video metadata may still be loading */ }
+        }
+      }
+      drawFrame(ctx, width, height, position.scene, imagesRef.current.get(position.scene.id), video, position.offset, position.scene.duration, position.index, playheadRef.current, totalDuration);
     }
-  }, [width, height, scenes, playhead, totalDuration, imageVersion]);
+  }, [width, height, scenes, playhead, totalDuration, imageVersion, isPlaying]);
 
   useEffect(() => {
     if (!isPlaying) {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
       audioRef.current?.pause();
+      videosRef.current.forEach((video) => video.pause());
       return;
     }
 
@@ -262,6 +310,7 @@ export default function PlaybackTimeline({
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d", { alpha: false });
     let lastSelected = "";
+    let lastVideoSceneId = "";
     const tick = (now: number) => {
       const elapsed = (now - startedAt) / 1000;
       const wallClockTime = startPlayhead + elapsed;
@@ -271,8 +320,18 @@ export default function PlaybackTimeline({
       const nextTime = Math.min(totalDuration, Math.max(playheadRef.current, audioClockTime));
       const position = getSceneAtTime(scenes, nextTime);
       if (position) {
+        const activeVideo = videosRef.current.get(position.scene.id);
+        if (activeVideo && activeVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+          if (lastVideoSceneId !== position.scene.id) {
+            videosRef.current.forEach((video) => { if (video !== activeVideo) video.pause(); });
+            lastVideoSceneId = position.scene.id;
+            const start = Math.max(0, position.scene.videoClipStart || 0);
+            try { activeVideo.currentTime = Math.min(start + position.offset, Math.max(0, activeVideo.duration - 0.05)); } catch { /* wait for the browser decoder */ }
+          }
+          if (activeVideo.paused) void activeVideo.play().catch(() => onPlaybackError?.("This browser could not play the selected scene clip. Try importing a local MP4."));
+        }
         if (ctx) {
-          drawFrame(ctx, width, height, position.scene, imagesRef.current.get(position.scene.id), position.offset, position.scene.duration, position.index, nextTime, totalDuration);
+          drawFrame(ctx, width, height, position.scene, imagesRef.current.get(position.scene.id), activeVideo, position.offset, position.scene.duration, position.index, nextTime, totalDuration);
         }
         if (position.scene.id !== lastSelected) {
           lastSelected = position.scene.id;
@@ -299,6 +358,7 @@ export default function PlaybackTimeline({
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
       audio?.pause();
+      videosRef.current.forEach((video) => video.pause());
     };
   }, [isPlaying, scenes, totalDuration, width, height, voiceAudioDataUrl, onPlaybackError, onPlayheadChange, onPlayingChange, onSelectScene]);
 
