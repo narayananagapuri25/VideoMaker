@@ -7,6 +7,9 @@ export interface PagesContext {
   env: GeminiEnv;
 }
 
+const SESSION_KEY_HEADER = "X-SochoZara-Gemini-Key";
+const MAX_SESSION_KEY_LENGTH = 512;
+
 export function jsonNoStore(body: unknown, status = 200): Response {
   return Response.json(body, {
     status,
@@ -31,11 +34,23 @@ export function checkSameOrigin(request: Request): Response | null {
   return null;
 }
 
-export function requireGeminiKey(env: GeminiEnv): string | Response {
-  const key = env.GEMINI_API_KEY?.trim();
+/** A per-tab browser key takes precedence; otherwise use the encrypted Pages secret. */
+export function resolveGeminiKey(request: Request, env: GeminiEnv): string | undefined {
+  const sessionKey = request.headers.get(SESSION_KEY_HEADER)?.trim();
+  if (sessionKey) return sessionKey;
+  const serverKey = env.GEMINI_API_KEY?.trim();
+  return serverKey || undefined;
+}
+
+export function requireGeminiKey(request: Request, env: GeminiEnv): string | Response {
+  const sessionKey = request.headers.get(SESSION_KEY_HEADER)?.trim();
+  if (sessionKey && sessionKey.length > MAX_SESSION_KEY_LENGTH) {
+    return jsonNoStore({ error: "The Gemini key entered for this tab is too long. Replace it with the key from Google AI Studio." }, 400);
+  }
+  const key = resolveGeminiKey(request, env);
   if (!key) {
     return jsonNoStore({
-      error: "Gemini is not connected on the server yet. Add GEMINI_API_KEY as an encrypted secret in Cloudflare Pages → Settings → Variables and Secrets, then redeploy the production branch.",
+      error: "Gemini is not connected. Enter your Google AI Studio API key in the Studio and save it for this tab, or configure GEMINI_API_KEY as an encrypted Cloudflare Pages secret.",
       code: "GEMINI_NOT_CONFIGURED",
     }, 503);
   }
