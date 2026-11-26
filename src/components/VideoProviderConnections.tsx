@@ -152,17 +152,34 @@ export default function VideoProviderConnections() {
           <strong>More free video generators · manual fallback</strong>
           <span>WEB APP CREDITS</span>
         </div>
-        <p>These services offer free web-app credits but do not expose a supported free video-generation API that VideoMaker can safely call. Open the site, create and download an MP4, then import it into the relevant scene using the footage panel.</p>
+        <p>These sites provide free daily or trial credits in their own web apps, but they do not expose a supported free API for VideoMaker to call. Open a site, generate and download an MP4, then import it in the scene footage panel. Each site controls its own limits and queue.</p>
         <div className="manual-video-links">
           <a href="https://labs.google/fx/tools/flow" target="_blank" rel="noreferrer">
-            <strong>Google Flow · Veo 3.1</strong>
-            <small>50 free credits daily · availability and generation features vary by region</small>
+            <strong>Google Flow · Veo</strong>
+            <small>50 credits daily. Non-subscriber video access can pause at peak hours; available models and regional access vary.</small>
+          </a>
+          <a href="https://app.pixverse.ai/" target="_blank" rel="noreferrer">
+            <strong>PixVerse</strong>
+            <small>Free Basic allowance: 60 initial credits plus 30 daily credits. Daily credits expire at UTC midnight; Basic output is capped at 540p.</small>
+          </a>
+          <a href="https://firefly.adobe.com/" target="_blank" rel="noreferrer">
+            <strong>Adobe Firefly Video</strong>
+            <small>Limited free daily generations across video, image and audio. Adobe varies the available models and daily limits.</small>
           </a>
           <a href="https://app.runwayml.com/" target="_blank" rel="noreferrer">
             <strong>Runway</strong>
-            <small>125 one-time free credits · the free-plan video model list can change</small>
+            <small>125 one-time credits. They do not renew; free model access changes over time and exports may carry a watermark.</small>
+          </a>
+          <a href="https://hailuoai.video/" target="_blank" rel="noreferrer">
+            <strong>Hailuo AI · MiniMax</strong>
+            <small>Free daily or promotional credits may be available on the website. The allowance varies; its API is pay-per-generation, not a free API tier.</small>
+          </a>
+          <a href="https://klingai.com/" target="_blank" rel="noreferrer">
+            <strong>Kling AI</strong>
+            <small>Check the live account credit panel for any free or promotional allowance. No fixed free amount is assumed by VideoMaker.</small>
           </a>
         </div>
+        <p className="manual-video-excluded">Not counted as a free generation source: Pika Free currently includes 0 monthly credits; video creation requires a credit pack or paid plan.</p>
       </div>
     </section>
   );
