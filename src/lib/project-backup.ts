@@ -128,6 +128,8 @@ export function restoreProjectBackup(value: unknown): StudioProject {
       videoClipDuration: entry.videoClipDuration === undefined ? undefined : finiteNumber(entry.videoClipDuration, 0, 0, 3600),
       videoClipStart: entry.videoClipStart === undefined ? 0 : finiteNumber(entry.videoClipStart, 0, 0, 3600),
       videoDataUrl,
+      videoSourceNote: optionalText(entry.videoSourceNote, 1_000, "video source note"),
+      videoCommercialUseConfirmed: false,
     };
   });
 
