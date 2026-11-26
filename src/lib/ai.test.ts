@@ -46,6 +46,18 @@ describe("Gemini connection diagnostics", () => {
     expect(request.input).toContain("SOCHOZARA_GEMINI_OK");
   });
 
+  it("checks Gemini through the same-origin secure endpoint without sending a key", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      message: "Secure server connection successful.",
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    const message = await testGeminiConnection();
+    expect(message).toContain("Secure server connection successful");
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/ai/connection");
+    expect(new Headers(init?.headers).get("x-goog-api-key")).toBeNull();
+  });
+
   it("requires a key without making a network request", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
     await expect(testGeminiConnectionWithApiKey("  ")).rejects.toThrow(/paste your google ai studio api key/i);
