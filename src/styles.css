@@ -217,3 +217,9 @@ select { appearance: auto; }
   .scene-editor-bottom .file-button { flex: 1; }
   .export-spec { width: 100%; text-align: center; }
 }
+
+.tts-controls { display: grid; grid-template-columns: minmax(105px, .75fr) minmax(180px, 1.25fr); gap: 9px; align-items: end; margin-top: 11px; }
+.tts-controls .field-label { margin-top: 0; }
+.tts-button { min-height: 38px; }
+.tts-disclaimer { display: block; color: #71869c; font-size: 8px; line-height: 1.55; margin-top: 8px; }
+@media (max-width: 560px) { .tts-controls { grid-template-columns: 1fr; } .tts-button { width: 100%; } }
