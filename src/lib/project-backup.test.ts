@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { restoreProjectBackup, MAX_PROJECT_MEDIA_BYTES, MAX_PROJECT_SCENES } from "./project-backup";
+import { restoreProjectBackup, MAX_PROJECT_SCENES } from "./project-backup";
+import { MAX_PROJECT_MEDIA_BYTES } from "./media-data";
 
 function validBackup(overrides: Record<string, unknown> = {}) {
   return {
