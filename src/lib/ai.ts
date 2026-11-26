@@ -1,5 +1,5 @@
 import type { AspectRatio, GeneratedStory, Language, SceneVisualLayout, SceneVisualPlan } from "../types";
-import { getGeminiSessionHeaders } from "./gemini-session";\nimport { getSecondaryAIHeaders, type AIProvider } from "./ai-provider-session";
+import { getGeminiSessionHeaders } from "./gemini-session";
 import { getSecondaryAIHeaders, type AIProvider } from "./ai-provider-session";
 
 interface GenerateOptions {
@@ -279,7 +279,8 @@ export function buildStoryPrompt(options: StoryPromptOptions): string {
     "Do not invent factual details, dates, statistics, prices, quotations or company data. If a factual claim requires verification, mark it [VERIFY] in narration and explain it in editorialNote. Distinguish illustrative examples from real-world data.",
     "Keep scene durations positive and make their sum close to target duration. Script and narration must sound natural when read aloud.",
     "Return the requested JSON object only. Do not wrap it in Markdown fences or add commentary.",
-  ].join("\n");
+  ].join("
+");
 }
 
 export async function generateStoryWithApiKey(options: GenerateOptions): Promise<{ story: GeneratedStory; source: "gemini" }> {
