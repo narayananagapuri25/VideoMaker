@@ -1,0 +1,30 @@
+export type AspectRatio = "9:16" | "16:9";
+export type Language = "Hinglish" | "Hindi" | "English" | "Telugu";
+
+export interface Scene {
+  id: string;
+  title: string;
+  narration: string;
+  caption: string;
+  visualPrompt: string;
+  duration: number;
+  imageDataUrl?: string;
+}
+
+export interface StudioProject {
+  id: string;
+  title: string;
+  topic: string;
+  language: Language;
+  aspectRatio: AspectRatio;
+  targetDuration: number;
+  script: string;
+  scenes: Scene[];
+  updatedAt: number;
+}
+
+export interface GeneratedStory {
+  title: string;
+  script: string;
+  scenes: Array<Omit<Scene, "id">>;
+}
