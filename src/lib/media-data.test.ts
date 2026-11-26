@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getEmbeddedAudioSize,
   getEmbeddedImageSize,
+  getEmbeddedVideoSize,
   getProjectMediaSize,
   isSupportedImageMimeType,
   MAX_NARRATION_AUDIO_BYTES,
@@ -30,6 +31,15 @@ describe("embedded project media validation", () => {
     expect(getEmbeddedAudioSize("data:text/html;base64,YWJj")).toBeNull();
   });
 
+  it("accepts valid embedded MP4 and WebM containers and rejects spoofed media", () => {
+    const mp4Header = String.fromCharCode(0, 0, 0, 24, 102, 116, 121, 112, 105, 115, 111, 109);
+    const webmHeader = String.fromCharCode(26, 69, 223, 163, 159);
+    expect(getEmbeddedVideoSize("data:video/mp4;base64," + btoa(mp4Header))).toBe(mp4Header.length);
+    expect(getEmbeddedVideoSize("data:video/webm;base64," + btoa(webmHeader))).toBe(webmHeader.length);
+    expect(getEmbeddedVideoSize("data:video/mp4;base64,SGVsbG8=")).toBeNull();
+    expect(getEmbeddedVideoSize("https://example.com/video.mp4")).toBeNull();
+  });
+
   it("tracks the aggregate size of embedded media and supports replacement accounting", () => {
     const images = [{
       id: "scene-1", title: "A", narration: "", caption: "", visualPrompt: "", duration: 5,
@@ -38,6 +48,13 @@ describe("embedded project media validation", () => {
     const audio = "data:audio/wav;base64,YWJj";
     expect(getProjectMediaSize(images, audio)).toBe(11);
     expect(getProjectMediaSize(images, audio, "scene-1", true)).toBe(0);
+    const videoScene = {
+      ...images[0],
+      videoDataUrl: "data:video/mp4;base64," + btoa(String.fromCharCode(0, 0, 0, 24, 102, 116, 121, 112, 105, 115, 111, 109)),
+    };
+    const videoBytes = 18;
+    expect(getProjectMediaSize([videoScene], audio)).toBe(videoScene.imageDataUrl.length > 0 ? 8 + videoBytes + 3 : videoBytes + 3);
+    expect(getProjectMediaSize([videoScene], audio, undefined, false, "scene-1")).toBe(11);
     expect(MAX_PROJECT_MEDIA_BYTES).toBe(64 * 1024 * 1024);
   });
 
