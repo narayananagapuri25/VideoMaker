@@ -242,6 +242,10 @@ export async function exportMp4(
   onProgress({ progress: 0.02, message: "Preparing in-house animated scenes…" });
   const images = new Map<string, HTMLImageElement>();
   const videos = new Map<string, HTMLVideoElement>();
+  const releaseVideos = () => {
+    videos.forEach((video) => { video.pause(); video.removeAttribute("src"); video.load(); });
+    videos.clear();
+  };
   try {
     for (const scene of project.scenes) {
       if (scene.imageDataUrl) images.set(scene.id, await loadImage(scene.imageDataUrl, signal));
@@ -250,15 +254,27 @@ export async function exportMp4(
       throwIfExportAborted(signal);
     }
   } catch (error) {
-    videos.forEach((video) => { video.pause(); video.removeAttribute("src"); video.load(); });
+    releaseVideos();
     throw error;
   }
 
   const format = new Mp4OutputFormat();
-  const videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), { width, height });
-  throwIfExportAborted(signal);
-  if (!videoCodec) {
-    throw new Error("This browser does not expose an MP4-compatible video encoder. Try Chrome on a desktop or another supported device.");
+  let videoCodec: Awaited<ReturnType<typeof getFirstEncodableVideoCodec>>;
+  let audioCodec: Awaited<ReturnType<typeof getFirstEncodableAudioCodec>>;
+  try {
+    videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), { width, height });
+    throwIfExportAborted(signal);
+    if (!videoCodec) {
+      throw new Error("This browser does not expose an MP4-compatible video encoder. Try Chrome on a desktop or another supported device.");
+    }
+    audioCodec = await getFirstEncodableAudioCodec(format.getSupportedAudioCodecs());
+    throwIfExportAborted(signal);
+    if (project.voiceAudioDataUrl && !audioCodec) {
+      throw new Error("This browser cannot encode AAC audio for an MP4 export.");
+    }
+  } catch (error) {
+    releaseVideos();
+    throw error;
   }
   const output = new Output({ format, target: new BufferTarget() });
   const videoSource = new CanvasSource(canvas, {
@@ -269,11 +285,6 @@ export async function exportMp4(
   output.addVideoTrack(videoSource, { frameRate: fps });
 
   let audioSource: AudioBufferSource | undefined;
-  const audioCodec = await getFirstEncodableAudioCodec(format.getSupportedAudioCodecs());
-  throwIfExportAborted(signal);
-  if (project.voiceAudioDataUrl && !audioCodec) {
-    throw new Error("This browser cannot encode AAC audio for an MP4 export.");
-  }
   if (audioCodec) {
     audioSource = new AudioBufferSource({ codec: audioCodec, quality: new Quality({ bitrate: 128_000 }) });
     output.addAudioTrack(audioSource);
@@ -365,6 +376,6 @@ export async function exportMp4(
     throw error;
   } finally {
     signal?.removeEventListener("abort", cancelOutput);
-    videos.forEach((video) => { video.pause(); video.removeAttribute("src"); video.load(); });
+    releaseVideos();
   }
 }
