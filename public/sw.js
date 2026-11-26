@@ -1,4 +1,4 @@
-const CACHE_NAME = "sochozara-studio-v2";
+const CACHE_NAME = "sochozara-studio-v3";
 const APP_SHELL = ["/", "/manifest.webmanifest", "/favicon.svg", "/icon-192.svg", "/icon-512.svg"];
 
 self.addEventListener("install", (event) => {

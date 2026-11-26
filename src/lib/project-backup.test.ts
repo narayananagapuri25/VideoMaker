@@ -28,6 +28,11 @@ function validBackup(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function validMp4DataUrl(): string {
+  const header = String.fromCharCode(0, 0, 0, 24, 102, 116, 121, 112, 105, 115, 111, 109, 0, 0, 0, 0);
+  return "data:video/mp4;base64," + btoa(header);
+}
+
 describe("project backup validation", () => {
   it("restores a valid project and preserves sync metadata", () => {
     const project = restoreProjectBackup(validBackup());
@@ -56,6 +61,21 @@ describe("project backup validation", () => {
       scenes: [{ ...validBackup().scenes[0], imageDataUrl: image, imageCommercialUseConfirmed: true }],
     }));
     expect(project.scenes[0].imageCommercialUseConfirmed).toBe(false);
+  });
+
+  it("preserves an embedded local video clip and revalidates its media signature", () => {
+    const dataUrl = validMp4DataUrl();
+    const project = restoreProjectBackup(validBackup({
+      scenes: [{
+        ...validBackup().scenes[0],
+        videoClipSource: "local",
+        videoClipName: "earth.mp4",
+        videoDataUrl: dataUrl,
+      }],
+    }));
+    expect(project.scenes[0].videoClipSource).toBe("local");
+    expect(project.scenes[0].videoDataUrl).toBe(dataUrl);
+    expect(project.scenes[0].videoClipName).toBe("earth.mp4");
   });
 
   it("rejects remote media and unsupported media data", () => {
