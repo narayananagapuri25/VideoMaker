@@ -3,7 +3,6 @@ import {
   getMagicHourAccount,
   jsonNoStore,
   requireMagicHourKey,
-  type MagicHourAccount,
 } from "./_shared";
 
 export async function onRequestPost({ request }: { request: Request }): Promise<Response> {
