@@ -111,6 +111,14 @@ export default function StockVideoPanel({ scene, onChange }: StockVideoPanelProp
       )}
 
       {selectedSrc && (
+        <div className="video-trim-control">
+          <label className="field-label">CLIP IN POINT (SECONDS)</label>
+          <input type="number" min="0" max={scene.videoClipDuration || 3600} step="0.1" value={scene.videoClipStart ?? 0} onChange={(event) => onChange({ videoClipStart: Math.max(0, Math.min(scene.videoClipDuration || 3600, Number(event.target.value) || 0)) })} />
+          <small>The scene duration on the storyboard determines how long this footage plays. The clip loops only when the selected footage is shorter than the scene.</small>
+        </div>
+      )}
+
+      {selectedSrc && (
         <div className="video-rights-box">
           <label className="field-label">FOOTAGE SOURCE / LICENCE NOTE</label>
           <input value={scene.videoSourceNote || ""} onChange={(event) => onChange({ videoSourceNote: event.target.value })} placeholder="Record source, creator and licence" />
