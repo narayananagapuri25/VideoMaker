@@ -12,7 +12,7 @@ The browser-first studio is designed for a creator workflow: enter a topic, buil
 - Channel launch kit with SochoZara positioning, channel descriptions, logo and banner direction, a publishing rhythm and a practical quality checklist.
 - Searchable library of 30 Hinglish-ready video topics that can be loaded directly into the editor.
 - Reusable AI prompt templates for Shorts, long-form explainers, fact-check planning and motion storyboards.
-- Optional Gemini 3.8 Flash story/storyboard generation using a user-provided API key.
+- Optional Gemini 4 Hydrogen story/storyboard generation through the Interactions API using a user-provided API key; requests are stateless (`store: false`) and structured as validated JSON.
 - Scene-by-scene editing for titles, narration, captions, prompts and durations.
 - A live playback timeline with play/pause, scrubbing, scene segments and narration sync.
 - Generate a scene-specific art prompt and open Adobe Firefly or Pexels; import a generated or licensed image for each scene.
@@ -32,7 +32,7 @@ The browser-first studio is designed for a creator workflow: enter a topic, buil
 
 - AI image generation is not performed through a paid API by the editor. The editor builds a full scene prompt, opens Firefly for manual one-scene-at-a-time generation, and imports the resulting image. Firefly Free offers limited daily generations; Google Gemini image-generation API models currently have no free API tier.
 - Optional Gemini TTS uses a user-provided API key and only works while the selected model is available to that key's free tier. Billing/quota availability can change; do not submit private information. TTS requests use the Interactions API with `store: false` (stateless request mode); free-tier content may still be used by Google to improve its products. Quotas and access may change. Use a key with billing disabled and do not submit sensitive information. Device speech is only a preview.
-- The Gemini API key is held in memory only. The app selects the Gemini 3.8 Flash model, but it cannot inspect the Google account's billing settings. Use a key with billing disabled and check current free-tier limits before each use. Free-tier prompt data may be used by Google to improve its products.
+- The Gemini API key is held in memory only. Story generation uses Gemini 4 Hydrogen through the Interactions API; narration uses Gemini 3.8 Flash TTS. The app cannot inspect the Google account's billing settings. Check the current key/project tier and quota before use. Do not submit sensitive information.
 - MP4 export depends on the browser exposing compatible WebCodecs H.264 and AAC encoders. The app does not upload media to a server.
 - The renderer uses a 720p canvas output to reduce device memory pressure. Longer exports are best performed on a desktop or recent high-performance device.
 - The live timeline preview is a browser Canvas playback view; the MP4 renderer creates the final encoded file.
