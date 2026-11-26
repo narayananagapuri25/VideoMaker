@@ -105,7 +105,8 @@ describe("AI story generation", () => {
     expect(request.store).toBe(false);
     expect(request.input).toContain("A test topic");
     expect(request.response_format).toMatchObject({ type: "text", mime_type: "application/json" });
-    expect(request.response_format.schema.required).toEqual(["title", "script", "editorialNote", "scenes"]);\n    expect(request.response_format.schema.properties.scenes.items.required).toContain("visualPlan");
+    expect(request.response_format.schema.required).toEqual(["title", "script", "editorialNote", "scenes"]);
+    expect(request.response_format.schema.properties.scenes.items.required).toContain("visualPlan");
   });
 
   it("supports multiple text blocks in the model output", async () => {
