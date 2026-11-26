@@ -27,6 +27,8 @@ export interface StudioProject {
   /** Last topic and script used to build this storyboard; stale drafts cannot be exported. */
   storyboardSourceTopic?: string;
   storyboardSourceScript?: string;
+  storyboardSourceTargetDuration?: number;
+  storyboardSourceAspectRatio?: AspectRatio;
   /** Research/editorial caveat shown in the editor, never included in narration. */
   editorialNote?: string;
   voiceAudioDataUrl?: string;

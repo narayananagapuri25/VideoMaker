@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { generateStory } from "./lib/ai";
-import { makeProject, scenesFromScript } from "./lib/story";
+import { deriveTopicFromScript, makeProject, parsePastedNarration, scenesFromScript } from "./lib/story";
 import { loadLatestProject, saveProject } from "./lib/storage";
 import { generateNarration } from "./lib/tts";
 import { buildSceneImagePrompt } from "./lib/art-prompt";
@@ -42,7 +42,7 @@ export default function App() {
   const [exportUrl, setExportUrl] = useState("");
   const [notice, setNotice] = useState("Your project is stored locally in this browser.");
   const [saveStatus, setSaveStatus] = useState("Loading project…");
-  const [generationSource, setGenerationSource] = useState<"local" | "gemini">("local");
+  const [generationSource, setGenerationSource] = useState<"local" | "gemini" | "provided-script">("local");
   const [isRecording, setIsRecording] = useState(false);
   const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
   const [ttsVoice, setTtsVoice] = useState("Kore");
@@ -59,6 +59,12 @@ export default function App() {
     [project.scenes, selectedSceneId],
   );
   const totalDuration = getTimelineDuration(project.scenes);
+  const pastedNarration = useMemo(() => parsePastedNarration(project.topic), [project.topic]);
+  const storyboardInSync =
+    project.storyboardSourceTopic === project.topic &&
+    project.storyboardSourceScript === project.script &&
+    project.storyboardSourceTargetDuration === project.targetDuration &&
+    project.storyboardSourceAspectRatio === project.aspectRatio;
   const handlePlaybackError = useCallback((message: string) => setNotice(message), []);
 
   useEffect(() => {
@@ -67,9 +73,32 @@ export default function App() {
       .then((saved) => {
         if (!mounted) return;
         if (saved) {
-          setProject(saved);
-          setSelectedSceneId(saved.scenes[0]?.id ?? "");
-          setNotice("Restored your latest local project.");
+          // Repair older projects where a full narration was pasted into the topic field
+          // and a previous offline starter was appended to its script.
+          const pasted = parsePastedNarration(saved.topic);
+          const topic = pasted ? deriveTopicFromScript(pasted.script) : saved.topic;
+          const restoredScript = pasted ? pasted.script : saved.script;
+          const restoredScenes = pasted
+            ? scenesFromScript(restoredScript, saved.targetDuration, topic)
+            : saved.scenes;
+          const restored: StudioProject = {
+            ...saved,
+            title: pasted ? topic : saved.title,
+            topic,
+            script: restoredScript,
+            scenes: restoredScenes,
+            storyboardSourceTopic: topic,
+            storyboardSourceScript: restoredScript,
+            storyboardSourceTargetDuration: saved.targetDuration,
+            storyboardSourceAspectRatio: saved.aspectRatio,
+            editorialNote: pasted?.editorialNote ?? saved.editorialNote,
+          };
+          setProject(restored);
+          setSelectedSceneId(restored.scenes[0]?.id ?? "");
+          if (pasted) setGenerationSource("provided-script");
+          setNotice(pasted
+            ? "Recovered your pasted narration, removed the unrelated filler, and rebuilt matching scenes."
+            : "Restored your latest local project.");
         } else {
           setSelectedSceneId(project.scenes[0]?.id ?? "");
         }
@@ -102,11 +131,21 @@ export default function App() {
     streamRef.current?.getTracks().forEach((track) => track.stop());
   }, []);
 
+  function invalidateExport() {
+    if (exportUrlRef.current) URL.revokeObjectURL(exportUrlRef.current);
+    exportUrlRef.current = "";
+    setExportUrl("");
+  }
+
   function updateProject(patch: Partial<StudioProject>) {
+    if (["topic", "script", "scenes", "targetDuration", "aspectRatio", "voiceAudioDataUrl"].some((key) => key in patch)) {
+      invalidateExport();
+    }
     setProject((current) => ({ ...current, ...patch, updatedAt: Date.now() }));
   }
 
   function updateScene(sceneId: string, patch: Partial<Scene>) {
+    invalidateExport();
     setProject((current) => ({
       ...current,
       updatedAt: Date.now(),
@@ -119,8 +158,29 @@ export default function App() {
       setNotice("Enter a topic before generating a story.");
       return;
     }
+    if (pastedNarration) {
+      const topic = deriveTopicFromScript(pastedNarration.script);
+      const scenes = scenesFromScript(pastedNarration.script, project.targetDuration, topic);
+      updateProject({
+        title: topic,
+        topic,
+        script: pastedNarration.script,
+        scenes,
+        editorialNote: pastedNarration.editorialNote,
+        storyboardSourceTopic: topic,
+        storyboardSourceScript: pastedNarration.script,
+        storyboardSourceTargetDuration: project.targetDuration,
+        storyboardSourceAspectRatio: project.aspectRatio,
+      });
+      setSelectedSceneId(scenes[0]?.id ?? "");
+      setPlayhead(0);
+      setIsPlaying(false);
+      setGenerationSource("provided-script");
+      setNotice("Pasted narration detected and preserved. Matching scenes were created from your actual lines; no generic filler was added. The scientific note stays outside the spoken script.");
+      return;
+    }
     setIsGenerating(true);
-    setNotice(apiKey.trim() ? "Generating a story with Gemini…" : "Creating an offline starter draft…");
+    setNotice(apiKey.trim() ? "Generating a story with Gemini…" : "Creating a topic-specific offline starter draft…");
     try {
       const result = await generateStory({
         topic: project.topic,
@@ -133,7 +193,16 @@ export default function App() {
         ...scene,
         id: globalThis.crypto?.randomUUID?.() ?? ("scene-" + Date.now() + "-" + Math.random()),
       }));
-      updateProject({ title: result.story.title, script: result.story.script, scenes });
+      updateProject({
+        title: result.story.title,
+        script: result.story.script,
+        scenes,
+        editorialNote: result.story.editorialNote,
+        storyboardSourceTopic: project.topic,
+        storyboardSourceScript: result.story.script,
+        storyboardSourceTargetDuration: project.targetDuration,
+        storyboardSourceAspectRatio: project.aspectRatio,
+      });
       setSelectedSceneId(scenes[0]?.id ?? "");
       setPlayhead(0);
       setIsPlaying(false);
@@ -149,8 +218,18 @@ export default function App() {
   }
 
   function rebuildScenesFromScript() {
-    const scenes = scenesFromScript(project.script, project.targetDuration);
-    updateProject({ scenes });
+    if (!project.script.trim()) {
+      setNotice("Add narration before rebuilding the storyboard.");
+      return;
+    }
+    const scenes = scenesFromScript(project.script, project.targetDuration, project.topic);
+    updateProject({
+      scenes,
+      storyboardSourceTopic: project.topic,
+      storyboardSourceScript: project.script,
+      storyboardSourceTargetDuration: project.targetDuration,
+      storyboardSourceAspectRatio: project.aspectRatio,
+    });
     setSelectedSceneId(scenes[0]?.id ?? "");
     setPlayhead(0);
     setIsPlaying(false);
@@ -283,6 +362,10 @@ export default function App() {
   }
 
   async function handleExport() {
+    if (!storyboardInSync) {
+      setNotice("Export paused: your topic, narration, format or target length changed after the storyboard was created. Generate again or rebuild the storyboard first.");
+      return;
+    }
     const unverified = project.scenes.filter((scene) => scene.imageDataUrl && !scene.imageCommercialUseConfirmed);
     if (unverified.length) {
       setNotice("Before export, review and confirm commercial-use rights for artwork in: " + unverified.map((scene) => scene.title).join(", ") + ".");
@@ -416,12 +499,32 @@ export default function App() {
         targetDuration: Math.max(10, Number(imported.targetDuration) || 45),
         script: String(imported.script || ""),
         scenes,
+        storyboardSourceTopic: typeof imported.storyboardSourceTopic === "string" ? imported.storyboardSourceTopic : String(imported.topic),
+        storyboardSourceScript: typeof imported.storyboardSourceScript === "string" ? imported.storyboardSourceScript : String(imported.script || ""),
+        storyboardSourceTargetDuration: typeof imported.storyboardSourceTargetDuration === "number" ? imported.storyboardSourceTargetDuration : Math.max(10, Number(imported.targetDuration) || 45),
+        storyboardSourceAspectRatio: imported.storyboardSourceAspectRatio === "16:9" ? "16:9" : "9:16",
+        editorialNote: typeof imported.editorialNote === "string" ? imported.editorialNote : undefined,
         voiceAudioDataUrl,
         voiceAudioName: typeof imported.voiceAudioName === "string" ? imported.voiceAudioName : undefined,
         updatedAt: Date.now(),
       };
+      const pasted = parsePastedNarration(restored.topic);
+      if (pasted) {
+        const topic = deriveTopicFromScript(pasted.script);
+        const recoveredScenes = scenesFromScript(pasted.script, restored.targetDuration, topic);
+        restored.title = topic;
+        restored.topic = topic;
+        restored.script = pasted.script;
+        restored.scenes = recoveredScenes;
+        restored.storyboardSourceTopic = topic;
+        restored.storyboardSourceScript = pasted.script;
+        restored.storyboardSourceTargetDuration = restored.targetDuration;
+        restored.storyboardSourceAspectRatio = restored.aspectRatio;
+        restored.editorialNote = pasted.editorialNote ?? restored.editorialNote;
+        setGenerationSource("provided-script");
+      }
       updateProject(restored);
-      setSelectedSceneId(scenes[0].id);
+      setSelectedSceneId(restored.scenes[0]?.id ?? "");
       setPlayhead(0);
       setIsPlaying(false);
       setExportUrl("");
@@ -439,6 +542,7 @@ export default function App() {
     setPlayhead(0);
     setIsPlaying(false);
     setExportUrl("");
+    setGenerationSource("local");
     setNotice("New project created.");
   }
 
@@ -488,8 +592,14 @@ export default function App() {
               <section className="left-column">
                 <article className="panel project-panel">
                   <div className="panel-heading"><div><span className="step-number">01</span><div><h2>Start with an idea</h2><p>Set the topic and video format.</p></div></div><span className="panel-icon">✧</span></div>
-                  <label className="field-label" htmlFor="topic">VIDEO TOPIC</label>
-                  <textarea id="topic" className="topic-input" rows={2} value={project.topic} onChange={(event) => updateProject({ topic: event.target.value })} placeholder="e.g. Why do we see lightning before thunder?" />
+                  <label className="field-label" htmlFor="topic">VIDEO TOPIC OR PASTED NARRATION</label>
+                  <textarea id="topic" className="topic-input" rows={2} value={project.topic} onChange={(event) => updateProject({ topic: event.target.value })} placeholder="Enter a short topic, or paste your complete narration here…" />
+                  {pastedNarration && (
+                    <div className="topic-detected" role="status">
+                      <strong>Full narration detected · {pastedNarration.script.trim().split(/\s+/).filter(Boolean).length} words</strong>
+                      <span>Generate will move this text into the script, separate the scientific note and build scenes from the actual narration.</span>
+                    </div>
+                  )}
                   <div className="field-grid">
                     <div><label className="field-label" htmlFor="language">LANGUAGE</label><select id="language" value={project.language} onChange={(event) => updateProject({ language: event.target.value as Language })}><option>Hinglish</option><option>Hindi</option><option>English</option><option>Telugu</option></select></div>
                     <div><label className="field-label" htmlFor="ratio">FORMAT</label><select id="ratio" value={project.aspectRatio} onChange={(event) => updateProject({ aspectRatio: event.target.value as AspectRatio })}><option value="9:16">Vertical · 9:16</option><option value="16:9">Landscape · 16:9</option></select></div>
@@ -509,7 +619,19 @@ export default function App() {
                 <article className="panel">
                   <div className="panel-heading"><div><span className="step-number">02</span><div><h2>Shape the script</h2><p>Edit the narration before making scenes.</p></div></div><span className="panel-icon">Aa</span></div>
                   <textarea className="script-input" value={project.script} onChange={(event) => updateProject({ script: event.target.value })} rows={8} placeholder="Your narration appears here…" />
-                  <div className="script-footer"><span>{project.script.trim().split(/\s+/).filter(Boolean).length} words · {generationSource === "gemini" ? "AI-generated draft" : "Local starter draft"}</span><button className="text-button" onClick={rebuildScenesFromScript}>↻ Rebuild storyboard from script</button></div>
+                  <div className="script-footer"><span>{project.script.trim().split(/\s+/).filter(Boolean).length} words · {generationSource === "gemini" ? "AI-generated draft" : generationSource === "provided-script" ? "Your supplied narration" : "Local starter draft"}</span><button className="text-button" onClick={rebuildScenesFromScript}>↻ Rebuild storyboard from script</button></div>
+                  {!storyboardInSync && (
+                    <div className="sync-warning" role="status">
+                      <strong>Storyboard is out of sync</strong>
+                      <span>Your topic, narration, format or target duration changed. Rebuild from the script or generate again before exporting.</span>
+                    </div>
+                  )}
+                  {project.editorialNote && (
+                    <div className="editorial-note">
+                      <strong>Scientific / editorial note · not spoken</strong>
+                      <p>{project.editorialNote}</p>
+                    </div>
+                  )}
                 </article>
 
                 <article className="panel">
@@ -550,10 +672,12 @@ export default function App() {
                     onPlayingChange={setIsPlaying}
                     onPlaybackError={handlePlaybackError}
                   />
-                  <div className="preview-caption"><span className="sound-icon">◖))</span><span>{selectedScene?.narration || "Scene narration preview"}</span></div>
+                  <div className="preview-caption"><span className="sound-icon">◖))</span><span>{selectedScene?.caption || selectedScene?.narration || "Scene narration preview"}</span></div>
                   <div className="export-controls">
-                    <button className="button button-primary export-button" onClick={handleExport} disabled={isRendering || !project.scenes.length}>{isRendering ? <><span className="spinner" /> Rendering MP4…</> : "↓ Export finished MP4"}</button>
+                    <button className="button button-primary export-button" onClick={handleExport} disabled={isRendering || !project.scenes.length || !storyboardInSync}>{isRendering ? <><span className="spinner" /> Rendering MP4…</> : "↓ Export finished MP4"}</button>
                     <span className="export-spec">{project.aspectRatio === "9:16" ? "720 × 1280" : "1280 × 720"} · H.264</span>
+                    {!storyboardInSync && <small className="export-blocked-note">Rebuild the storyboard before exporting.</small>}
+                    {!project.voiceAudioDataUrl && <small className="export-blocked-note">No narration audio added — this MP4 will be silent. Device voice preview is not embedded.</small>}
                   </div>
                   {isRendering && <div className="render-progress"><div className="progress-track"><span style={{ width: (renderProgress * 100) + "%" }} /></div><small>{renderMessage} · {Math.round(renderProgress * 100)}%</small></div>}
                   {exportUrl && !isRendering && <div className="download-ready"><span>✓ MP4 ready</span><a className="button button-download" href={exportUrl} download={(project.title || "sochozara-video").toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".mp4"}>Download MP4 ↓</a></div>}

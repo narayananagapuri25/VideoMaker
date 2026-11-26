@@ -49,7 +49,93 @@ function drawSceneMotif(ctx: CanvasRenderingContext2D, width: number, height: nu
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
-  if (/lightning|thunder|storm|rain|bijli/.test(subject)) {
+  if (/earth|equator|earth's rotation|planetary rotation/.test(subject)) {
+    const cx = width * 0.5;
+    const cy = height * 0.4;
+    const radius = width * 0.225;
+    ctx.fillStyle = "rgba(214, 238, 255, .55)";
+    for (let i = 0; i < 34; i += 1) {
+      const x = ((i * 137) % 997) / 997 * width;
+      const y = ((i * 71) % 991) / 991 * height * 0.72;
+      ctx.globalAlpha = 0.25 + (i % 4) * 0.12;
+      ctx.beginPath();
+      ctx.arc(x, y, Math.max(1, width * 0.002), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 0.92;
+    const globe = ctx.createRadialGradient(cx - radius * 0.35, cy - radius * 0.42, radius * 0.04, cx, cy, radius);
+    globe.addColorStop(0, "#71dce7");
+    globe.addColorStop(0.52, "#19799d");
+    globe.addColorStop(1, "#071d46");
+    ctx.fillStyle = globe;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * 0.985, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.fillStyle = "rgba(93, 171, 116, .85)";
+    ctx.beginPath();
+    ctx.ellipse(cx - radius * 0.31, cy - radius * 0.2, radius * 0.32, radius * 0.19, -0.48, 0, Math.PI * 2);
+    ctx.ellipse(cx + radius * 0.28, cy + radius * 0.14, radius * 0.27, radius * 0.16, 0.6, 0, Math.PI * 2);
+    ctx.ellipse(cx - radius * 0.08, cy + radius * 0.54, radius * 0.12, radius * 0.24, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(175, 235, 246, .35)";
+    ctx.lineWidth = Math.max(1, width * 0.002);
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, radius * 0.52, radius, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy, radius, radius * 0.34, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.strokeStyle = "rgba(245, 185, 96, .88)";
+    ctx.lineWidth = Math.max(2, width * 0.005);
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, radius * 1.48, radius * 0.47, -0.14, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = "#ffd18b";
+    ctx.beginPath();
+    ctx.arc(cx + radius * 1.22, cy - radius * 0.16, width * 0.012, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (/atmosphere|air|wind|inertia|hawa/.test(subject)) {
+      ctx.strokeStyle = "rgba(82, 225, 237, .82)";
+      ctx.lineWidth = Math.max(2, width * 0.004);
+      for (let i = 0; i < 4; i += 1) {
+        const y = height * (0.67 + i * 0.045);
+        ctx.beginPath();
+        ctx.moveTo(width * 0.12, y);
+        ctx.bezierCurveTo(width * 0.35, y - height * 0.08, width * 0.58, y + height * 0.07, width * 0.88, y - height * 0.035);
+        ctx.stroke();
+      }
+    } else if (/ocean|sea|water|samundar|wave|tsunami/.test(subject)) {
+      ctx.strokeStyle = "rgba(72, 204, 232, .82)";
+      ctx.lineWidth = Math.max(2, width * 0.004);
+      for (let i = 0; i < 4; i += 1) {
+        const y = height * (0.7 + i * 0.047);
+        ctx.beginPath();
+        for (let x = width * 0.08; x <= width * 0.92; x += width / 70) {
+          const waveY = y + Math.sin(x / width * Math.PI * 5 + elapsed * 1.1 + i) * height * 0.014;
+          if (x === width * 0.08) ctx.moveTo(x, waveY);
+          else ctx.lineTo(x, waveY);
+        }
+        ctx.stroke();
+      }
+    } else if (/city|building|infrastructure|damage/.test(subject)) {
+      ctx.fillStyle = "rgba(8, 20, 40, .9)";
+      for (let i = 0; i < 9; i += 1) {
+        const x = width * (0.08 + i * 0.105);
+        const h = height * (0.07 + (i % 4) * 0.025);
+        ctx.fillRect(x, height * 0.88 - h, width * 0.075, h);
+      }
+      ctx.strokeStyle = "rgba(245, 185, 96, .7)";
+      ctx.beginPath();
+      ctx.moveTo(width * 0.08, height * 0.89);
+      ctx.lineTo(width * 0.92, height * 0.89);
+      ctx.stroke();
+    }
+  } else if (/lightning|thunder|storm|rain|bijli/.test(subject)) {
     const cloudY = height * 0.43;
     ctx.fillStyle = "rgba(17, 35, 57, .94)";
     for (let i = 0; i < 6; i += 1) {

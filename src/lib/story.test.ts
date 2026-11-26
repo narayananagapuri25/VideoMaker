@@ -14,7 +14,7 @@ const earthScript = [
   "Lekin Earth ko literally 5 seconds mein rokna ek extreme hypothetical situation hai.",
   "Toh question yeh hai... kya hum survive kar paayenge?",
   "Aise mind-blowing facts ke liye follow karo SochoZara!"
-].join("\\n") + "\\nScientific note: This is a hypothetical scenario, not a realistic prediction.";
+].join("\n") + "\nScientific note: This is a hypothetical scenario, not a realistic prediction.";
 
 describe("local story helpers", () => {
   it("creates the bundled lightning example with six scenes", () => {
@@ -72,6 +72,8 @@ describe("local story helpers", () => {
     expect(project.scenes.every((scene) => scene.id.length > 0)).toBe(true);
     expect(project.storyboardSourceTopic).toBe(project.topic);
     expect(project.storyboardSourceScript).toBe(project.script);
+    expect(project.storyboardSourceTargetDuration).toBe(project.targetDuration);
+    expect(project.storyboardSourceAspectRatio).toBe(project.aspectRatio);
   });
 
   it("turns edited script paragraphs into editable scenes", () => {

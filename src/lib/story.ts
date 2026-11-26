@@ -7,9 +7,9 @@ function isEarthStopTopic(topic: string): boolean {
 }
 
 function splitIntoSentences(script: string): string[] {
-  return script.replace(/\\r\\n?/g, "\\n")
-    .split(/\\n+/)
-    .flatMap((line) => line.split(/(?<=[.!?])\\s+/u))
+  return script.replace(/\r\n?/g, "\n")
+    .split(/\n+/)
+    .flatMap((line) => line.split(/(?<=[.!?])\s+/u))
     .map((part) => part.trim())
     .filter(Boolean);
 }
@@ -20,21 +20,21 @@ export interface ParsedPastedNarration {
 }
 
 export function parsePastedNarration(input: string): ParsedPastedNarration | null {
-  const raw = input.replace(/\\r\\n?/g, "\\n").trim();
+  const raw = input.replace(/\r\n?/g, "\n").trim();
   if (!raw) return null;
-  const notePattern = /(?:^|\\n)\\s*(?:scientific note|editorial note|fact(?:ual)?[- ]check note)\\s*:\\s*/i;
+  const notePattern = /(?:^|\n)\s*(?:scientific note|editorial note|fact(?:ual)?[- ]check note)\s*:\s*/i;
   const noteMatch = notePattern.exec(raw);
   let script = noteMatch ? raw.slice(0, noteMatch.index).trim() : raw;
   const editorialNote = noteMatch
     ? raw.slice(noteMatch.index + noteMatch[0].length).trim() || undefined
     : undefined;
   const fence = String.fromCharCode(96).repeat(3);
-  script = script.replace(new RegExp("^\\\\s*" + fence + "(?:json)?\\\\s*", "i"), "")
-    .replace(new RegExp("\\\\s*" + fence + "\\\\s*$"), "")
-    .replace(/["”]\\s*$/u, "")
+  script = script.replace(new RegExp("^\s*" + fence + "(?:json)?\s*", "i"), "")
+    .replace(new RegExp("\s*" + fence + "\s*$"), "")
+    .replace(/["”]\s*$/u, "")
     .trim();
-  const words = script.split(/\\s+/).filter(Boolean).length;
-  const lines = script.split(/\\n+/).filter((line) => line.trim()).length;
+  const words = script.split(/\s+/).filter(Boolean).length;
+  const lines = script.split(/\n+/).filter((line) => line.trim()).length;
   const sentences = splitIntoSentences(script).length;
   if (words < 24 && !(lines >= 2 && sentences >= 3) && sentences < 4) return null;
   return { script, editorialNote };
@@ -44,14 +44,14 @@ export function deriveTopicFromScript(script: string): string {
   if (isEarthStopTopic(script)) return "What if Earth suddenly stopped spinning?";
   if (/lightning|thunder|bijli|garaj/i.test(script)) return "Why lightning comes before thunder";
   const first = (splitIntoSentences(script)[0] || script)
-    .replace(/^socho\\s*zara[,…\\s-]*/i, "")
-    .replace(/^ab\\s+imagine\\s+karo[,…\\s-]*/i, "")
+    .replace(/^socho\s*zara[,…\s-]*/i, "")
+    .replace(/^ab\s+imagine\s+karo[,…\s-]*/i, "")
     .trim();
   return first.length > 68 ? first.slice(0, 65).trimEnd() + "…" : first || "Pasted narration";
 }
 
 function captionFromNarration(narration: string): string {
-  const compact = narration.replace(/\\s+/g, " ").trim();
+  const compact = narration.replace(/\s+/g, " ").trim();
   if (compact.length <= 96) return compact;
   const boundary = compact.lastIndexOf(" ", 92);
   return compact.slice(0, boundary > 55 ? boundary : 92).trimEnd() + "…";
@@ -89,7 +89,7 @@ function earthStopStory(language: Language, targetDuration: number): GeneratedSt
   const titles = ["The impossible stop", "The speed we already carry", "Air keeps its momentum", "Oceans keep moving", "The consequences", "Could anyone survive?"];
   return {
     title: "What If Earth Suddenly Stopped?",
-    script: lines.join("\\n\\n"),
+    script: lines.join("\n\n"),
     editorialNote: "This thought experiment assumes the solid Earth stops while the atmosphere, oceans and loose objects initially retain their momentum. Exact effects depend on the stopping mechanism and timescale. The 1,670 km/h figure is the approximate eastward surface speed at the equator.",
     scenes: lines.map((narration, index) => ({
       title: titles[index],
@@ -197,6 +197,8 @@ export function makeProject(topic: string, language: Language, aspectRatio: Aspe
     scenes: story.scenes.map((scene) => ({ ...scene, id: id() })),
     storyboardSourceTopic: topic,
     storyboardSourceScript: story.script,
+    storyboardSourceTargetDuration: targetDuration,
+    storyboardSourceAspectRatio: aspectRatio,
     editorialNote: story.editorialNote,
     updatedAt: Date.now(),
   };
