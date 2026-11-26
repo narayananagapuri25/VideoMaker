@@ -78,7 +78,7 @@ describe("project backup validation", () => {
   });
 
   it("enforces the combined media budget", () => {
-    const oneImage = "data:image/png;base64,iVBORw0KGgo=" + "A".repeat(16 * 1024 * 1024 - 12);
+    const oneImage = "data:image/png;base64,iVBORw0KGgoA" + "A".repeat(16 * 1024 * 1024 - 13) + "=";
     const scenes = Array.from({ length: 6 }, (_, index) => ({
       id: "scene-" + index,
       imageDataUrl: oneImage,
