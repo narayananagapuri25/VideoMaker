@@ -128,7 +128,7 @@ export default function VideoProviderConnections() {
         {account && (
           <div className={account.freeTier ? "video-credit-note" : "video-credit-note warning"}>
             {account.freeTier
-              ? "Free account detected. LTX 2.5 is the preferred free model at 480p. MiniMax H3 is attempted only if the API accepts it on this account. A 5-second clip is estimated at 120 credits."
+              ? "Free account detected. Automatic model selection chooses LTX-2.5 at 480p. MiniMax H3 is the fallback if the first model fails and the credits are refunded. A 5-second clip is estimated at 120 credits."
               : "This account is not currently on the Free tier. VideoMaker will not submit free-tier generation jobs for this account."}
           </div>
         )}
@@ -147,6 +147,23 @@ export default function VideoProviderConnections() {
         </p>
       </div>
       <p className="video-provider-security">The key is stored only in this browser tab's session storage, never in your video project or GitHub. It is sent only to the same-origin HTTPS Cloudflare Function. Each request checks credits before submitting; generation stops when the free balance is insufficient.</p>
+      <div className="manual-video-providers">
+        <div className="manual-video-heading">
+          <strong>More free video generators · manual fallback</strong>
+          <span>WEB APP CREDITS</span>
+        </div>
+        <p>These services offer free web-app credits but do not expose a supported free video-generation API that VideoMaker can safely call. Open the site, create and download an MP4, then import it into the relevant scene using the footage panel.</p>
+        <div className="manual-video-links">
+          <a href="https://labs.google/fx/tools/flow" target="_blank" rel="noreferrer">
+            <strong>Google Flow · Veo 3.1</strong>
+            <small>50 free credits daily · availability and generation features vary by region</small>
+          </a>
+          <a href="https://app.runwayml.com/" target="_blank" rel="noreferrer">
+            <strong>Runway</strong>
+            <small>125 one-time free credits · the free-plan video model list can change</small>
+          </a>
+        </div>
+      </div>
     </section>
   );
 }
