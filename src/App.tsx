@@ -10,7 +10,7 @@ import PlaybackTimeline from "./components/PlaybackTimeline";
 import CreatorKit from "./components/CreatorKit";
 import StockVideoPanel from "./components/StockVideoPanel";
 import type { AspectRatio, Language, Scene, StudioProject } from "./types";
-import { getEmbeddedImageSize, getProjectMediaSize, isSupportedImageMimeType, MAX_NARRATION_AUDIO_BYTES, MAX_PROJECT_MEDIA_BYTES, MAX_SCENE_IMAGE_BYTES } from "./lib/media-data";
+import { getEmbeddedImageSize, getEmbeddedVideoSize, getProjectMediaSize, isSupportedImageMimeType, MAX_NARRATION_AUDIO_BYTES, MAX_PROJECT_MEDIA_BYTES, MAX_SCENE_IMAGE_BYTES } from "./lib/media-data";
 import { MAX_PROJECT_BACKUP_BYTES, restoreProjectBackup } from "./lib/project-backup";
 
 const initialProject = () => makeProject("Why do we see lightning before thunder?", "Hinglish", "9:16", 45);
@@ -536,14 +536,14 @@ export default function App() {
     anchor.download = (project.title || "sochozara-project").toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".sochozara.json";
     anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
-    setNotice("Project backup downloaded, including any imported scene artwork and narration audio.");
+    setNotice("Project backup downloaded, including imported scene artwork, video footage and narration audio.");
   }
 
   async function importProjectBackup(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
     if (file.size > MAX_PROJECT_BACKUP_BYTES) {
-      setNotice("Project backup is larger than 80 MB. Reduce media sizes and try again.");
+      setNotice("Project backup is larger than 100 MB. Reduce media sizes and try again.");
       event.target.value = "";
       return;
     }
@@ -764,7 +764,13 @@ export default function App() {
                       <textarea rows={3} value={selectedScene.narration} onChange={(event) => updateScene(selectedScene.id, { narration: event.target.value })} />
                       <label className="field-label">VISUAL PROMPT / ART DIRECTION</label>
                       <textarea rows={2} value={selectedScene.visualPrompt} onChange={(event) => updateScene(selectedScene.id, { visualPrompt: event.target.value })} />
-                      <StockVideoPanel scene={selectedScene} onChange={(patch) => updateScene(selectedScene.id, patch)} />
+                      <StockVideoPanel scene={selectedScene} onChange={(patch) => {
+                        if (patch.videoDataUrl) {
+                          const size = getEmbeddedVideoSize(patch.videoDataUrl) ?? 0;
+                          if (wouldExceedMediaLimit(size, selectedScene.id)) return;
+                        }
+                        updateScene(selectedScene.id, patch);
+                      }} />
                       <div className="artwork-workflow">
                         <div className="artwork-provider-row">
                           <label className="field-label" htmlFor="visual-provider">CREATE SCENE ARTWORK</label>
