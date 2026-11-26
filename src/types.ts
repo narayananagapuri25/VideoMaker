@@ -2,12 +2,38 @@ export type AspectRatio = "9:16" | "16:9";
 export type Language = "Hinglish" | "Hindi" | "English" | "Telugu";
 export type VisualProvider = "adobe-firefly" | "pexels" | "other";
 
+export type SceneVisualLayout =
+  | "hero"
+  | "illustration"
+  | "chart"
+  | "candlestick"
+  | "dashboard"
+  | "process"
+  | "comparison"
+  | "timeline"
+  | "diagram"
+  | "infographic";
+
+export interface SceneVisualPlan {
+  layout: SceneVisualLayout;
+  subject: string;
+  headline?: string;
+  labels?: string[];
+  steps?: string[];
+  /** Normalised illustrative values (0–100), never real market prices or factual measurements. */
+  values?: number[];
+  trend?: "up" | "down" | "volatile" | "flat";
+  note?: string;
+}
+
 export interface Scene {
   id: string;
   title: string;
   narration: string;
   caption: string;
   visualPrompt: string;
+  /** AI art-direction instructions used by both the live preview and MP4 renderer. */
+  visualPlan?: SceneVisualPlan;
   duration: number;
   imageDataUrl?: string;
   imageProvider?: VisualProvider;
