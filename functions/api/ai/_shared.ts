@@ -20,7 +20,7 @@ export function jsonNoStore(body: unknown, status = 200): Response {
 
 export function checkSameOrigin(request: Request): Response | null {
   const origin = request.headers.get("Origin");
-  if (!origin) return null;
+  if (!origin) return jsonNoStore({ error: "The browser origin was not provided. Reload the Studio and try again." }, 403);
   try {
     if (new URL(origin).origin !== new URL(request.url).origin) {
       return jsonNoStore({ error: "This AI endpoint only accepts requests from the SochoZara Studio website." }, 403);
