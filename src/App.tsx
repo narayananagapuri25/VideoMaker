@@ -9,8 +9,8 @@ import { getSceneStartTime, getTimelineDuration } from "./lib/timeline";
 import PlaybackTimeline from "./components/PlaybackTimeline";
 import CreatorKit from "./components/CreatorKit";
 import type { AspectRatio, Language, Scene, StudioProject } from "./types";
-import { isSupportedImageMimeType, MAX_NARRATION_AUDIO_BYTES, MAX_SCENE_IMAGE_BYTES } from "./lib/media-data";
-import { MAX_PROJECT_BACKUP_BYTES, restoreProjectBackup } from "./lib/project-backup";
+import { getProjectMediaSize, isSupportedImageMimeType, MAX_NARRATION_AUDIO_BYTES, MAX_PROJECT_BACKUP_BYTES, MAX_PROJECT_MEDIA_BYTES, MAX_SCENE_IMAGE_BYTES } from "./lib/media-data";
+import { restoreProjectBackup } from "./lib/project-backup";
 
 const initialProject = () => makeProject("Why do we see lightning before thunder?", "Hinglish", "9:16", 45);
 
@@ -89,11 +89,11 @@ export default function App() {
             topic,
             script: restoredScript,
             scenes: restoredScenes,
-            storyboardSourceTopic: topic,
-            storyboardSourceScript: restoredScript,
-            storyboardSourceTargetDuration: saved.targetDuration,
-            storyboardSourceAspectRatio: saved.aspectRatio,
-            storyboardSourceLanguage: saved.storyboardSourceLanguage ?? saved.language,
+            storyboardSourceTopic: pasted ? topic : saved.storyboardSourceTopic,
+            storyboardSourceScript: pasted ? restoredScript : saved.storyboardSourceScript,
+            storyboardSourceTargetDuration: pasted ? saved.targetDuration : saved.storyboardSourceTargetDuration,
+            storyboardSourceAspectRatio: pasted ? saved.aspectRatio : saved.storyboardSourceAspectRatio,
+            storyboardSourceLanguage: pasted ? saved.language : (saved.storyboardSourceLanguage ?? saved.language),
             editorialNote: pasted ? pasted.editorialNote : saved.editorialNote,
           };
           setProject(restored);
@@ -154,6 +154,15 @@ export default function App() {
       updatedAt: Date.now(),
       scenes: current.scenes.map((scene) => scene.id === sceneId ? { ...scene, ...patch } : scene),
     }));
+  }
+
+  function wouldExceedMediaLimit(additionalBytes: number, replacingSceneId?: string, replacingAudio = false): boolean {
+    const currentBytes = getProjectMediaSize(project.scenes, project.voiceAudioDataUrl, replacingSceneId, replacingAudio);
+    if (currentBytes + additionalBytes > MAX_PROJECT_MEDIA_BYTES) {
+      setNotice("This project has a 64 MB combined image/audio limit in local storage. Remove unused media or use smaller files before adding more.");
+      return true;
+    }
+    return false;
   }
 
   async function handleGenerateStory() {
@@ -266,6 +275,10 @@ export default function App() {
       event.target.value = "";
       return;
     }
+    if (wouldExceedMediaLimit(file.size, sceneId)) {
+      event.target.value = "";
+      return;
+    }
     try {
       const imageDataUrl = await fileToDataUrl(file);
       updateScene(sceneId, { imageDataUrl, imageProvider: visualProvider, imageCommercialUseConfirmed: false, imageSourceNote: visualProvider === "adobe-firefly" ? "Adobe Firefly · confirm selected Adobe model and non-beta feature" : visualProvider === "pexels" ? "Pexels · record asset URL/creator and verify licence" : "Other source · record model/provider and licence" });
@@ -303,6 +316,8 @@ export default function App() {
     setNotice("Generating narration with Gemini 3.8 Flash TTS free-tier model…");
     try {
       const audio = await generateNarration(project.script, apiKey, ttsVoice, project.language);
+      if (audio.size > MAX_NARRATION_AUDIO_BYTES) throw new Error("Generated narration is larger than 30 MB. Use a shorter script.");
+      if (wouldExceedMediaLimit(audio.size, undefined, true)) return;
       const audioDataUrl = await fileToDataUrl(audio);
       updateProject({ voiceAudioDataUrl: audioDataUrl, voiceAudioName: "Gemini TTS · " + ttsVoice + ".wav" });
       setNotice("AI narration generated. Preview it and check pronunciation before exporting.");
@@ -323,6 +338,10 @@ export default function App() {
     }
     if (file.size > MAX_NARRATION_AUDIO_BYTES) {
       setNotice("Keep narration audio under 30 MB for local projects.");
+      event.target.value = "";
+      return;
+    }
+    if (wouldExceedMediaLimit(file.size, undefined, true)) {
       event.target.value = "";
       return;
     }
@@ -357,6 +376,15 @@ export default function App() {
         stream.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
         try {
+          if (blob.size > MAX_NARRATION_AUDIO_BYTES) {
+            setRecordingError("Recording is larger than 30 MB. Record a shorter narration and try again.");
+            setIsRecording(false);
+            return;
+          }
+          if (wouldExceedMediaLimit(blob.size, undefined, true)) {
+            setIsRecording(false);
+            return;
+          }
           updateProject({
             voiceAudioDataUrl: await fileToDataUrl(blob),
             voiceAudioName: "Recorded narration." + (blob.type.includes("ogg") ? "ogg" : "webm"),
@@ -394,7 +422,11 @@ export default function App() {
 
   async function handleExport() {
     if (!storyboardInSync) {
-      setNotice("Export paused: your topic, narration, format or target length changed after the storyboard was created. Generate again or rebuild the storyboard first.");
+      setNotice("Export paused: your topic, narration, language, format or target length changed after the storyboard was created. Generate again or rebuild the storyboard first.");
+      return;
+    }
+    if (project.scenes.length > 80 || totalDuration > 600) {
+      setNotice("For reliable browser rendering, keep exports to 80 scenes and 10 minutes or less. Split longer videos into parts.");
       return;
     }
     const unverified = project.scenes.filter((scene) => scene.imageDataUrl && !scene.imageCommercialUseConfirmed);
@@ -426,6 +458,10 @@ export default function App() {
   }
 
   function addScene() {
+    if (project.scenes.length >= 80) {
+      setNotice("A project can contain up to 80 scenes. Remove an unused scene before adding another.");
+      return;
+    }
     const scene: Scene = {
       id: globalThis.crypto?.randomUUID?.() ?? ("scene-" + Date.now()),
       title: "New scene",
