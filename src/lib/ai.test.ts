@@ -91,7 +91,8 @@ describe("AI story generation", () => {
     expect(result.source).toBe("gemini");
     expect(result.story.title).toBe("A test story");
     expect(result.story.editorialNote).toContain("Verify");
-    expect(result.story.scenes).toHaveLength(2);\n    expect(result.story.scenes[0].visualPlan?.layout).toBe("hero");\n    expect(result.story.scenes[1].visualPlan?.steps).toEqual(["Step one", "Step two"]);
+    expect(result.story.scenes).toHaveLength(2);
+    expect(result.story.scenes[0].visualPlan?.layout).toBe("hero");\n    expect(result.story.scenes[1].visualPlan?.steps).toEqual(["Step one", "Step two"]);
     expect(fetchMock).toHaveBeenCalledOnce();
 
     const [url, init] = fetchMock.mock.calls[0];
