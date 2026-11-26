@@ -510,6 +510,61 @@ function drawNature(ctx: CanvasRenderingContext2D, x: number, y: number, unit: n
   ctx.restore();
 }
 
+function drawFinanceHero(ctx: CanvasRenderingContext2D, x: number, y: number, unit: number, time: number, palette: typeof PALETTES[SceneTheme]) {
+  ctx.save();
+  const boardW = unit * 1.85;
+  const boardH = unit * 1.12;
+  const bx = x - boardW / 2;
+  const by = y - boardH * 0.45;
+  const board = ctx.createLinearGradient(bx, by, bx + boardW, by + boardH);
+  board.addColorStop(0, "rgba(9,37,48,.98)");
+  board.addColorStop(1, "rgba(5,18,31,.96)");
+  ctx.fillStyle = board;
+  ctx.strokeStyle = "rgba(69,226,179,.55)";
+  ctx.lineWidth = Math.max(2, unit * 0.018);
+  ctx.shadowColor = palette.accent;
+  ctx.shadowBlur = unit * 0.12;
+  ctx.beginPath();
+  ctx.roundRect(bx, by, boardW, boardH, unit * 0.09);
+  ctx.fill();
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#EAFBF5";
+  ctx.font = "800 " + Math.round(unit * 0.09) + "px Arial";
+  ctx.textAlign = "left";
+  ctx.fillText("MARKET ACTIVITY", bx + unit * 0.12, by + unit * 0.21);
+  ctx.strokeStyle = "rgba(190,225,230,.16)";
+  for (let row = 0; row < 4; row += 1) {
+    const yy = by + unit * (0.34 + row * 0.16);
+    ctx.beginPath(); ctx.moveTo(bx + unit * 0.12, yy); ctx.lineTo(bx + boardW - unit * 0.12, yy); ctx.stroke();
+  }
+  const heights = [0.27,0.4,0.32,0.52,0.43,0.64,0.57,0.72,0.63,0.81];
+  heights.forEach((value, i) => {
+    const cx = bx + unit * (0.2 + i * 0.15);
+    const candleH = unit * value * (0.65 + Math.sin(time * 0.16 + i) * 0.04);
+    const baseY = by + boardH * 0.79;
+    const up = i % 4 !== 1;
+    ctx.strokeStyle = up ? "#45D9A4" : "#EE7B83";
+    ctx.fillStyle = up ? "#34C58F" : "#DE6B76";
+    ctx.lineWidth = Math.max(2, unit * 0.012);
+    ctx.beginPath(); ctx.moveTo(cx, baseY - candleH - unit * 0.08); ctx.lineTo(cx, baseY + unit * 0.06); ctx.stroke();
+    ctx.fillRect(cx - unit * 0.035, baseY - candleH * 0.65, unit * 0.07, candleH * 0.52);
+  });
+  ctx.fillStyle = palette.secondary;
+  ctx.font = "700 " + Math.round(unit * 0.075) + "px Arial";
+  ctx.textAlign = "right";
+  ctx.fillText("BUY  /  SELL", bx + boardW - unit * 0.13, by + unit * 0.21);
+  for (let i = 0; i < 3; i += 1) {
+    const orbitX = x + Math.cos(time * 0.16 + i * 2.1) * unit * (1.15 + i * 0.18);
+    const orbitY = y + Math.sin(time * 0.18 + i * 2.1) * unit * 0.63;
+    ctx.fillStyle = i % 2 ? palette.secondary : palette.accent;
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath(); ctx.arc(orbitX, orbitY, unit * 0.035, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+}
+
 function drawScience(ctx: CanvasRenderingContext2D, x: number, y: number, unit: number, time: number, palette: typeof PALETTES[SceneTheme]) {
   ctx.save();
   const glow = ctx.createRadialGradient(x, y, 0, x, y, unit * 0.85);
@@ -766,7 +821,7 @@ export function drawSceneFrame(
       case "history": drawHistory(ctx, x, y, unit, time, palette); break;
       case "nature": drawNature(ctx, x, y, unit, time, palette); break;
       case "science": drawScience(ctx, x, y, unit, time, palette); break;
-      case "finance": drawTechnology(ctx, x, y, unit, time, palette); break;
+      case "finance": drawFinanceHero(ctx, x, y, unit, time, palette); break;
       default: drawGeneric(ctx, x, y, unit, time, palette);
     }
     drawFrameAccents(ctx, width, height, palette, time, sceneIndex);
