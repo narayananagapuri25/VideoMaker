@@ -60,6 +60,8 @@ export default function StockVideoPanel({ scene, onChange }: StockVideoPanelProp
         videoClipPageUrl: undefined,
         videoClipDuration: undefined,
         videoClipStart: 0,
+        videoSourceNote: "Local video · confirm ownership or licence for this footage",
+        videoCommercialUseConfirmed: false,
       });
       setError("");
     } catch (caught) {
@@ -79,6 +81,8 @@ export default function StockVideoPanel({ scene, onChange }: StockVideoPanelProp
       videoClipPageUrl: clip.pageUrl,
       videoClipDuration: clip.duration,
       videoClipStart: 0,
+      videoSourceNote: "Pixabay Content License · verify any additional rights for depicted people, brands or property",
+      videoCommercialUseConfirmed: false,
     });
   }
 
@@ -101,7 +105,19 @@ export default function StockVideoPanel({ scene, onChange }: StockVideoPanelProp
             videoDataUrl: undefined, videoClipSource: undefined, videoClipId: undefined,
             videoClipName: undefined, videoClipAuthor: undefined, videoClipPageUrl: undefined,
             videoClipDuration: undefined, videoClipStart: undefined,
+            videoSourceNote: undefined, videoCommercialUseConfirmed: false,
           })}>Remove video clip</button>
+        </div>
+      )}
+
+      {selectedSrc && (
+        <div className="video-rights-box">
+          <label className="field-label">FOOTAGE SOURCE / LICENCE NOTE</label>
+          <input value={scene.videoSourceNote || ""} onChange={(event) => onChange({ videoSourceNote: event.target.value })} placeholder="Record source, creator and licence" />
+          <label className="rights-confirm">
+            <input type="checkbox" checked={Boolean(scene.videoCommercialUseConfirmed)} onChange={(event) => onChange({ videoCommercialUseConfirmed: event.target.checked })} />
+            <span>I checked the source and confirm I have the rights and any required permissions to use this footage.</span>
+          </label>
         </div>
       )}
 
