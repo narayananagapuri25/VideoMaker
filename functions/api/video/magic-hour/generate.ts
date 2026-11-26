@@ -39,7 +39,7 @@ export async function onRequestPost({ request }: { request: Request }): Promise<
 
   const account = await getMagicHourAccount(key);
   if (account instanceof Response) return account;
-  if (account.tier !== "free" || account.subscription !== null) {
+  if (account.tier !== "free") {
     return jsonNoStore({
       error: "The connected Magic Hour account is not verified as Free. No video job was submitted. Use a Free-tier account to enable free-only generation.",
       code: "FREE_TIER_ACCOUNT_REQUIRED",
