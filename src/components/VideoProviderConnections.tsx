@@ -97,7 +97,7 @@ export default function VideoProviderConnections() {
         </div>
         <span className={saved && account?.freeTier ? "video-provider-status ready" : "video-provider-status"}>{saved && account?.freeTier ? "FREE TIER CHECKED" : saved ? "KEY SAVED" : "NOT CONNECTED"}</span>
       </div>
-      <p className="video-provider-intro">Magic Hour exposes real text-to-video jobs through its API. VideoMaker starts with LTX 2.5 at 480p, then tries MiniMax H3 if the first free model fails. Every clip is submitted, monitored and downloaded into your local project.</p>
+      <p className="video-provider-intro">Magic Hour exposes real text-to-video jobs through its API. VideoMaker asks Magic Hour to select its best Free-tier model (LTX-2.5 at 480p), then tries MiniMax H3 only after a definite model rejection or refunded failed job. Every clip is submitted, monitored and downloaded into your local project.</p>
       <div className="video-provider-card">
         <div className="video-provider-title">
           <strong>Magic Hour · LTX 2.5 / MiniMax H3</strong>
