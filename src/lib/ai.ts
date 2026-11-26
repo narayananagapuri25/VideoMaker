@@ -159,6 +159,47 @@ function extractInteractionText(payload: unknown): string {
     .trim();
 }
 
+/**
+ * Runs a minimal, stateless request so creators can verify API connectivity,
+ * model access and the API key without sending their video topic or script.
+ */
+export async function testGeminiConnection(apiKey: string): Promise<string> {
+  const key = apiKey.trim();
+  if (!key) throw new Error("Paste your Google AI Studio API key before testing Gemini.");
+
+  const response = await fetchWithTimeout(GEMINI_INTERACTIONS_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": key,
+      "Api-Revision": GEMINI_API_REVISION,
+    },
+    body: JSON.stringify({
+      model: GEMINI_TEXT_MODEL,
+      input: "Reply with exactly this text: SOCHOZARA_GEMINI_OK",
+      store: false,
+    }),
+  }, 45_000);
+
+  if (!response.ok) {
+    throw new Error(explainProviderError(response.status, await response.text()));
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error("Gemini accepted the connection check but returned an unreadable response.");
+  }
+
+  const text = extractInteractionText(payload);
+  if (!text) {
+    const state = isRecord(payload) && typeof payload.status === "string" ? payload.status : "unknown";
+    throw new Error("Gemini responded but returned no text (status: " + state + "). Check the model access and retry.");
+  }
+  return "Gemini connection successful · " + GEMINI_TEXT_MODEL + ". Your API key and project can reach the model.";
+}
+
 export async function generateStory(options: GenerateOptions): Promise<{ story: GeneratedStory; source: "gemini" | "local" }> {
   const { topic, language, targetDuration, aspectRatio, apiKey } = options;
   const trimmedTopic = topic.trim();
