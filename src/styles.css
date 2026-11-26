@@ -218,6 +218,15 @@ select { appearance: auto; }
   .export-spec { width: 100%; text-align: center; }
 }
 
+.free-tts-card { margin-top: 12px; padding: 12px; border: 1px solid rgba(43,213,231,.2); border-radius: 10px; background: linear-gradient(135deg, rgba(18,73,91,.18), rgba(9,20,34,.38)); }
+.free-tts-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.free-tts-title strong { color: #e5f8fb; font-size: 10px; }
+.free-tts-title span { color: #62dfc2; font-size: 7px; font-weight: 800; letter-spacing: .1em; }
+.free-tts-card p { color: #9aadc2; font-size: 9px; line-height: 1.55; margin: 7px 0 10px; }
+.free-tts-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.free-tts-actions .button { flex: 1 1 145px; justify-content: center; }
+.audio-download { grid-column: 1 / -1; color: #65dfc1; font-size: 9px; font-weight: 700; text-decoration: none; }
+.audio-download:hover { color: #b5fff0; text-decoration: underline; }
 .tts-controls { display: grid; grid-template-columns: minmax(105px, .75fr) minmax(180px, 1.25fr); gap: 9px; align-items: end; margin-top: 11px; }
 .tts-controls .field-label { margin-top: 0; }
 .tts-button { min-height: 38px; }
