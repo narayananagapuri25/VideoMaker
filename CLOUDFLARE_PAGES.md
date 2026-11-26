@@ -1,6 +1,6 @@
 # Cloudflare Pages deployment
 
-SochoZara Studio is a Vite application deployed on Cloudflare Pages. Editing, preview and MP4 rendering run in the visitor's browser. Gemini story generation and narration run through Cloudflare Pages Functions, which use an encrypted server-side secret. No D1 database, R2 bucket or separate Worker service is required.
+SochoZara Studio is a Vite application deployed on Cloudflare Pages. Editing, preview and video rendering run in the visitor's browser. Gemini story generation and narration run through same-origin Cloudflare Pages Functions. The Functions accept either a per-tab API key entered in the Studio or the optional encrypted `GEMINI_API_KEY` server secret. No D1 database, R2 bucket or separate Worker service is required.
 
 ## Production address
 
@@ -12,9 +12,20 @@ The production secret must be configured on the exact Pages project serving the 
 
 The Pages project is expected to deploy from `main`. Confirm the production branch and build configuration in **Cloudflare Dashboard → Workers & Pages → the Pages project serving this production URL → Settings → Builds**; this repository cannot read account-level Cloudflare settings.
 
-## One-time Gemini API setup
+## Gemini API setup
 
-The Studio no longer asks creators to paste a Gemini key into the browser. Configure it once as an encrypted Cloudflare Pages secret:
+### Use a key in the Studio for this browser tab
+
+1. Open SochoZara Studio and expand **Gemini AI connection** in the Start with an idea panel.
+2. Create or copy an API key from [Google AI Studio](https://aistudio.google.com/apikey).
+3. Paste the key into **Google AI Studio API key** and select **Save key for this tab**.
+4. Select **Test Gemini connection**. Once the test succeeds, use **Generate story & scenes** or **Generate entire video with AI**.
+
+The key is stored in this browser tab's `sessionStorage`; it survives refreshes in that tab and is removed when the tab session ends. It is not included in project backups, IndexedDB, GitHub or the app's source bundle. For Gemini calls, the browser sends it in a custom HTTPS request header to the same-origin Pages Function, which forwards it to Google. This is convenient but is not a password vault: JavaScript running on this site can access `sessionStorage`. Use this only in a trusted browser on a device you control. Never paste the key into chat or a video topic.
+
+### Optional encrypted Cloudflare secret
+
+For a central server-managed key instead of a per-tab key, configure `GEMINI_API_KEY` once as an encrypted Cloudflare Pages secret:
 
 1. Create or select a Gemini API key in [Google AI Studio](https://aistudio.google.com/apikey).
 2. Open **Cloudflare Dashboard → Workers & Pages → the Pages project serving `https://videomaker-1mz.pages.dev` → Settings → Variables and Secrets**.
@@ -25,7 +36,7 @@ The Studio no longer asks creators to paste a Gemini key into the browser. Confi
 
 For preview deployments, add the same secret separately to the **Preview** environment when you need to test a preview URL. Production secrets and preview secrets are configured independently.
 
-**Never commit the key to GitHub, put it in `.env` files, paste it into chat, or enter it into the Studio page.** The browser calls same-origin `/api/ai/*` routes; only the Pages Function reads `env.GEMINI_API_KEY`. The key is not returned in API responses or included in the client bundle.
+Never commit the key to GitHub, put it in `.env` files, or paste it into chat. A tab-session key is sent only in an HTTPS request header to the same-origin `/api/ai/*` route and is not echoed in responses. A server-managed key remains in `env.GEMINI_API_KEY` and is not included in the client bundle. When both are present, the explicitly saved tab key is used for that tab's requests.
 
 The AI routes are public website endpoints. Add a Cloudflare rate-limiting rule for `/api/ai/*` (for example, a modest per-IP limit such as 10 requests per minute, adjusted for normal use). This helps protect the Gemini quota from automated abuse. If the Studio is intended only for private use, consider protecting the site with Cloudflare Access as well.
 
