@@ -161,7 +161,16 @@ export default function App() {
   function wouldExceedMediaLimit(additionalBytes: number, replacingSceneId?: string, replacingAudio = false): boolean {
     const currentBytes = getProjectMediaSize(project.scenes, project.voiceAudioDataUrl, replacingSceneId, replacingAudio);
     if (currentBytes + additionalBytes > MAX_PROJECT_MEDIA_BYTES) {
-      setNotice("This project has a 64 MB combined image/audio limit in local storage. Remove unused media or use smaller files before adding more.");
+      setNotice("This project has a 64 MB combined image, video and audio limit in local storage. Remove unused media or use smaller files before adding more.");
+      return true;
+    }
+    return false;
+  }
+
+  function wouldExceedVideoMediaLimit(additionalBytes: number, replacingSceneId: string): boolean {
+    const currentBytes = getProjectMediaSize(project.scenes, project.voiceAudioDataUrl, undefined, false, replacingSceneId);
+    if (currentBytes + additionalBytes > MAX_PROJECT_MEDIA_BYTES) {
+      setNotice("This project has a 64 MB combined image, video and audio limit in local storage. Remove unused media or use smaller files before adding more.");
       return true;
     }
     return false;
@@ -772,7 +781,7 @@ export default function App() {
                       <StockVideoPanel scene={selectedScene} onChange={(patch) => {
                         if (patch.videoDataUrl) {
                           const size = getEmbeddedVideoSize(patch.videoDataUrl) ?? 0;
-                          if (wouldExceedMediaLimit(size, selectedScene.id)) return;
+                          if (wouldExceedVideoMediaLimit(size, selectedScene.id)) return;
                         }
                         updateScene(selectedScene.id, patch);
                       }} />
