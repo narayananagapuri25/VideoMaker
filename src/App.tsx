@@ -802,7 +802,7 @@ export default function App() {
                   </div>
                   <div className="button-row">
                     <button className="button button-primary" disabled={isGenerating} onClick={handleGenerateStory}>{isGenerating ? <><span className="spinner" /> Creating…</> : "✦ Generate story & scenes"}</button>
-                    <span className="microcopy">{geminiConfigured ? "Gemini · secure server" : "Gemini server setup required"}</span>
+                    <span className="microcopy">{geminiConfigured ? (geminiSessionKeySaved ? "Gemini · tab session" : "Gemini · server key") : "Save a Gemini key to continue"}</span>
                   </div>
                 </article>
 
