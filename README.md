@@ -12,7 +12,7 @@ The browser-first studio is designed for a creator workflow: enter a topic, buil
 - Channel launch kit with SochoZara positioning, channel descriptions, logo and banner direction, a publishing rhythm and a practical quality checklist.
 - Searchable library of 30 Hinglish-ready video topics that can be loaded directly into the editor.
 - Reusable AI prompt templates for Shorts, long-form explainers, fact-check planning and motion storyboards.
-- Gemini AI director: turns a question into a complete story, scene-by-scene narration and structured visual plans (charts, candlesticks, dashboards, comparisons, timelines, diagrams and infographics) through the Interactions API.
+- Gemini AI director: turns a question into a complete story, scene-by-scene narration and structured visual plans (charts, candlesticks, dashboards, comparisons, timelines, diagrams and infographics) through same-origin Cloudflare Pages Functions.
 - One-click video workflow: generate the AI story, generate English narration with Gemini TTS, direct every scene, add an original locally synthesised ambient music bed and render the complete MP4 locally.
 - Scene-by-scene editing for titles, narration, captions, prompts, durations and visual direction.
 - Built-in, on-device motion-video generation: create a complete MP4 from the storyboard without importing video clips or using an external video-generation service.
@@ -33,7 +33,7 @@ The browser-first studio is designed for a creator workflow: enter a topic, buil
 
 ## AI director and free in-house video generation
 
-Enter a question such as **How does the stock market work?** and choose **Generate entire video with AI**. With the one-time `GEMINI_API_KEY` configured as an encrypted Cloudflare Pages secret, the Studio creates a new English story, scene-specific narration and a structured visual plan for every scene, then generates the narration and assembles the MP4 locally. The browser never asks for or receives the API key. The AI director selects among layouts such as animated candlestick charts, line charts, financial dashboards, process flows, comparisons, timelines, diagrams and infographics. The renderer uses the same scene plan for the live preview and exported video. No scene-by-scene prompt copying or clip importing is required.
+Enter a question such as **How does the stock market work?** and choose **Generate entire video with AI**. With a Gemini key saved in the Studio for the current browser tab, or an optional encrypted `GEMINI_API_KEY` Cloudflare Pages secret, the Studio creates a new English story, scene-specific narration and a structured visual plan for every scene, then generates the narration and assembles the video locally. The tab key is sent only to the same-origin Pages Function in an HTTPS request header and is forwarded to Google for that request. The AI director selects among layouts such as animated candlestick charts, line charts, financial dashboards, process flows, comparisons, timelines, diagrams and infographics. The renderer uses the same scene plan for the live preview and exported video. No scene-by-scene prompt copying or clip importing is required.
 
 The in-house renderer creates 24 fps H.264 MP4 output using Canvas and WebCodecs. Topic-aware artwork, camera movement, scene entry fades, moving accents, titles and captions are rendered on the device. The browser also synthesises a subtle original ambient music bed and mixes it under the narration without using copyrighted stock music. Stock-market charts use illustrative shapes and are explicitly marked as not-live data; the app does not make up current share prices or returns. A specialised offline stock-market explainer is available without a Gemini key, but AI-written scripts and generated English narration require the encrypted server-side Gemini key to be configured once in Cloudflare Pages and remain subject to that project's live model access and quota.
 
@@ -43,7 +43,7 @@ This is an AI-directed motion-graphics studio, not a photorealistic diffusion-mo
 
 - AI image generation is not performed through a paid API by the editor. The editor builds a full scene prompt, opens Firefly for manual one-scene-at-a-time generation, and imports the resulting image. Firefly Free offers limited daily generations; Google Gemini image-generation API models currently have no free API tier.
 - Gemini TTS uses a user-provided API key and only works while the selected model is available to that key's free tier. Billing/quota availability can change; do not submit private information. TTS requests use the Interactions API with `store: false` (stateless request mode); free-tier content may still be used by Google to improve its products. Quotas and access may change. Use a key with billing disabled and do not submit sensitive information. Device speech is only a preview.
-- The Gemini API key is stored as an encrypted Cloudflare Pages secret named `GEMINI_API_KEY`. Story generation uses Gemini 4 Hydrogen through a Pages Function; narration uses Gemini 3.8 Flash TTS through a Pages Function. The browser sends requests to same-origin `/api/ai/*` endpoints and never receives the secret. The app cannot inspect the Google account's billing settings. Check the current key/project tier and quota before use. Do not submit sensitive information.
+- Gemini story and TTS requests go through same-origin Cloudflare Pages Functions. You can save your Google AI Studio key in the Studio's tab-session setting; it is kept in `sessionStorage` for that tab, survives refresh, and is not written to the video project or IndexedDB. The key is sent to the Pages Function in an HTTPS request header and then used for the Google request. `sessionStorage` is not a vault: same-origin scripts can access it, so use this only in a trusted browser on a device you control. Alternatively, configure the encrypted Cloudflare Pages secret `GEMINI_API_KEY`. The app cannot inspect the Google account's billing settings. Check the current key/project tier and quota before use. Do not submit sensitive information.
 - In-house MP4 generation depends on the browser exposing compatible WebCodecs H.264 and AAC encoders. Rendering runs at playback speed to keep footage and narration in sync; keep the tab open during generation. The built-in generator creates motion graphics and animated artwork, not photorealistic AI video.
 - The renderer uses a 720p canvas output to reduce device memory pressure. Long projects and several local clips are best handled on a desktop or recent high-performance device. Local imported clips are subject to the current 24 MB per-clip and 64 MB aggregate project-media caps.
 - Pixabay search and video streaming are served through Cloudflare Pages Functions. The Pixabay key is stored as an encrypted Cloudflare Pages secret and is never sent to the browser.
@@ -54,7 +54,7 @@ This is an AI-directed motion-graphics studio, not a photorealistic diffusion-mo
 - The in-house motion-video generator, preview and local MP4 rendering do not require subscriptions or paid video-generation APIs.
 - No paid provider is silently invoked.
 - User images, audio and project data stay in the browser's IndexedDB.
-- Gemini story and TTS requests send the topic, prompt or narration text to Google. Do not submit private or sensitive information.
+- Gemini story and TTS requests send the topic, prompt or narration text to Google. When using a tab-session key, the key is also sent over HTTPS to this site's Cloudflare Function for that request. Do not submit private or sensitive information.
 - Imported or generated media must be checked for commercial-use rights by the creator.
 - The in-house motion renderer has no generation-credit quota; optional Gemini narration/story requests and Pixabay search remain subject to their providers' current access, terms and quotas.
 
@@ -83,7 +83,7 @@ npm run build
 - IndexedDB for local project persistence.
 - Canvas composition for video frames, titles, captions and motion graphics.
 - Mediabunny for MP4 muxing and browser-native WebCodecs encoders.
-- Secure server-side Gemini story and narration routes using the encrypted `GEMINI_API_KEY` Pages secret.
+- Same-origin Gemini story and narration Pages Functions using either a tab-session request key or the optional encrypted `GEMINI_API_KEY` Pages secret.
 - Cloudflare Pages Functions for Gemini key protection, story generation, connection diagnostics, narration and Pixabay API proxy.
 
 ## Licensing
