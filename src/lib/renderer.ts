@@ -26,7 +26,7 @@ function loadImage(dataUrl: string): Promise<HTMLImageElement> {
 }
 
 async function loadSceneVideo(scene: Scene): Promise<HTMLVideoElement> {
-  const source = getSceneVideoSrc(scene);
+  const source = getSceneVideoSrc(scene, "small");
   if (!source) throw new Error("Scene “" + scene.title + "” has no video clip.");
   const video = document.createElement("video");
   video.muted = true;
@@ -463,6 +463,8 @@ export async function exportMp4(
   if (!project.scenes.length) throw new Error("Add at least one scene before exporting.");
   const missingVideo = project.scenes.filter((scene) => !getSceneVideoSrc(scene));
   if (missingVideo.length) throw new Error("Add real video footage to every scene before exporting: " + missingVideo.map((scene) => scene.title).join(", ") + ".");
+  const unverifiedVideo = project.scenes.filter((scene) => !scene.videoCommercialUseConfirmed);
+  if (unverifiedVideo.length) throw new Error("Confirm the source and usage rights for scene footage before exporting: " + unverifiedVideo.map((scene) => scene.title).join(", ") + ".");
   if (!project.voiceAudioDataUrl) throw new Error("Add a narration audio track before exporting. Device voice preview is not included in MP4 files.");
   if (project.scenes.length > 80) throw new Error("A project can contain up to 80 scenes. Split this video into smaller parts.");
   if (project.scenes.some((scene) => !Number.isFinite(scene.duration) || scene.duration <= 0 || scene.duration > 90)) {
