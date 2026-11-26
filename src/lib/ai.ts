@@ -1,5 +1,6 @@
 import type { AspectRatio, GeneratedStory, Language, SceneVisualLayout, SceneVisualPlan } from "../types";
 import { getGeminiSessionHeaders } from "./gemini-session";
+import { getSecondaryAIHeaders, type AIProvider } from "./ai-provider-session";
 
 interface GenerateOptions {
   topic: string;
@@ -104,7 +105,7 @@ function parseVisualPlan(value: unknown, visualPrompt: string, title: string): S
   };
 }
 
-function parseStory(text: string): GeneratedStory {
+export function parseStory(text: string): GeneratedStory {
   const fence = String.fromCharCode(96).repeat(3);
   const cleaned = text.trim()
     .replace(new RegExp("^\\s*" + fence + "(?:json)?\\s*", "i"), "")
@@ -113,7 +114,7 @@ function parseStory(text: string): GeneratedStory {
   try {
     value = JSON.parse(cleaned);
   } catch {
-    throw new Error("Gemini returned invalid JSON. Please retry the generation.");
+    throw new Error("The AI provider returned invalid JSON. Please retry the generation.");
   }
   if (!isRecord(value) || !Array.isArray(value.scenes) || value.scenes.length < 2 || value.scenes.length > MAX_SCENES) {
     throw new Error("The AI response did not contain a complete storyboard with 2 to 12 scenes.");
@@ -254,17 +255,16 @@ export async function testGeminiConnectionWithApiKey(apiKey: string): Promise<st
   return "Gemini connection successful · " + GEMINI_TEXT_MODEL + ". Your API key and project can reach the model.";
 }
 
-export async function generateStoryWithApiKey(options: GenerateOptions): Promise<{ story: GeneratedStory; source: "gemini" }> {
-  const { topic, language, targetDuration, aspectRatio, apiKey } = options;
-  const trimmedTopic = topic.trim();
-  if (!trimmedTopic) throw new Error("Enter a topic before generating a story.");
-  if (trimmedTopic.length > MAX_TOPIC_LENGTH) throw new Error("Keep the video topic under 2,000 characters.");
-  if (!Number.isFinite(targetDuration) || targetDuration < 10 || targetDuration > 600) {
-    throw new Error("Choose a video duration between 10 seconds and 10 minutes.");
-  }
-  if (!apiKey.trim()) throw new Error("Gemini API key is not configured on the server.");
+export interface StoryPromptOptions {
+  topic: string;
+  language: Language;
+  targetDuration: number;
+  aspectRatio: AspectRatio;
+}
 
-  const prompt = [
+export function buildStoryPrompt(options: StoryPromptOptions): string {
+  const { topic, language, targetDuration, aspectRatio } = options;
+  return [
     "You are the complete AI documentary production team for SochoZara: research-minded explainer, scriptwriter, storyboard director, information designer and motion-graphics art director.",
     "Create a genuinely topic-specific video package for this question: " + trimmedTopic,
     "Language: " + language + ". Approximate video duration: " + targetDuration + " seconds. Aspect ratio: " + aspectRatio + ".",
@@ -280,6 +280,19 @@ export async function generateStoryWithApiKey(options: GenerateOptions): Promise
     "Keep scene durations positive and make their sum close to target duration. Script and narration must sound natural when read aloud.",
     "Return the requested JSON object only. Do not wrap it in Markdown fences or add commentary.",
   ].join("\n");
+}
+
+export async function generateStoryWithApiKey(options: GenerateOptions): Promise<{ story: GeneratedStory; source: "gemini" }> {
+  const { topic, language, targetDuration, aspectRatio, apiKey } = options;
+  const trimmedTopic = topic.trim();
+  if (!trimmedTopic) throw new Error("Enter a topic before generating a story.");
+  if (trimmedTopic.length > MAX_TOPIC_LENGTH) throw new Error("Keep the video topic under 2,000 characters.");
+  if (!Number.isFinite(targetDuration) || targetDuration < 10 || targetDuration > 600) {
+    throw new Error("Choose a video duration between 10 seconds and 10 minutes.");
+  }
+  if (!apiKey.trim()) throw new Error("Gemini API key is not configured on the server.");
+
+  const prompt = buildStoryPrompt({ topic: trimmedTopic, language, targetDuration, aspectRatio });
 
   const response = await fetchWithTimeout(GEMINI_INTERACTIONS_URL, {
     method: "POST",
@@ -321,7 +334,7 @@ export async function generateStoryWithApiKey(options: GenerateOptions): Promise
 
 
 async function readApiError(response: Response): Promise<Error> {
-  let detail = "The secure Gemini service returned HTTP " + response.status + ".";
+  let detail = "The secure AI service returned HTTP " + response.status + ".";
   try {
     const payload: unknown = await response.json();
     if (isRecord(payload) && typeof payload.error === "string") detail = payload.error;
@@ -346,12 +359,12 @@ export async function generateStory(
   try {
     payload = await response.json();
   } catch {
-    throw new Error("The secure Gemini service returned an unreadable story response.");
+    throw new Error("The secure AI service returned an unreadable story response.");
   }
   if (!isRecord(payload) || !isRecord(payload.story) || typeof payload.story.title !== "string" || !Array.isArray(payload.story.scenes)) {
-    throw new Error("The secure Gemini service returned an incomplete video storyboard.");
+    throw new Error("The secure AI service returned an incomplete video storyboard.");
   }
-  return { story: payload.story as unknown as GeneratedStory, source: "gemini" };
+  const source = payload.source === "groq" || payload.source === "openrouter" || payload.source === "cloudflare" ? payload.source : "gemini";\n  return { story: payload.story as unknown as GeneratedStory, source };
 }
 
 /** Connection check uses the tab-session key when saved, otherwise the Cloudflare Pages secret. */
