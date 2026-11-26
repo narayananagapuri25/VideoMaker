@@ -27,6 +27,21 @@ describe("Gemini narration", () => {
     expect(request.generation_config.speech_config).toEqual([{ voice: "Kore" }]);
   });
 
+  it("rejects invalid base64 audio returned by the provider", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      output_audio: { data: "not@base64", mime_type: "audio/wav" },
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    await expect(generateNarration("Some narration", "test-api-key", "Kore", "English"))
+      .rejects.toThrow(/invalid audio payload/i);
+  });
+
+  it("rejects overlong transcripts before sending a request", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    await expect(generateNarration("x".repeat(26_001), "test-api-key", "Kore", "English"))
+      .rejects.toThrow(/too long/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("rejects an empty script before sending a request", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
     await expect(generateNarration("  ", "test-api-key", "Kore", "Hinglish"))
