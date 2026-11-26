@@ -62,6 +62,24 @@ export function hasMagicHourApiKey(): boolean {
 
 export function clearMagicHourApiKey(): void {
   remove(STORAGE.magicHour);
+  remove(MAGIC_HOUR_FREE_CREDITS_CONFIRMATION);
+}
+
+export function confirmMagicHourFreeCreditsOnly(confirmed: boolean): void {
+  try {
+    if (confirmed) globalThis.sessionStorage.setItem(MAGIC_HOUR_FREE_CREDITS_CONFIRMATION, "true");
+    else globalThis.sessionStorage.removeItem(MAGIC_HOUR_FREE_CREDITS_CONFIRMATION);
+  } catch {
+    throw new Error("This browser could not save the free-credit confirmation for this tab.");
+  }
+}
+
+export function hasMagicHourFreeCreditsOnlyConfirmation(): boolean {
+  try {
+    return globalThis.sessionStorage.getItem(MAGIC_HOUR_FREE_CREDITS_CONFIRMATION) === "true";
+  } catch {
+    return false;
+  }
 }
 
 export function getMagicHourHeaders(): Record<string, string> {
