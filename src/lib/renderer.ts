@@ -41,6 +41,152 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number)
   return lines;
 }
 
+
+function drawSceneMotif(ctx: CanvasRenderingContext2D, width: number, height: number, scene: Scene, elapsed: number): void {
+  const subject = (scene.visualPrompt + " " + scene.title + " " + scene.caption).toLowerCase();
+  ctx.save();
+  ctx.globalAlpha = 0.72;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  if (/lightning|thunder|storm|rain|bijli/.test(subject)) {
+    const cloudY = height * 0.43;
+    ctx.fillStyle = "rgba(17, 35, 57, .94)";
+    for (let i = 0; i < 6; i += 1) {
+      const x = width * (0.2 + i * 0.12);
+      const y = cloudY + Math.sin(elapsed * 0.8 + i) * height * 0.009;
+      ctx.beginPath();
+      ctx.arc(x, y, width * (0.08 + (i % 2) * 0.012), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = "rgba(43, 213, 231, .32)";
+    ctx.lineWidth = Math.max(2, width * 0.003);
+    for (let i = 0; i < 12; i += 1) {
+      const x = width * (0.13 + i * 0.067);
+      const y = height * (0.54 + (i % 3) * 0.08);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - width * 0.018, y + height * 0.045);
+      ctx.stroke();
+    }
+    ctx.shadowColor = "#F5B451";
+    ctx.shadowBlur = width * 0.08;
+    ctx.strokeStyle = "#F8C66B";
+    ctx.lineWidth = Math.max(4, width * 0.008);
+    ctx.beginPath();
+    ctx.moveTo(width * 0.55, height * 0.43);
+    ctx.lineTo(width * 0.48, height * 0.55);
+    ctx.lineTo(width * 0.55, height * 0.55);
+    ctx.lineTo(width * 0.46, height * 0.70);
+    ctx.stroke();
+  } else if (/space|planet|black hole|moon|mars|galaxy|orbit|star/.test(subject)) {
+    ctx.fillStyle = "rgba(210, 237, 255, .7)";
+    for (let i = 0; i < 42; i += 1) {
+      const x = ((i * 97) % 997) / 997 * width;
+      const y = ((i * 173) % 991) / 991 * height * 0.68;
+      const pulse = 0.7 + Math.sin(elapsed * 1.5 + i) * 0.25;
+      ctx.beginPath();
+      ctx.arc(x, y, Math.max(1, width * 0.002 * pulse), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    const x = width * 0.5 + Math.sin(elapsed * 0.18) * width * 0.025;
+    const y = height * 0.4;
+    const radius = width * 0.22;
+    const planet = ctx.createRadialGradient(x - radius * 0.35, y - radius * 0.4, radius * 0.05, x, y, radius);
+    planet.addColorStop(0, "#75e7ed");
+    planet.addColorStop(0.45, "#247b9c");
+    planet.addColorStop(1, "#111c4a");
+    ctx.fillStyle = planet;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(245, 155, 72, .7)";
+    ctx.lineWidth = Math.max(2, width * 0.006);
+    ctx.beginPath();
+    ctx.ellipse(x, y, radius * 1.65, radius * 0.45, -0.24, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (/temple|ancient|history|stepwell|architecture|kingdom|historical/.test(subject)) {
+    const baseY = height * 0.62;
+    ctx.fillStyle = "rgba(245, 155, 72, .18)";
+    for (let level = 0; level < 6; level += 1) {
+      const inset = level * width * 0.052;
+      const y = baseY - level * height * 0.045;
+      ctx.fillRect(width * 0.12 + inset, y, width * 0.76 - inset * 2, height * 0.032);
+    }
+    ctx.strokeStyle = "rgba(255, 202, 137, .65)";
+    ctx.lineWidth = Math.max(2, width * 0.004);
+    for (let i = 0; i < 5; i += 1) {
+      const x = width * (0.22 + i * 0.14);
+      ctx.beginPath();
+      ctx.moveTo(x, height * 0.3);
+      ctx.lineTo(x, baseY - height * 0.04);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x, height * 0.3, width * 0.045, Math.PI, 0);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(43, 213, 231, .4)";
+    ctx.beginPath();
+    ctx.moveTo(width * 0.12, height * 0.26);
+    ctx.lineTo(width * 0.88, height * 0.26);
+    ctx.stroke();
+  } else if (/ai|robot|technology|future|computer|digital|circuit|internet/.test(subject)) {
+    const centerX = width * 0.5;
+    const centerY = height * 0.43;
+    const boxSize = width * 0.28;
+    ctx.strokeStyle = "rgba(43, 213, 231, .58)";
+    ctx.lineWidth = Math.max(2, width * 0.004);
+    for (let i = 0; i < 8; i += 1) {
+      const angle = (Math.PI * 2 * i) / 8 + elapsed * 0.08;
+      const x = centerX + Math.cos(angle) * width * 0.31;
+      const y = centerY + Math.sin(angle) * height * 0.19;
+      const middleX = centerX + Math.cos(angle) * width * 0.2;
+      const middleY = centerY + Math.sin(angle) * height * 0.12;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(middleX, middleY);
+      ctx.lineTo(centerX + Math.cos(angle) * boxSize * 0.6, centerY + Math.sin(angle) * boxSize * 0.6);
+      ctx.stroke();
+      ctx.fillStyle = "#F59B48";
+      ctx.beginPath();
+      ctx.arc(x, y, width * 0.009, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = "rgba(18, 52, 76, .9)";
+    ctx.strokeStyle = "#2bd5e7";
+    ctx.lineWidth = Math.max(3, width * 0.006);
+    ctx.beginPath();
+    ctx.roundRect(centerX - boxSize / 2, centerY - boxSize / 2, boxSize, boxSize, width * 0.035);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#e6fbff";
+    ctx.font = "800 " + Math.round(width * 0.11) + "px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("AI", centerX, centerY + width * 0.04);
+  } else {
+    ctx.lineWidth = Math.max(2, width * 0.003);
+    for (let wave = 0; wave < 4; wave += 1) {
+      ctx.strokeStyle = wave % 2 ? "rgba(245, 155, 72, .53)" : "rgba(43, 213, 231, .55)";
+      ctx.beginPath();
+      for (let x = 0; x <= width; x += Math.max(4, width / 90)) {
+        const y = height * (0.36 + wave * 0.055) + Math.sin(x / width * Math.PI * 5 + elapsed * (0.8 + wave * 0.14)) * height * (0.025 + wave * 0.004);
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(43, 213, 231, .35)";
+    ctx.lineWidth = Math.max(1, width * 0.002);
+    for (let ring = 0; ring < 4; ring += 1) {
+      const radius = width * (0.1 + ring * 0.07) + Math.sin(elapsed + ring) * width * 0.006;
+      ctx.beginPath();
+      ctx.arc(width * 0.5, height * 0.4, radius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
 export function drawSceneFrame(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -83,6 +229,8 @@ export function drawSceneFrame(
     }
     ctx.restore();
   }
+
+  drawSceneMotif(ctx, width, height, scene, elapsed);
 
   const overlay = ctx.createLinearGradient(0, 0, 0, height);
   overlay.addColorStop(0, "rgba(3,9,18,.50)");
