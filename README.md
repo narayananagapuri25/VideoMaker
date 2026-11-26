@@ -14,6 +14,8 @@ The browser-first studio is designed for a creator workflow: enter a topic, buil
 - Reusable AI prompt templates for Shorts, long-form explainers, fact-check planning and motion storyboards.
 - Optional Gemini 4 Hydrogen story/storyboard generation through the Interactions API using a user-provided API key; requests are stateless (`store: false`) and structured as validated JSON.
 - Scene-by-scene editing for titles, narration, captions, prompts, durations and real video footage.
+- Google Flow handoff for AI-generated animated/cinematic footage: create scene-specific motion prompts, copy them into Flow, and open the Flow workspace from the scene editor.
+- Download a complete, ordered Google Flow shot list containing a dedicated prompt, duration and narration context for every scene.
 - Search Pixabay stock footage from each scene, preview the clip and attach it to the storyboard. Import local MP4/WebM clips as an alternative.
 - A live canvas playback timeline that plays the selected scene's actual video footage, with play/pause, scrubbing, scene segments and narration sync.
 - Generate a scene-specific art prompt and open Adobe Firefly or Pexels; import a generated or licensed image for each scene.
@@ -26,8 +28,14 @@ The browser-first studio is designed for a creator workflow: enter a topic, buil
 - Scene footage is composited with SochoZara titles, captions and optional Pixabay contributor attribution.
 - Local project saving with IndexedDB.
 - Export progress and MP4 download.
-- Portable JSON project backup/import, including imported scene artwork and narration audio. Import accepts embedded raster images/audio only, checks media size limits and rejects remote media URLs.
+- Portable JSON project backup/import, including imported scene artwork, video clips and narration audio. Import validates embedded media, enforces size limits and rejects remote media URLs.
 - CI workflow for unit tests and production builds.
+
+## Google Flow video generation workflow
+
+Google Flow is the recommended AI-video generator for users with Google AI Pro. The studio prepares a scene-specific prompt (including action, camera movement, aspect ratio, style, duration guidance and restrictions against text baked into the footage), copies it to the clipboard and opens the first-party Google Flow workspace. A project-level shot-list download prepares prompts for every scene in timeline order. Generate clips in Flow, download each MP4, then import it into the matching SochoZara scene. Narration, subtitles and channel branding are added by the local editor.
+
+This is a guided handoff, not an embedded Flow API integration: Google Flow does not expose a public generation endpoint for this browser app. Generation consumes the user's Google Flow credits under Google's own plan limits. No API key is stored by SochoZara and no Flow generation is started automatically.
 
 ## Important current limitations
 
@@ -35,7 +43,7 @@ The browser-first studio is designed for a creator workflow: enter a topic, buil
 - Optional Gemini TTS uses a user-provided API key and only works while the selected model is available to that key's free tier. Billing/quota availability can change; do not submit private information. TTS requests use the Interactions API with `store: false` (stateless request mode); free-tier content may still be used by Google to improve its products. Quotas and access may change. Use a key with billing disabled and do not submit sensitive information. Device speech is only a preview.
 - The Gemini API key is held in memory only. Story generation uses Gemini 4 Hydrogen through the Interactions API; narration uses Gemini 3.8 Flash TTS. The app cannot inspect the Google account's billing settings. Check the current key/project tier and quota before use. Do not submit sensitive information.
 - MP4 export depends on the browser exposing compatible WebCodecs H.264 and AAC encoders. Video export runs at playback speed to keep source footage and narration in sync; keep the tab open during export.
-- The renderer uses a 720p canvas output to reduce device memory pressure. Long projects and several local clips are best handled on a desktop or recent high-performance device.
+- The renderer uses a 720p canvas output to reduce device memory pressure. Long projects and several local clips are best handled on a desktop or recent high-performance device. Local imported clips are subject to the current 24 MB per-clip and 64 MB aggregate project-media caps.
 - Pixabay search and video streaming are served through Cloudflare Pages Functions. The Pixabay key is stored as an encrypted Cloudflare Pages secret and is never sent to the browser.
 - Generated scripts are drafts, not verified research. Check factual claims and add credible sources before publishing.
 
