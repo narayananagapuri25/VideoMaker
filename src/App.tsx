@@ -3,7 +3,6 @@ import type { ChangeEvent } from "react";
 import { generateStory } from "./lib/ai";
 import { makeProject, scenesFromScript } from "./lib/story";
 import { loadLatestProject, saveProject } from "./lib/storage";
-import { exportMp4 } from "./lib/renderer";
 import { generateNarration } from "./lib/tts";
 import type { AspectRatio, Language, Scene, StudioProject } from "./types";
 
@@ -276,6 +275,7 @@ export default function App() {
     setRenderMessage("Preparing renderer…");
     setNotice("Rendering happens on this device. Keep this tab open until the MP4 is ready.");
     try {
+      const { exportMp4 } = await import("./lib/renderer");
       const blob = await exportMp4(project, ({ progress, message }) => {
         setRenderProgress(progress);
         setRenderMessage(message);
