@@ -14,6 +14,7 @@ import { getEmbeddedImageSize, getEmbeddedVideoSize, getProjectMediaSize, isSupp
 import { MAX_PROJECT_BACKUP_BYTES, restoreProjectBackup } from "./lib/project-backup";
 import { getUnverifiedSceneMedia } from "./lib/video-generation";
 import { isExportAbortError } from "./lib/export-cancel";
+import { getVideoFileExtension } from "./lib/export-format";
 
 const initialProject = () => makeProject("Why do we see lightning before thunder?", "English", "9:16", 45);
 
@@ -492,7 +493,7 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       exportUrlRef.current = url;
       setExportUrl(url);
-      const fileType = blob.type.includes("webm") ? "webm" : "mp4";
+      const fileType = getVideoFileExtension(blob.type);
       setExportFileType(fileType);
       setNotice("Your complete video is ready. Preview it, then download the " + fileType.toUpperCase() + " file.");
     } catch (error) {
