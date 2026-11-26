@@ -82,6 +82,9 @@ select { appearance: auto; }
 .key-title strong { font-size: 10px; color: #dbe8f5; }
 .key-title em { margin-left: auto; color: #63d6bc; font-size: 8px; letter-spacing: .1em; font-style: normal; border: 1px solid rgba(99,214,188,.2); padding: 3px 5px; border-radius: 4px; }
 .ai-key-box input { background: rgba(4,12,23,.6); }
+.ai-key-box .gemini-key-input { width: 100%; margin-top: 5px; letter-spacing: .035em; }
+.ai-key-box .gemini-key-input:focus { border-color: rgba(43,213,231,.55); box-shadow: 0 0 0 3px rgba(43,213,231,.08); }
+.ai-key-box .gemini-test-row .text-button { padding: 8px 3px; }
 .gemini-test-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
 .gemini-test-row .button { padding: 8px 10px; }
 .ai-key-box small { display: block; color: #7d92a8; font-size: 9px; line-height: 1.55; margin-top: 8px; }
