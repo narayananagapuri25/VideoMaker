@@ -46,6 +46,7 @@ export default function App() {
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderMessage, setRenderMessage] = useState("");
   const [exportUrl, setExportUrl] = useState("");
+  const [exportFileType, setExportFileType] = useState<"mp4" | "webm">("mp4");
   const [notice, setNotice] = useState("Your project is stored locally in this browser.");
   const [saveStatus, setSaveStatus] = useState("Loading project…");
   const [generationSource, setGenerationSource] = useState<"local" | "gemini" | "provided-script">("local");
@@ -162,6 +163,7 @@ export default function App() {
     if (exportUrlRef.current) URL.revokeObjectURL(exportUrlRef.current);
     exportUrlRef.current = "";
     setExportUrl("");
+    setExportFileType("mp4");
   }
 
   function updateProject(patch: Partial<StudioProject>) {
@@ -490,7 +492,9 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       exportUrlRef.current = url;
       setExportUrl(url);
-      setNotice("Your complete video is ready. Preview it, then download the MP4.");
+      const fileType = blob.type.includes("webm") ? "webm" : "mp4";
+      setExportFileType(fileType);
+      setNotice("Your complete video is ready. Preview it, then download the " + fileType.toUpperCase() + " file.");
     } catch (error) {
       if (abortController.signal.aborted || isExportAbortError(error)) {
         setNotice("MP4 export canceled. Encoder resources were released and no incomplete download was saved.");
@@ -822,7 +826,7 @@ export default function App() {
                     {getUnverifiedSceneMedia(project.scenes).length > 0 && <small className="export-blocked-note">Confirm usage rights for imported artwork or footage before generation.</small>}
                   </div>
                   {isRendering && <div className="render-progress"><div className="progress-track"><span style={{ width: (renderProgress * 100) + "%" }} /></div><div className="render-progress-meta"><small>{renderMessage} · {Math.round(renderProgress * 100)}%</small><button className="text-button cancel-render-button" onClick={handleCancelRender}>Cancel export</button></div></div>}
-                  {exportUrl && !isRendering && <div className="download-ready"><span>✓ MP4 ready</span><a className="button button-download" href={exportUrl} download={(project.title || "sochozara-video").toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".mp4"}>Download MP4 ↓</a></div>}
+                  {exportUrl && !isRendering && <div className="download-ready"><span>✓ {exportFileType.toUpperCase()} ready</span><a className="button button-download" href={exportUrl} download={(project.title || "sochozara-video").toLowerCase().replace(/[^a-z0-9]+/g, "-") + "." + exportFileType}>Download {exportFileType.toUpperCase()} ↓</a></div>}
                 </article>
 
                 <article className="panel scene-panel">
