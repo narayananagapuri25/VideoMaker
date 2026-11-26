@@ -284,12 +284,13 @@ export async function exportMp4(
     if (output.state === "started") void output.cancel();
   };
   signal?.addEventListener("abort", cancelOutput);
-  await output.start();
   const totalFrames = Math.ceil(duration * fps);
   let activeSceneId = "";
   let activeVideo: HTMLVideoElement | undefined;
   const renderStartedAt = performance.now();
   try {
+    await output.start();
+    throwIfExportAborted(signal);
     for (let frame = 0; frame < totalFrames; frame += 1) {
       throwIfExportAborted(signal);
       const time = frame / fps;
