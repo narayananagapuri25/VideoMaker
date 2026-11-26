@@ -10,6 +10,7 @@ const IMAGE_MIME_TYPES = new Set([
 ]);
 
 export const MAX_SCENE_IMAGE_BYTES = 12 * 1024 * 1024;
+export const MAX_SCENE_VIDEO_BYTES = 24 * 1024 * 1024;
 export const MAX_NARRATION_AUDIO_BYTES = 30 * 1024 * 1024;
 export const MAX_PROJECT_MEDIA_BYTES = 64 * 1024 * 1024;
 
@@ -58,13 +59,29 @@ export function getEmbeddedAudioSize(value: unknown): number | null {
   return media.byteLength;
 }
 
+export function getEmbeddedVideoSize(value: unknown): number | null {
+  const media = readBase64DataUrl(value);
+  if (!media || !new Set(["video/mp4", "video/webm"]).has(media.mimeType)) return null;
+  try {
+    const prefix = atob(media.payload.slice(0, 32));
+    const bytes = Array.from(prefix, (character) => character.charCodeAt(0));
+    const ascii = (start: number, end: number) => String.fromCharCode(...bytes.slice(start, end));
+    const validMp4 = media.mimeType === "video/mp4" && ascii(4, 8) === "ftyp";
+    const validWebm = media.mimeType === "video/webm" && bytes.slice(0, 4).join(",") === "26,69,223,163";
+    return validMp4 || validWebm ? media.byteLength : null;
+  } catch {
+    return null;
+  }
+}
+
 export function getProjectMediaSize(scenes: Scene[], voiceAudioDataUrl?: string, replacingSceneId?: string, replacingAudio = false): number {
   const imageBytes = scenes.reduce((total, scene) => {
     if (replacingSceneId && scene.id === replacingSceneId) return total;
     return total + (getEmbeddedImageSize(scene.imageDataUrl) ?? 0);
   }, 0);
+  const videoBytes = scenes.reduce((total, scene) => total + (getEmbeddedVideoSize(scene.videoDataUrl) ?? 0), 0);
   const audioBytes = replacingAudio ? 0 : (getEmbeddedAudioSize(voiceAudioDataUrl) ?? 0);
-  return imageBytes + audioBytes;
+  return imageBytes + videoBytes + audioBytes;
 }
 
 export function isSupportedImageMimeType(mimeType: string): boolean {
