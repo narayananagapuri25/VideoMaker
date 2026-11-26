@@ -105,7 +105,7 @@ export default function App() {
           setSelectedSceneId(restored.scenes[0]?.id ?? "");
           if (pasted) setGenerationSource("provided-script");
           setNotice(pasted
-            ? "Recovered your pasted narration, removed the unrelated filler, and rebuilt matching scenes."
+            ? "Recovered your pasted narration and rebuilt its scenes. Language is set to English; generate a new English script if this text is in another language."
             : "Restored your local project. Language is now English; regenerate the story to replace any older non-English script with an English version.");
         } else {
           setSelectedSceneId(project.scenes[0]?.id ?? "");
@@ -702,7 +702,7 @@ export default function App() {
                   {project.voiceAudioDataUrl ? (
                     <div className="audio-ready"><div className="audio-file-icon">♫</div><div className="audio-meta"><strong>{project.voiceAudioName || "Narration audio"}</strong><small>Ready for MP4 export</small></div><button className="icon-button" title="Remove narration" onClick={() => updateProject({ voiceAudioDataUrl: undefined, voiceAudioName: undefined })}>×</button><audio controls src={project.voiceAudioDataUrl} /><a className="audio-download" href={project.voiceAudioDataUrl} download={project.voiceAudioName || "sochozara-narration"}>↓ Download narration audio</a></div>
                   ) : (
-                    <div className="audio-empty"><div className="audio-wave">▂ ▅ ▃ ▆ ▄ ▇</div><strong>No narration audio yet</strong><p>Use the free voice workflow below, upload an audio file, or record your narration. Device voice preview is not embedded in the exported video.</p></div>
+                    <div className="audio-empty"><div className="audio-wave">▂ ▅ ▃ ▆ ▄ ▇</div><strong>No narration audio yet</strong><p>Generate an English narration with Gemini AI below. Device voice is available for a quick local preview, but only generated or imported audio is embedded in the MP4.</p></div>
                   )}
                   <div className="tts-controls">
                     <div><label className="field-label">GEMINI AI VOICE</label><select value={ttsVoice} onChange={(event) => setTtsVoice(event.target.value)}><option value="Kore">Kore · warm documentary</option><option value="Aoede">Aoede · expressive</option><option value="Puck">Puck · energetic</option><option value="Charon">Charon · deep narrator</option><option value="Fenrir">Fenrir · bold</option><option value="Zephyr">Zephyr · bright</option></select></div>
