@@ -19,6 +19,7 @@ The first milestone is designed for a single creator: enter a topic, build a Hin
 - Record the asset source and confirm intended commercial-use rights before MP4 export.
 - Generate AI narration using Gemini 3.8 Flash TTS (limited free tier) and select from built-in voices.
 - Upload narration audio or record a voice track from the microphone.
+- Free TTSMaker handoff: copy the current script, open its no-signup web voice tool, select a voice and speed, preview and download MP3, then upload the file back into the local project. TTSMaker has no public API, so this flow is intentionally user-driven and never automates the external service.
 - Device speech synthesis for listening to a draft; this preview is not captured in the exported video.
 - Animated SochoZara preview with motion graphics and captions.
 - Browser-side H.264 MP4 rendering using WebCodecs and Mediabunny.
@@ -30,7 +31,7 @@ The first milestone is designed for a single creator: enter a topic, build a Hin
 ## Important current limitations
 
 - AI image generation is not performed through a paid API by the editor. The editor builds a full scene prompt, opens Firefly for manual one-scene-at-a-time generation, and imports the resulting image. Firefly Free offers limited daily generations; Google Gemini image-generation API models currently have no free API tier.
-- AI narration uses the optional Gemini 3.8 Flash TTS endpoint and a user-provided API key. TTS requests use the Interactions API with `store: false` (stateless request mode); free-tier content may still be used by Google to improve its products. Quotas and access may change. Use a key with billing disabled and do not submit sensitive information. Device speech is only a preview.
+- Optional Gemini TTS uses a user-provided API key and only works while the selected model is available to that key's free tier. Billing/quota availability can change; do not submit private information. TTS requests use the Interactions API with `store: false` (stateless request mode); free-tier content may still be used by Google to improve its products. Quotas and access may change. Use a key with billing disabled and do not submit sensitive information. Device speech is only a preview.
 - The Gemini API key is held in memory only. The app selects the Gemini 3.8 Flash model, but it cannot inspect the Google account's billing settings. Use a key with billing disabled and check current free-tier limits before each use. Free-tier prompt data may be used by Google to improve its products.
 - MP4 export depends on the browser exposing compatible WebCodecs H.264 and AAC encoders. The app does not upload media to a server.
 - The renderer uses a 720p canvas output to reduce device memory pressure. Longer exports are best performed on a desktop or recent high-performance device.
