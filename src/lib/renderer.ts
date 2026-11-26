@@ -328,6 +328,46 @@ function drawSceneMotif(ctx: CanvasRenderingContext2D, width: number, height: nu
   ctx.restore();
 }
 
+function drawInHouseAtmosphere(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  scene: Scene,
+  elapsed: number,
+  sceneIndex: number,
+): void {
+  const subject = (scene.visualPrompt + " " + scene.title + " " + scene.caption).toLowerCase();
+  const warm = /fire|sun|desert|heat|volcano|lightning|temple|ancient/.test(subject);
+  const cool = /ocean|water|rain|ice|space|planet|science|technology/.test(subject);
+  const color = warm ? "245,155,72" : cool ? "43,213,231" : "139,177,208";
+
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  for (let i = 0; i < 22; i += 1) {
+    const seed = ((i * 191 + sceneIndex * 67) % 997) / 997;
+    const speed = 0.006 + (i % 5) * 0.002;
+    const x = ((seed + elapsed * speed) % 1) * width;
+    const y = height * (0.12 + ((i * 61) % 997) / 997 * 0.72)
+      + Math.sin(elapsed * (0.22 + (i % 4) * 0.08) + i) * height * 0.012;
+    const radius = Math.max(2, width * (0.002 + (i % 3) * 0.001));
+    ctx.globalAlpha = 0.12 + (i % 4) * 0.035;
+    ctx.fillStyle = "rgba(" + color + ",1)";
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const sweepX = ((elapsed * width * 0.045) % (width * 1.5)) - width * 0.25;
+  const sweep = ctx.createLinearGradient(sweepX - width * 0.08, 0, sweepX + width * 0.08, height);
+  sweep.addColorStop(0, "rgba(" + color + ",0)");
+  sweep.addColorStop(0.5, "rgba(" + color + ",0.075)");
+  sweep.addColorStop(1, "rgba(" + color + ",0)");
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = sweep;
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+}
+
 export function drawSceneFrame(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -378,46 +418,6 @@ export function drawSceneFrame(
     }
     ctx.restore();
   }
-
-function drawInHouseAtmosphere(
-  ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
-  scene: Scene,
-  elapsed: number,
-  sceneIndex: number,
-): void {
-  const subject = (scene.visualPrompt + " " + scene.title + " " + scene.caption).toLowerCase();
-  const warm = /fire|sun|desert|heat|volcano|lightning|temple|ancient/.test(subject);
-  const cool = /ocean|water|rain|ice|space|planet|science|technology/.test(subject);
-  const color = warm ? "245,155,72" : cool ? "43,213,231" : "139,177,208";
-
-  ctx.save();
-  ctx.globalCompositeOperation = "screen";
-  for (let i = 0; i < 22; i += 1) {
-    const seed = ((i * 191 + sceneIndex * 67) % 997) / 997;
-    const speed = 0.006 + (i % 5) * 0.002;
-    const x = ((seed + elapsed * speed) % 1) * width;
-    const y = height * (0.12 + ((i * 61) % 997) / 997 * 0.72)
-      + Math.sin(elapsed * (0.22 + (i % 4) * 0.08) + i) * height * 0.012;
-    const radius = Math.max(2, width * (0.002 + (i % 3) * 0.001));
-    ctx.globalAlpha = 0.12 + (i % 4) * 0.035;
-    ctx.fillStyle = "rgba(" + color + ",1)";
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  const sweepX = ((elapsed * width * 0.045) % (width * 1.5)) - width * 0.25;
-  const sweep = ctx.createLinearGradient(sweepX - width * 0.08, 0, sweepX + width * 0.08, height);
-  sweep.addColorStop(0, "rgba(" + color + ",0)");
-  sweep.addColorStop(0.5, "rgba(" + color + ",0.075)");
-  sweep.addColorStop(1, "rgba(" + color + ",0)");
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = sweep;
-  ctx.fillRect(0, 0, width, height);
-  ctx.restore();
-}
 
   if (!video) drawSceneMotif(ctx, width, height, scene, elapsed);
   drawInHouseAtmosphere(ctx, width, height, scene, elapsed, sceneIndex);
