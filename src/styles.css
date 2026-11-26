@@ -277,3 +277,60 @@ select { appearance: auto; }
   .artwork-provider-row { grid-template-columns: 1fr; gap: 6px; }
   .timeline-segment { min-width: 82px; }
 }
+
+
+/* Creator launch kit */
+.creator-kit-page { max-width: 1480px; margin: 0 auto; padding: 30px 34px 40px; }
+.creator-hero { position: relative; overflow: hidden; padding: clamp(24px,4vw,42px); border: 1px solid rgba(43,213,231,.2); border-radius: 18px; background: radial-gradient(circle at 85% 20%,rgba(43,213,231,.17),transparent 32%),radial-gradient(circle at 12% 110%,rgba(245,155,72,.12),transparent 38%),linear-gradient(135deg,#12253b,#0b1728 72%); }
+.creator-hero h1 { max-width: 760px; margin: 0; color: #f4f8fc; font-size: clamp(27px,4.2vw,44px); line-height: 1.1; letter-spacing: -.045em; }
+.creator-hero > p { max-width: 700px; margin: 13px 0 0; color: #9aacc0; font-size: 13px; line-height: 1.7; }
+.creator-hero-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 24px; }
+.creator-hero-meta span, .topic-count { border: 1px solid rgba(43,213,231,.2); background: rgba(43,213,231,.07); color: #89e6ef; border-radius: 20px; padding: 7px 10px; font-size: 8px; font-weight: 800; letter-spacing: .09em; }
+.creator-kit-section { margin-top: 22px; padding: 20px; border: 1px solid var(--line); border-radius: 15px; background: linear-gradient(150deg,rgba(19,34,54,.94),rgba(13,25,42,.94)); }
+.creator-section-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 17px; }
+.creator-section-heading > div { display: flex; align-items: flex-start; gap: 11px; }
+.creator-section-heading h2 { margin: 1px 0 4px; color: #f3f7fc; font-size: 14px; }
+.creator-section-heading p { margin: 0; color: #8394a9; font-size: 10px; line-height: 1.5; }
+.brand-kit-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 11px; }
+.brand-kit-card { min-width: 0; padding: 15px; border: 1px solid rgba(149,173,204,.13); border-radius: 11px; background: rgba(5,13,23,.32); }
+.brand-kit-card h2 { margin: 4px 0 8px; font-size: 26px; letter-spacing: -.04em; color: #f5fbff; }
+.brand-kit-card p { color: #9aacc0; font-size: 10px; line-height: 1.7; margin: 9px 0 12px; }
+.brand-kit-card .brand-tagline { margin: 0 0 12px; color: var(--cyan); font-size: 13px; font-weight: 750; }
+.brand-kit-card .button { margin-top: 2px; }
+.brand-kit-card.brand-primary { background: radial-gradient(circle at 100% 0,rgba(43,213,231,.12),transparent 50%),rgba(5,13,23,.4); border-color: rgba(43,213,231,.2); }
+.brand-kit-footer { margin-top: 12px; padding: 14px 15px; background: rgba(255,255,255,.025); border-radius: 10px; }
+.brand-kit-footer p { margin: 6px 0 10px; color: #a2b3c7; font-size: 10px; line-height: 1.6; }
+.brand-kit-footer p:last-child { margin-bottom: 0; }
+.topic-toolbar { display: grid; grid-template-columns: minmax(0,1fr) minmax(170px,.36fr); gap: 10px; margin-bottom: 13px; }
+.topic-toolbar input, .topic-toolbar select { min-width: 0; }
+.topic-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; }
+.topic-card, .prompt-card { min-width: 0; display: flex; flex-direction: column; padding: 14px; border: 1px solid rgba(149,173,204,.13); border-radius: 11px; background: rgba(5,13,23,.32); }
+.topic-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--cyan); font-size: 8px; letter-spacing: .1em; font-weight: 850; }
+.topic-card-top small { color: #71879e; font-size: 8px; letter-spacing: .04em; text-align: right; }
+.topic-card h3, .prompt-card h3 { margin: 11px 0 6px; color: #eaf2fa; font-size: 12px; line-height: 1.45; }
+.topic-card p, .prompt-card > p { margin: 0 0 13px; color: #879bb1; font-size: 9px; line-height: 1.65; }
+.topic-use-button { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: auto; border: 1px solid rgba(43,213,231,.16); border-radius: 7px; padding: 9px 10px; color: #8ee7ef; background: rgba(43,213,231,.06); font-size: 9px; font-weight: 750; }
+.topic-use-button:hover { background: rgba(43,213,231,.12); border-color: rgba(43,213,231,.36); }
+.topic-use-button span { font-size: 14px; }
+.topic-empty { grid-column: 1/-1; padding: 24px; text-align: center; color: #8ea1b7; font-size: 11px; border: 1px dashed var(--line); border-radius: 10px; }
+.prompt-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 11px; }
+.prompt-card details { margin: 2px 0 12px; color: #90a3b8; font-size: 9px; }
+.prompt-card summary { cursor: pointer; color: #83dfe8; font-weight: 700; padding: 7px 0; }
+.prompt-card pre { max-height: 230px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; padding: 11px; border-radius: 8px; background: #07111e; color: #a9bacd; font: 9px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace; }
+.prompt-card .button { align-self: flex-start; margin-top: auto; }
+.workflow-section > p { color: #91a5ba; font-size: 10px; line-height: 1.7; }
+.creator-checklist { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; margin-top: 14px; }
+.creator-checklist > div { display: flex; align-items: flex-start; gap: 10px; padding: 11px; background: rgba(255,255,255,.025); border: 1px solid rgba(149,173,204,.1); border-radius: 9px; }
+.creator-checklist span { color: var(--cyan); font-size: 9px; font-weight: 850; }
+.creator-checklist p { margin: 0; color: #9aacc0; font-size: 9px; line-height: 1.6; }
+.creator-copy-status { position: sticky; bottom: 10px; width: fit-content; max-width: 100%; margin: 14px auto 0; padding: 9px 13px; border: 1px solid rgba(43,213,231,.24); border-radius: 20px; background: #0c2635; color: #b4f0f2; font-size: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+.creator-kit-disclaimer { margin: 15px 2px 0; color: #71869c; font-size: 9px; line-height: 1.6; }
+@media (max-width: 1100px) { .brand-kit-grid, .topic-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 720px) {
+  .creator-kit-page { padding: 20px 14px 28px; }
+  .creator-kit-section { padding: 14px; margin-top: 14px; }
+  .creator-hero { padding: 22px 18px; }
+  .brand-kit-grid, .topic-grid, .prompt-grid, .creator-checklist { grid-template-columns: 1fr; }
+  .topic-toolbar { grid-template-columns: 1fr; }
+  .creator-hero-meta span { font-size: 7px; }
+}
