@@ -70,4 +70,6 @@ The application source is MIT licensed. Mediabunny is a separately licensed MPL-
 
 ## Status
 
-MVP development branch: \`feat/sochozara-studio-mvp\`.
+Production source branch: `main`.
+
+CI runs dependency-advisory checks, unit tests, a TypeScript/Vite production build and an HTTP smoke test of the built production preview. Cloudflare deployment identity and real Android microphone/MP4 codec behaviour still require release testing outside GitHub Actions.
