@@ -8,7 +8,7 @@ export type SceneTheme =
 export function getSceneTheme(scene: Pick<Scene, "title" | "caption" | "visualPrompt">): SceneTheme {
   const subject = (scene.title + " " + scene.caption + " " + scene.visualPrompt).toLowerCase();
   if (/stock market|share market|stock exchange|trading floor|investor|investment portfolio|initial public offering|\\bipo\\b|\\bnifty\\b|\\bsensex\\b|candlestick|order book|equity market|bull market|bear market|dividend/.test(subject)) return "finance";
-  if (/earth|planet|rotation|equator|globe|continent|world/.test(subject));
+  if (/earth|planet|rotation|equator|globe|continent|world/.test(subject)) return "earth";
   if (/space|galaxy|black hole|nebula|moon|mars|orbit|cosmos|astronaut|star/.test(subject)) return "space";
   if (/lightning|thunder|storm|rain(?!forest)|cloud|hurricane|cyclone|weather|wind|atmosphere|inertia|pressure/.test(subject)) return "weather";
   if (/ocean|sea|water|wave|tsunami|river|underwater|coral|iceberg/.test(subject)) return "ocean";
