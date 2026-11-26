@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
-import { generateStory, testGeminiConnection } from "./lib/ai";\nimport AIProviderConnections from "./components/AIProviderConnections";\nimport { hasAnySecondaryAIKey } from "./lib/ai-provider-session";
+import { generateStory, testGeminiConnection } from "./lib/ai";
+import AIProviderConnections from "./components/AIProviderConnections";
+import { hasAnySecondaryAIKey } from "./lib/ai-provider-session";
 import { deriveTopicFromScript, makeProject, parsePastedNarration, scenesFromScript } from "./lib/story";
 import { loadLatestProject, saveProject } from "./lib/storage";
 import { generateNarration } from "./lib/tts";
@@ -14,7 +16,8 @@ import { getEmbeddedImageSize, getEmbeddedVideoSize, getProjectMediaSize, isSupp
 import { MAX_PROJECT_BACKUP_BYTES, restoreProjectBackup } from "./lib/project-backup";
 import { getUnverifiedSceneMedia } from "./lib/video-generation";
 import { isExportAbortError } from "./lib/export-cancel";
-import { getVideoFileExtension } from "./lib/export-format";\nimport type { AIProvider } from "./lib/ai-provider-session";
+import { getVideoFileExtension } from "./lib/export-format";
+import type { AIProvider } from "./lib/ai-provider-session";
 import { clearGeminiSessionKey, getGeminiSessionHeaders, hasGeminiSessionKey, saveGeminiSessionKey } from "./lib/gemini-session";
 
 const initialProject = () => makeProject("Why do we see lightning before thunder?", "English", "9:16", 45);
@@ -97,10 +100,10 @@ export default function App() {
         // A key may be saved while the initial status request is still in flight.
         // Re-check session storage at response time so a stale "not configured"
         // response cannot overwrite the newly saved tab key.
-        if (active) setGeminiConfigured(hasGeminiSessionKey() || hasAnySecondaryAIKey() || Boolean(payload.configured));
+        if (active) setAiConfigured(hasGeminiSessionKey() || hasAnySecondaryAIKey() || Boolean(payload.configured));
       })
       .catch(() => {
-        if (active) setGeminiConfigured(false);
+        if (active) setAiConfigured(false);
       });
     return () => { active = false; };
   }, []);
@@ -217,7 +220,7 @@ export default function App() {
       saveGeminiSessionKey(geminiSessionKeyInput);
       setGeminiSessionKeyInput("");
       setGeminiSessionKeySaved(true);
-      setGeminiConfigured(true);
+      setAiConfigured(true);
       setGeminiTestResult(null);
       setNotice("Gemini key saved for this browser tab. Test the connection before generating a video.");
     } catch (error) {
@@ -228,17 +231,17 @@ export default function App() {
   function handleClearGeminiSessionKey() {
     clearGeminiSessionKey();
     setGeminiSessionKeySaved(false);
-    setGeminiConfigured(null);
+    setAiConfigured(null);
     setGeminiTestResult(null);
     setNotice("The Gemini key was removed from this tab session.");
     fetch("/api/ai/status", { cache: "no-store" })
       .then((response) => response.json())
       .then((payload: unknown) => {
         if (typeof payload === "object" && payload !== null && "configured" in payload) {
-          setGeminiConfigured(Boolean(payload.configured));
+          setAiConfigured(Boolean(payload.configured));
         }
       })
-      .catch(() => setGeminiConfigured(false));
+      .catch(() => setAiConfigured(false));
   }
 
   async function handleTestGemini() {
@@ -250,12 +253,12 @@ export default function App() {
     setNotice(testingMessage);
     try {
       const result = await testGeminiConnection();
-      setGeminiConfigured(true);
+      setAiConfigured(true);
       setGeminiTestResult({ status: "success", message: result });
       setNotice(result);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Gemini connection test failed.";
-      setGeminiConfigured(false);
+      setAiConfigured(false);
       setGeminiTestResult({ status: "error", message });
       setNotice(message);
     } finally {
@@ -318,7 +321,7 @@ export default function App() {
       setPlayhead(0);
       setIsPlaying(false);
       setGenerationSource(result.source);
-      setGeminiConfigured(true);
+      setAiConfigured(true);
       setNotice((result.fallbackNotice ? result.fallbackNotice + " " : "") + result.source + " created the story and scene direction. Verify factual claims before publishing.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Story generation failed.");
@@ -401,7 +404,7 @@ export default function App() {
       if (wouldExceedMediaLimit(audio.size, undefined, true)) return;
       const audioDataUrl = await fileToDataUrl(audio);
       updateProject({ voiceAudioDataUrl: audioDataUrl, voiceAudioName: "Gemini TTS · " + ttsVoice + ".wav" });
-      setGeminiConfigured(true);
+      setAiConfigured(true);
       setNotice("English Gemini narration generated and saved locally. Preview the WAV before exporting.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "AI narration generation failed.");
@@ -582,7 +585,7 @@ export default function App() {
         targetDuration: project.targetDuration,
         aspectRatio: project.aspectRatio,
       });
-      setGeminiConfigured(true);
+      setAiConfigured(true);
       const scenes: Scene[] = result.story.scenes.map((scene, index) => ({
         ...scene,
         id: globalThis.crypto?.randomUUID?.() ?? ("scene-" + Date.now() + "-" + index),
@@ -806,8 +809,8 @@ export default function App() {
                       placeholder={geminiSessionKeySaved ? "Key saved for this tab · enter a new key to replace it" : "Paste your Gemini API key"}
                     />
                     <div className="gemini-test-row">
-                      <span className={geminiConfigured ? "clip-status ready" : "clip-status"}>
-                        {geminiConfigured === null ? "CHECKING…" : geminiSessionKeySaved ? "TAB SESSION KEY SAVED" : geminiConfigured ? "SERVER KEY CONFIGURED" : "KEY REQUIRED"}
+                      <span className={aiConfigured ? "clip-status ready" : "clip-status"}>
+                        {aiConfigured === null ? "CHECKING…" : geminiSessionKeySaved ? "TAB SESSION KEY SAVED" : aiConfigured ? "SERVER KEY CONFIGURED" : "KEY REQUIRED"}
                       </span>
                       <button className="button button-primary" disabled={!geminiSessionKeyInput.trim()} onClick={handleSaveGeminiSessionKey}>Save key for this tab</button>
                       {geminiSessionKeySaved && <button className="text-button" onClick={handleClearGeminiSessionKey}>Remove saved key</button>}
@@ -835,7 +838,7 @@ export default function App() {
                   <AIProviderConnections onConnectionChange={() => setAiConfigured(hasGeminiSessionKey() || hasAnySecondaryAIKey())} />
                   <div className="button-row">
                     <button className="button button-primary" disabled={isGenerating} onClick={handleGenerateStory}>{isGenerating ? <><span className="spinner" /> Creating…</> : "✦ Generate story & scenes"}</button>
-                    <span className="microcopy">{geminiConfigured ? (geminiSessionKeySaved ? "Gemini · tab session" : "Gemini · server key") : "Save a Gemini key to continue"}</span>
+                    <span className="microcopy">{aiConfigured ? "AI provider ready · automatic fallback" : "Connect at least one AI provider"}</span>
                   </div>
                 </article>
 
@@ -906,7 +909,7 @@ export default function App() {
                     <button className="button button-primary export-button" onClick={handleGenerateFullVideo} disabled={isRendering || isGeneratingFullVideo || isGenerating || !project.topic.trim()}>{isGeneratingFullVideo ? <><span className="spinner" /> AI is creating your video…</> : "✦ Generate entire video with AI"}</button>
                     <button className="button button-secondary export-button" onClick={handleExport} disabled={isRendering || isGeneratingFullVideo || !project.scenes.length || !storyboardInSync || getUnverifiedSceneMedia(project.scenes).length > 0}>{isRendering ? <><span className="spinner" /> Rendering…</> : "Render current storyboard"}</button>
                     <span className="export-spec">{project.aspectRatio === "9:16" ? "720 × 1280" : "1280 × 720"} · H.264 · on-device</span>
-                    <small className="inhouse-hint">{geminiConfigured ? "Gemini AI writes the script and voice-over through the same-origin server function; scene graphics, soundtrack and video rendering run in-house." : "Save a Google AI Studio key in the Gemini connection panel, then test the connection to enable AI video generation."}</small>
+                    <small className="inhouse-hint">{aiConfigured ? "Connected AI providers create the script and storyboard with automatic fallback. Gemini remains the separate narration provider; AI video clips are added when free video credits are available." : "Connect at least one AI provider in the setup panel, then test its connection to enable story generation."}</small>
                     {getUnverifiedSceneMedia(project.scenes).length > 0 && <small className="export-blocked-note">Confirm usage rights for imported artwork or footage before generation.</small>}
                   </div>
                   {isRendering && <div className="render-progress"><div className="progress-track"><span style={{ width: (renderProgress * 100) + "%" }} /></div><div className="render-progress-meta"><small>{renderMessage} · {Math.round(renderProgress * 100)}%</small><button className="text-button cancel-render-button" onClick={handleCancelRender}>Cancel export</button></div></div>}
