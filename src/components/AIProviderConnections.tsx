@@ -114,7 +114,7 @@ export default function AIProviderConnections({ onConnectionChange }: Props) {
     <section className="ai-providers-section" aria-labelledby="alternate-ai-heading">
       <div className="ai-providers-heading">
         <div><span className="field-label">MORE FREE-TIER MODELS</span><strong id="alternate-ai-heading">Connect alternate AI providers</strong></div>
-        <span className="ai-provider-count">{Object.values(saved).filter(Boolean).length + (saved.cloudflare ? 0 : 0)} CONNECTED</span>
+        <span className="ai-provider-count">{Object.values(saved).filter(Boolean).length} CONNECTED</span>
       </div>
       <p className="ai-provider-intro">Save your own API keys for this browser tab. Story generation tries Gemini first, then uses these providers automatically when an earlier provider is unavailable.</p>
       <div className="ai-provider-grid">
