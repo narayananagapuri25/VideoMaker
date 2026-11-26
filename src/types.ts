@@ -24,6 +24,11 @@ export interface StudioProject {
   targetDuration: number;
   script: string;
   scenes: Scene[];
+  /** Last topic and script used to build this storyboard; stale drafts cannot be exported. */
+  storyboardSourceTopic?: string;
+  storyboardSourceScript?: string;
+  /** Research/editorial caveat shown in the editor, never included in narration. */
+  editorialNote?: string;
   voiceAudioDataUrl?: string;
   voiceAudioName?: string;
   updatedAt: number;
@@ -33,4 +38,5 @@ export interface GeneratedStory {
   title: string;
   script: string;
   scenes: Array<Omit<Scene, "id">>;
+  editorialNote?: string;
 }
