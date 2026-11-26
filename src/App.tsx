@@ -13,6 +13,7 @@ import type { AspectRatio, Language, Scene, StudioProject } from "./types";
 import { getEmbeddedImageSize, getEmbeddedVideoSize, getProjectMediaSize, isSupportedImageMimeType, MAX_NARRATION_AUDIO_BYTES, MAX_PROJECT_MEDIA_BYTES, MAX_SCENE_IMAGE_BYTES } from "./lib/media-data";
 import { MAX_PROJECT_BACKUP_BYTES, restoreProjectBackup } from "./lib/project-backup";
 import { getUnverifiedSceneMedia } from "./lib/video-generation";
+import { isExportAbortError } from "./lib/export-cancel";
 
 const initialProject = () => makeProject("Why do we see lightning before thunder?", "English", "9:16", 45);
 
@@ -58,6 +59,7 @@ export default function App() {
   const chunksRef = useRef<Blob[]>([]);
   const exportUrlRef = useRef("");
   const backupInputRef = useRef<HTMLInputElement | null>(null);
+  const renderAbortRef = useRef<AbortController | null>(null);
 
   const selectedScene = useMemo(
     () => project.scenes.find((scene) => scene.id === selectedSceneId) ?? project.scenes[0],
@@ -471,27 +473,41 @@ export default function App() {
       setNotice("Confirm usage rights for imported artwork or footage in: " + unverifiedAssets.join(", ") + ".");
       return;
     }
+    const abortController = new AbortController();
+    renderAbortRef.current = abortController;
     setIsPlaying(false);
     setIsRendering(true);
     setRenderProgress(0);
     setRenderMessage("Preparing the AI-directed scene sequence…");
-    setNotice("Rendering your complete video locally. The same scene-specific graphics used in the preview are being assembled into the MP4.");
+    setNotice("Rendering your complete video locally. You can cancel at any time; the incomplete MP4 will be discarded.");
     try {
       const { exportMp4 } = await import("./lib/renderer");
       const blob = await exportMp4(videoProject, ({ progress, message }) => {
         setRenderProgress(progress);
         setRenderMessage(message);
-      });
+      }, abortController.signal);
       if (exportUrlRef.current) URL.revokeObjectURL(exportUrlRef.current);
       const url = URL.createObjectURL(blob);
       exportUrlRef.current = url;
       setExportUrl(url);
       setNotice("Your complete video is ready. Preview it, then download the MP4.");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Video generation failed.");
+      if (abortController.signal.aborted || isExportAbortError(error)) {
+        setNotice("MP4 export canceled. Encoder resources were released and no incomplete download was saved.");
+      } else {
+        setNotice(error instanceof Error ? error.message : "Video generation failed.");
+      }
     } finally {
+      if (renderAbortRef.current === abortController) renderAbortRef.current = null;
       setIsRendering(false);
     }
+  }
+
+  function handleCancelRender() {
+    const controller = renderAbortRef.current;
+    if (!controller || controller.signal.aborted) return;
+    setNotice("Canceling MP4 export and releasing encoder resources…");
+    controller.abort();
   }
 
   async function handleExport() {
@@ -805,7 +821,7 @@ export default function App() {
                     <small className="inhouse-hint">{geminiConfigured ? "Gemini AI writes the script and voice-over through the secure server; scene graphics, soundtrack and MP4 rendering run in-house." : "The generator is ready, but the encrypted Cloudflare GEMINI_API_KEY secret must be configured once before AI generation can start."}</small>
                     {getUnverifiedSceneMedia(project.scenes).length > 0 && <small className="export-blocked-note">Confirm usage rights for imported artwork or footage before generation.</small>}
                   </div>
-                  {isRendering && <div className="render-progress"><div className="progress-track"><span style={{ width: (renderProgress * 100) + "%" }} /></div><small>{renderMessage} · {Math.round(renderProgress * 100)}%</small></div>}
+                  {isRendering && <div className="render-progress"><div className="progress-track"><span style={{ width: (renderProgress * 100) + "%" }} /></div><div className="render-progress-meta"><small>{renderMessage} · {Math.round(renderProgress * 100)}%</small><button className="text-button cancel-render-button" onClick={handleCancelRender}>Cancel export</button></div></div>}
                   {exportUrl && !isRendering && <div className="download-ready"><span>✓ MP4 ready</span><a className="button button-download" href={exportUrl} download={(project.title || "sochozara-video").toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".mp4"}>Download MP4 ↓</a></div>}
                 </article>
 

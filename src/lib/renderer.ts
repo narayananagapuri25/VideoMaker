@@ -11,24 +11,40 @@ import {
 import type { Scene, StudioProject } from "../types";
 import { getSceneVideoSrc } from "./stock-video";
 import { drawSceneFrame } from "./scene-visuals";
+import { createExportAbortError, throwIfExportAborted } from "./export-cancel";
 
 export interface ExportProgress {
   progress: number;
   message: string;
 }
 
-function loadImage(dataUrl: string): Promise<HTMLImageElement> {
+function loadImage(dataUrl: string, signal?: AbortSignal): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("One of the scene images could not be loaded."));
+    const cleanup = () => {
+      image.onload = null;
+      image.onerror = null;
+      signal?.removeEventListener("abort", abort);
+    };
+    const ready = () => { cleanup(); resolve(image); };
+    const failed = () => { cleanup(); reject(new Error("One of the scene images could not be loaded.")); };
+    const abort = () => {
+      cleanup();
+      image.src = "";
+      reject(createExportAbortError());
+    };
+    if (signal?.aborted) { abort(); return; }
+    signal?.addEventListener("abort", abort, { once: true });
+    image.onload = ready;
+    image.onerror = failed;
     image.src = dataUrl;
   });
 }
 
-async function loadSceneVideo(scene: Scene): Promise<HTMLVideoElement> {
+async function loadSceneVideo(scene: Scene, signal?: AbortSignal): Promise<HTMLVideoElement> {
   const source = getSceneVideoSrc(scene, "medium");
   if (!source) throw new Error("Scene “" + scene.title + "” has no video clip.");
+  throwIfExportAborted(signal);
   const video = document.createElement("video");
   video.muted = true;
   video.loop = true;
@@ -36,46 +52,87 @@ async function loadSceneVideo(scene: Scene): Promise<HTMLVideoElement> {
   video.preload = "auto";
   video.src = source;
   await new Promise<void>((resolve, reject) => {
-    const timer = window.setTimeout(() => reject(new Error("Timed out while loading video clip for “" + scene.title + "”.")), 30000);
+    const timer = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Timed out while loading video clip for “" + scene.title + "”."));
+    }, 30000);
     const cleanup = () => {
       window.clearTimeout(timer);
       video.removeEventListener("canplay", ready);
       video.removeEventListener("error", failed);
+      signal?.removeEventListener("abort", abort);
     };
     const ready = () => { cleanup(); resolve(); };
-    const failed = () => { cleanup(); reject(new Error("Could not load the video clip for “" + scene.title + "”. Check the Pixabay setup or replace the clip.")); };
+    const failed = () => {
+      cleanup();
+      reject(new Error("Could not load the video clip for “" + scene.title + "”. Check the Pixabay setup or replace the clip."));
+    };
+    const abort = () => {
+      cleanup();
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+      reject(createExportAbortError());
+    };
+    if (signal?.aborted) { abort(); return; }
     video.addEventListener("canplay", ready, { once: true });
     video.addEventListener("error", failed, { once: true });
+    signal?.addEventListener("abort", abort, { once: true });
     video.load();
     if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) ready();
   });
   return video;
 }
 
-function waitUntil(deadline: number): Promise<void> {
-  return new Promise((resolve) => {
-    const tick = () => {
-      if (performance.now() >= deadline) resolve();
-      else requestAnimationFrame(tick);
+function waitUntil(deadline: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let frame = 0;
+    const cleanup = () => {
+      if (frame) cancelAnimationFrame(frame);
+      signal?.removeEventListener("abort", abort);
     };
-    tick();
+    const abort = () => {
+      cleanup();
+      reject(createExportAbortError());
+    };
+    const tick = () => {
+      if (signal?.aborted) { abort(); return; }
+      if (performance.now() >= deadline) { cleanup(); resolve(); }
+      else frame = requestAnimationFrame(tick);
+    };
+    if (signal?.aborted) { abort(); return; }
+    signal?.addEventListener("abort", abort, { once: true });
+    frame = requestAnimationFrame(tick);
   });
 }
 
-function seekVideo(video: HTMLVideoElement, time: number): Promise<void> {
+function seekVideo(video: HTMLVideoElement, time: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     const target = Math.max(0, Math.min(time, Math.max(0, video.duration - 0.05)));
     if (Math.abs(video.currentTime - target) < 0.08) { resolve(); return; }
-    const timer = window.setTimeout(() => reject(new Error("Could not seek the selected scene video.")), 8000);
+    const timer = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Could not seek the selected scene video."));
+    }, 8000);
     const cleanup = () => {
       window.clearTimeout(timer);
       video.removeEventListener("seeked", ready);
       video.removeEventListener("error", failed);
+      signal?.removeEventListener("abort", abort);
     };
     const ready = () => { cleanup(); resolve(); };
-    const failed = () => { cleanup(); reject(new Error("The selected scene video could not be decoded.")); };
+    const failed = () => {
+      cleanup();
+      reject(new Error("The selected scene video could not be decoded."));
+    };
+    const abort = () => {
+      cleanup();
+      reject(createExportAbortError());
+    };
+    if (signal?.aborted) { abort(); return; }
     video.addEventListener("seeked", ready, { once: true });
     video.addEventListener("error", failed, { once: true });
+    signal?.addEventListener("abort", abort, { once: true });
     video.currentTime = target;
   });
 }
@@ -150,7 +207,9 @@ async function mixWithOriginalAmbientBed(
 export async function exportMp4(
   project: StudioProject,
   onProgress: (progress: ExportProgress) => void,
+  signal?: AbortSignal,
 ): Promise<Blob> {
+  throwIfExportAborted(signal);
   if (!project.scenes.length) throw new Error("Add at least one scene before exporting.");
   const unverifiedImages = project.scenes.filter((scene) => scene.imageDataUrl && !scene.imageCommercialUseConfirmed);
   if (unverifiedImages.length) throw new Error("Confirm image usage rights before exporting: " + unverifiedImages.map((scene) => scene.title).join(", ") + ".");
@@ -183,20 +242,39 @@ export async function exportMp4(
   onProgress({ progress: 0.02, message: "Preparing in-house animated scenes…" });
   const images = new Map<string, HTMLImageElement>();
   const videos = new Map<string, HTMLVideoElement>();
+  const releaseVideos = () => {
+    videos.forEach((video) => { video.pause(); video.removeAttribute("src"); video.load(); });
+    videos.clear();
+  };
   try {
     for (const scene of project.scenes) {
-      if (scene.imageDataUrl) images.set(scene.id, await loadImage(scene.imageDataUrl));
-      if (getSceneVideoSrc(scene)) videos.set(scene.id, await loadSceneVideo(scene));
+      if (scene.imageDataUrl) images.set(scene.id, await loadImage(scene.imageDataUrl, signal));
+      throwIfExportAborted(signal);
+      if (getSceneVideoSrc(scene)) videos.set(scene.id, await loadSceneVideo(scene, signal));
+      throwIfExportAborted(signal);
     }
   } catch (error) {
-    videos.forEach((video) => { video.pause(); video.removeAttribute("src"); video.load(); });
+    releaseVideos();
     throw error;
   }
 
   const format = new Mp4OutputFormat();
-  const videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), { width, height });
-  if (!videoCodec) {
-    throw new Error("This browser does not expose an MP4-compatible video encoder. Try Chrome on a desktop or another supported device.");
+  let videoCodec: Awaited<ReturnType<typeof getFirstEncodableVideoCodec>>;
+  let audioCodec: Awaited<ReturnType<typeof getFirstEncodableAudioCodec>>;
+  try {
+    videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), { width, height });
+    throwIfExportAborted(signal);
+    if (!videoCodec) {
+      throw new Error("This browser does not expose an MP4-compatible video encoder. Try Chrome on a desktop or another supported device.");
+    }
+    audioCodec = await getFirstEncodableAudioCodec(format.getSupportedAudioCodecs());
+    throwIfExportAborted(signal);
+    if (project.voiceAudioDataUrl && !audioCodec) {
+      throw new Error("This browser cannot encode AAC audio for an MP4 export.");
+    }
+  } catch (error) {
+    releaseVideos();
+    throw error;
   }
   const output = new Output({ format, target: new BufferTarget() });
   const videoSource = new CanvasSource(canvas, {
@@ -207,25 +285,28 @@ export async function exportMp4(
   output.addVideoTrack(videoSource, { frameRate: fps });
 
   let audioSource: AudioBufferSource | undefined;
-  const audioCodec = await getFirstEncodableAudioCodec(format.getSupportedAudioCodecs());
-  if (project.voiceAudioDataUrl && !audioCodec) {
-    throw new Error("This browser cannot encode AAC audio for an MP4 export.");
-  }
   if (audioCodec) {
     audioSource = new AudioBufferSource({ codec: audioCodec, quality: new Quality({ bitrate: 128_000 }) });
     output.addAudioTrack(audioSource);
   }
 
   output.setMetadataTags({ title: project.title || "SochoZara Studio", artist: "SochoZara" });
-  await output.start();
+  const cancelOutput = () => {
+    if (output.state === "started" || output.state === "finalizing") void output.cancel();
+  };
+  signal?.addEventListener("abort", cancelOutput);
   const totalFrames = Math.ceil(duration * fps);
   let activeSceneId = "";
   let activeVideo: HTMLVideoElement | undefined;
   const renderStartedAt = performance.now();
   try {
+    await output.start();
+    throwIfExportAborted(signal);
     for (let frame = 0; frame < totalFrames; frame += 1) {
+      throwIfExportAborted(signal);
       const time = frame / fps;
-      if (frame > 0) await waitUntil(renderStartedAt + time * 1000);
+      if (frame > 0) await waitUntil(renderStartedAt + time * 1000, signal);
+      throwIfExportAborted(signal);
       const current = sceneAtTime(project.scenes, time);
       const nextVideo = videos.get(current.scene.id);
       if (activeSceneId !== current.scene.id) {
@@ -234,7 +315,7 @@ export async function exportMp4(
         activeSceneId = current.scene.id;
         if (activeVideo) {
           const clipStart = Math.max(0, current.scene.videoClipStart || 0);
-          await seekVideo(activeVideo, clipStart);
+          await seekVideo(activeVideo, clipStart, signal);
           await activeVideo.play();
         }
       }
@@ -254,6 +335,7 @@ export async function exportMp4(
         duration,
       );
       await videoSource.add(time, 1 / fps);
+      throwIfExportAborted(signal);
       if (frame % 12 === 0 || frame === totalFrames - 1) {
         onProgress({
           progress: 0.05 + 0.88 * ((frame + 1) / totalFrames),
@@ -268,22 +350,32 @@ export async function exportMp4(
       const narrationBuffer = project.voiceAudioDataUrl
         ? await decodeAudio(project.voiceAudioDataUrl, duration)
         : undefined;
+      throwIfExportAborted(signal);
       const soundtrack = await mixWithOriginalAmbientBed(narrationBuffer, duration);
+      throwIfExportAborted(signal);
       await audioSource.add(soundtrack);
+      throwIfExportAborted(signal);
       audioSource.close();
     }
     onProgress({ progress: 0.97, message: "Finalising MP4…" });
+    throwIfExportAborted(signal);
     await output.finalize();
+    throwIfExportAborted(signal);
     const buffer = output.target.buffer;
     if (!buffer) throw new Error("The MP4 renderer completed without producing a file.");
     onProgress({ progress: 1, message: "Your in-house video is ready." });
     return new Blob([buffer], { type: "video/mp4" });
   } catch (error) {
     activeVideo?.pause();
-    videoSource.close();
-    audioSource?.close();
+    if (output.state !== "canceled" && output.state !== "finalized") {
+      await output.cancel().catch(() => undefined);
+    }
+    try { videoSource.close(); } catch { /* output cancellation may already have closed the source */ }
+    try { audioSource?.close(); } catch { /* output cancellation may already have closed the source */ }
+    if (signal?.aborted) throw createExportAbortError();
     throw error;
   } finally {
-    videos.forEach((video) => { video.pause(); video.removeAttribute("src"); video.load(); });
+    signal?.removeEventListener("abort", cancelOutput);
+    releaseVideos();
   }
 }
