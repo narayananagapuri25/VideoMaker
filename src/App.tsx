@@ -36,7 +36,7 @@ export default function App() {
   const [playhead, setPlayhead] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [visualProvider, setVisualProvider] = useState<"adobe-firefly" | "pexels" | "other">("adobe-firefly");
-  const [apiKey, setApiKey] = useState("");
+  const [geminiConfigured, setGeminiConfigured] = useState<boolean | null>(null);
   const [activeSection, setActiveSection] = useState<"studio" | "guide">("studio");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingFullVideo, setIsGeneratingFullVideo] = useState(false);
@@ -72,6 +72,23 @@ export default function App() {
     project.storyboardSourceAspectRatio === project.aspectRatio &&
     project.storyboardSourceLanguage === project.language;
   const handlePlaybackError = useCallback((message: string) => setNotice(message), []);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/ai/status", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Gemini server status is unavailable.");
+        const payload: unknown = await response.json();
+        if (typeof payload !== "object" || payload === null || !("configured" in payload)) {
+          throw new Error("Gemini server status response is invalid.");
+        }
+        if (active) setGeminiConfigured(Boolean(payload.configured));
+      })
+      .catch(() => {
+        if (active) setGeminiConfigured(false);
+      });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -180,16 +197,14 @@ export default function App() {
   }
 
   async function handleTestGemini() {
-    if (!apiKey.trim()) {
-      setNotice("Paste your Google AI Studio API key before testing Gemini.");
-      return;
-    }
     setIsTestingGemini(true);
-    setNotice("Checking the Gemini API key and model access with a small test request. Your video topic and script are not sent.");
+    setNotice("Checking the encrypted Gemini key stored on the Cloudflare server…");
     try {
-      const result = await testGeminiConnection(apiKey);
+      const result = await testGeminiConnection();
+      setGeminiConfigured(true);
       setNotice(result);
     } catch (error) {
+      setGeminiConfigured(false);
       setNotice(error instanceof Error ? error.message : "Gemini connection test failed.");
     } finally {
       setIsTestingGemini(false);
@@ -224,14 +239,13 @@ export default function App() {
       return;
     }
     setIsGenerating(true);
-    setNotice(apiKey.trim() ? "Generating a story with Gemini…" : "Creating a topic-specific offline starter draft…");
+    setNotice("Sending your topic to the secure Gemini server for story and scene direction…");
     try {
       const result = await generateStory({
         topic: project.topic,
         language: project.language,
         targetDuration: project.targetDuration,
         aspectRatio: project.aspectRatio,
-        apiKey,
       });
       const scenes = result.story.scenes.map((scene) => ({
         ...scene,
@@ -252,9 +266,8 @@ export default function App() {
       setPlayhead(0);
       setIsPlaying(false);
       setGenerationSource(result.source);
-      setNotice(result.source === "gemini"
-        ? "AI story and storyboard created. Verify all factual claims before publishing."
-        : "Offline starter created. Add a Gemini API key for AI-generated scripts; this draft is not fact-checked.");
+      setGeminiConfigured(true);
+      setNotice("Gemini created the story and scene direction. Verify factual claims before publishing.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Story generation failed.");
     } finally {
@@ -324,23 +337,20 @@ export default function App() {
   }
 
   async function handleGenerateAiVoice() {
-    if (!apiKey.trim()) {
-      setNotice("Enter your Gemini API key in the connection field above before generating AI narration.");
-      return;
-    }
     if (!project.script.trim()) {
       setNotice("Add narration text before generating AI voice.");
       return;
     }
     setIsGeneratingVoice(true);
-    setNotice("Generating English narration with Gemini 3.8 Flash TTS…");
+    setNotice("Step 1/1 · Sending your script to the secure Gemini narration service…");
     try {
-      const audio = await generateNarration(project.script, apiKey, ttsVoice, "English");
+      const audio = await generateNarration(project.script, ttsVoice, "English");
       if (audio.size > MAX_NARRATION_AUDIO_BYTES) throw new Error("Generated narration is larger than 30 MB. Use a shorter script.");
       if (wouldExceedMediaLimit(audio.size, undefined, true)) return;
       const audioDataUrl = await fileToDataUrl(audio);
       updateProject({ voiceAudioDataUrl: audioDataUrl, voiceAudioName: "Gemini TTS · " + ttsVoice + ".wav" });
-      setNotice("English Gemini narration generated and saved locally. Preview the WAV and check pronunciation before exporting.");
+      setGeminiConfigured(true);
+      setNotice("English Gemini narration generated and saved locally. Preview the WAV before exporting.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "AI narration generation failed.");
     } finally {
@@ -494,38 +504,29 @@ export default function App() {
       setNotice("Enter a question or topic before generating your video.");
       return;
     }
-    if (!apiKey.trim()) {
-      setNotice("Connect Gemini with a Google AI Studio API key first. The AI script and generated narration use your Gemini free-tier quota; graphics and MP4 rendering are free on this device.");
-      return;
-    }
+    if (isGeneratingFullVideo || isRendering) return;
     setIsGeneratingFullVideo(true);
-    setNotice(apiKey.trim()
-      ? "AI director is writing the story, designing every scene and preparing your narration…"
-      : "Creating a topic-specific offline starter and its scene graphics. Add a Gemini key for AI-written narration and generated voice.");
+    setNotice("Step 1/4 · Gemini is writing the story and directing every scene…");
     try {
       const result = await generateStory({
         topic,
         language: "English",
         targetDuration: project.targetDuration,
         aspectRatio: project.aspectRatio,
-        apiKey,
       });
+      setGeminiConfigured(true);
       const scenes: Scene[] = result.story.scenes.map((scene, index) => ({
         ...scene,
         id: globalThis.crypto?.randomUUID?.() ?? ("scene-" + Date.now() + "-" + index),
       }));
-      let voiceAudioDataUrl: string | undefined;
-      let voiceAudioName: string | undefined;
-      if (apiKey.trim()) {
-        setNotice("The AI director has finished the storyboard. Gemini is generating the English documentary narration…");
-        const audio = await generateNarration(result.story.script, apiKey, ttsVoice, "English");
-        if (audio.size > MAX_NARRATION_AUDIO_BYTES) {
-          throw new Error("Generated narration is larger than 30 MB. Shorten the video and try again.");
-        }
-        if (wouldExceedMediaLimit(audio.size, undefined, true)) return;
-        voiceAudioDataUrl = await fileToDataUrl(audio);
-        voiceAudioName = "Gemini TTS · " + ttsVoice + ".wav";
+      setNotice("Step 2/4 · Gemini has directed " + scenes.length + " scenes. Preparing English documentary narration…");
+      const audio = await generateNarration(result.story.script, ttsVoice, "English");
+      if (audio.size > MAX_NARRATION_AUDIO_BYTES) {
+        throw new Error("Generated narration is larger than 30 MB. Shorten the video and try again.");
       }
+      if (wouldExceedMediaLimit(audio.size, undefined, true)) return;
+      setNotice("Step 3/4 · Voice-over ready. Preparing the motion-graphics timeline and original soundtrack…");
+      const voiceAudioDataUrl = await fileToDataUrl(audio);
       const generatedProject: StudioProject = {
         ...project,
         title: result.story.title,
@@ -535,7 +536,7 @@ export default function App() {
         scenes,
         editorialNote: result.story.editorialNote,
         voiceAudioDataUrl,
-        voiceAudioName,
+        voiceAudioName: "Gemini TTS · " + ttsVoice + ".wav",
         storyboardSourceTopic: topic,
         storyboardSourceScript: result.story.script,
         storyboardSourceTargetDuration: project.targetDuration,
@@ -547,13 +548,12 @@ export default function App() {
       setSelectedSceneId(scenes[0]?.id ?? "");
       setPlayhead(0);
       setIsPlaying(false);
-      setGenerationSource(result.source);
-      setNotice(apiKey.trim()
-        ? "AI story, scene art direction and English narration are ready. Starting local video assembly…"
-        : "Offline stock-market/story draft and scene-specific graphics are ready. Starting local video assembly without narration…");
+      setGenerationSource("gemini");
+      setNotice("Step 4/4 · Story, scenes and voice are ready. Rendering the MP4 on this device…");
       await renderProject(generatedProject);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Full video generation failed.");
+      const message = error instanceof Error ? error.message : "Full video generation failed.";
+      setNotice("Video generation stopped: " + message);
     } finally {
       setIsGeneratingFullVideo(false);
     }
@@ -722,17 +722,16 @@ export default function App() {
                     <div><label className="field-label" htmlFor="duration">TARGET LENGTH</label><select id="duration" value={project.targetDuration} onChange={(event) => updateProject({ targetDuration: Number(event.target.value) })}><option value={30}>30 seconds</option><option value={45}>45 seconds</option><option value={60}>60 seconds</option><option value={90}>90 seconds</option><option value={300}>5 minutes</option><option value={480}>8 minutes</option></select></div>
                   </div>
                   <div className="ai-key-box">
-                    <div className="key-title"><span>✦</span><strong>Optional Gemini AI connection</strong><em>GEMINI 4 HYDROGEN</em></div>
-                    <input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Paste your Google AI Studio API key" autoComplete="off" />
+                    <div className="key-title"><span>✦</span><strong>Secure Gemini AI connection</strong><em>SERVER SIDE</em></div>
                     <div className="gemini-test-row">
-                      <button className="button button-secondary" disabled={!apiKey.trim() || isTestingGemini || isGenerating} onClick={handleTestGemini}>{isTestingGemini ? <><span className="spinner" /> Testing…</> : "Test Gemini connection"}</button>
-                      <span className="microcopy">Uses a tiny test prompt, not your video topic</span>
+                      <span className={geminiConfigured ? "clip-status ready" : "clip-status"}>{geminiConfigured === null ? "CHECKING SERVER…" : geminiConfigured ? "SERVER KEY CONFIGURED" : "SERVER KEY NOT CONFIGURED"}</span>
+                      <button className="button button-secondary" disabled={isTestingGemini || isGenerating || isGeneratingFullVideo} onClick={handleTestGemini}>{isTestingGemini ? <><span className="spinner" /> Testing…</> : "Test secure Gemini connection"}</button>
                     </div>
-                    <small>Key stays in memory only and is not saved to your project. Gemini model access and free-tier quota depend on your Google AI Studio project. Check current model availability and limits before generating. Free-tier prompts may be used to improve Google products. Never submit private information. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Get a key ↗</a></small>
+                    <small>The Gemini key is stored once as an encrypted Cloudflare Pages secret. It is never entered into this page, saved in your browser, sent to GitHub or included in the JavaScript bundle. Configure GEMINI_API_KEY in Cloudflare Pages → Settings → Variables and Secrets, then redeploy. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Google AI Studio ↗</a></small>
                   </div>
                   <div className="button-row">
                     <button className="button button-primary" disabled={isGenerating} onClick={handleGenerateStory}>{isGenerating ? <><span className="spinner" /> Creating…</> : "✦ Generate story & scenes"}</button>
-                    <span className="microcopy">{apiKey.trim() ? "Gemini AI" : "Offline starter · no key needed"}</span>
+                    <span className="microcopy">{geminiConfigured ? "Gemini · secure server" : "Gemini server setup required"}</span>
                   </div>
                 </article>
 
@@ -763,7 +762,7 @@ export default function App() {
                   )}
                   <div className="tts-controls">
                     <div><label className="field-label">GEMINI AI VOICE</label><select value={ttsVoice} onChange={(event) => setTtsVoice(event.target.value)}><option value="Kore">Kore · warm documentary</option><option value="Aoede">Aoede · expressive</option><option value="Puck">Puck · energetic</option><option value="Charon">Charon · deep narrator</option><option value="Fenrir">Fenrir · bold</option><option value="Zephyr">Zephyr · bright</option></select></div>
-                    <button className="button button-primary tts-button" disabled={isGeneratingVoice || !apiKey.trim() || !project.script.trim()} onClick={handleGenerateAiVoice}>{isGeneratingVoice ? <><span className="spinner" /> Generating voice…</> : project.voiceAudioDataUrl ? "↻ Regenerate Gemini narration" : "✦ Generate Gemini narration"}</button>
+                    <button className="button button-primary tts-button" disabled={isGeneratingVoice || !project.script.trim()} onClick={handleGenerateAiVoice}>{isGeneratingVoice ? <><span className="spinner" /> Generating voice…</> : project.voiceAudioDataUrl ? "↻ Regenerate Gemini narration" : "✦ Generate Gemini narration"}</button>
                   </div>
                   <small className="tts-disclaimer">Gemini 3.8 Flash TTS · English (India) narration · WAV audio. Generated audio is saved in this browser project and embedded in the MP4. Free-tier use is subject to your Google AI Studio project's quota and data-use terms.</small>
                   <div className="button-row audio-actions">
@@ -800,10 +799,10 @@ export default function App() {
                       <span className="inhouse-free-tag">FREE</span>
                     </div>
                     <p>Enter a question and let the AI director write the story, plan a different visual for every scene, generate English narration and assemble the MP4. Rendering and graphics run free on this device.</p>
-                    <button className="button button-primary export-button" onClick={handleGenerateFullVideo} disabled={isRendering || isGeneratingFullVideo || isGenerating || !apiKey.trim() || !project.topic.trim()}>{isGeneratingFullVideo ? <><span className="spinner" /> AI is creating your video…</> : "✦ Generate entire video with AI"}</button>
+                    <button className="button button-primary export-button" onClick={handleGenerateFullVideo} disabled={isRendering || isGeneratingFullVideo || isGenerating || !project.topic.trim()}>{isGeneratingFullVideo ? <><span className="spinner" /> AI is creating your video…</> : "✦ Generate entire video with AI"}</button>
                     <button className="button button-secondary export-button" onClick={handleExport} disabled={isRendering || isGeneratingFullVideo || !project.scenes.length || !storyboardInSync || getUnverifiedSceneMedia(project.scenes).length > 0}>{isRendering ? <><span className="spinner" /> Rendering…</> : "Render current storyboard"}</button>
                     <span className="export-spec">{project.aspectRatio === "9:16" ? "720 × 1280" : "1280 × 720"} · H.264 · on-device</span>
-                    <small className="inhouse-hint">{apiKey.trim() ? "Gemini AI writes the script and generates the voice; the scene graphics and MP4 renderer are in-house." : "Without a Gemini key, topic-specific offline stories can still be rendered. AI-written stories and generated narration need a Google AI Studio key."}</small>
+                    <small className="inhouse-hint">{geminiConfigured ? "Gemini AI writes the script and voice-over through the secure server; scene graphics, soundtrack and MP4 rendering run in-house." : "The generator is ready, but the encrypted Cloudflare GEMINI_API_KEY secret must be configured once before AI generation can start."}</small>
                     {getUnverifiedSceneMedia(project.scenes).length > 0 && <small className="export-blocked-note">Confirm usage rights for imported artwork or footage before generation.</small>}
                   </div>
                   {isRendering && <div className="render-progress"><div className="progress-track"><span style={{ width: (renderProgress * 100) + "%" }} /></div><small>{renderMessage} · {Math.round(renderProgress * 100)}%</small></div>}
