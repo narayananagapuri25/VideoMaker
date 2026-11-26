@@ -23,6 +23,43 @@ function interactionResponse(story: unknown) {
   };
 }
 
+describe("Gemini connection diagnostics", () => {
+  it("checks model and key access with a stateless minimal request", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      steps: [{
+        type: "model_output",
+        content: [{ type: "text", text: "SOCHOZARA_GEMINI_OK" }],
+      }],
+      status: "completed",
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+
+    const result = await testGeminiConnection(" sample-api-key ");
+
+    expect(result).toContain("Gemini connection successful");
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/interactions");
+    expect(new Headers(init?.headers).get("x-goog-api-key")).toBe("sample-api-key");
+    const request = JSON.parse(String(init?.body));
+    expect(request.model).toBe("gemini-4-hydrogen");
+    expect(request.store).toBe(false);
+    expect(request.input).toContain("SOCHOZARA_GEMINI_OK");
+  });
+
+  it("requires a key without making a network request", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    await expect(testGeminiConnection("  ")).rejects.toThrow(/paste your google ai studio api key/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("explains quota errors from the model access check", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      error: { code: 429, message: "Quota exceeded." },
+    }), { status: 429 }));
+    await expect(testGeminiConnection("sample-api-key")).rejects.toThrow(/quota or rate limit reached (429)/i);
+  });
+});
+
 describe("AI story generation", () => {
   it("uses the offline story path without sending a network request", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
