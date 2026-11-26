@@ -9,6 +9,7 @@ import {
   getFirstEncodableVideoCodec,
 } from "mediabunny";
 import type { Scene, StudioProject } from "../types";
+import { getSceneVideoSrc } from "./stock-video";
 
 export interface ExportProgress {
   progress: number;
@@ -21,6 +22,60 @@ function loadImage(dataUrl: string): Promise<HTMLImageElement> {
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error("One of the scene images could not be loaded."));
     image.src = dataUrl;
+  });
+}
+
+async function loadSceneVideo(scene: Scene): Promise<HTMLVideoElement> {
+  const source = getSceneVideoSrc(scene);
+  if (!source) throw new Error("Scene “" + scene.title + "” has no video clip.");
+  const video = document.createElement("video");
+  video.muted = true;
+  video.loop = true;
+  video.playsInline = true;
+  video.preload = "auto";
+  video.src = source;
+  await new Promise<void>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error("Timed out while loading video clip for “" + scene.title + "”.")), 30000);
+    const cleanup = () => {
+      window.clearTimeout(timer);
+      video.removeEventListener("canplay", ready);
+      video.removeEventListener("error", failed);
+    };
+    const ready = () => { cleanup(); resolve(); };
+    const failed = () => { cleanup(); reject(new Error("Could not load the video clip for “" + scene.title + "”. Check the Pixabay setup or replace the clip.")); };
+    video.addEventListener("canplay", ready, { once: true });
+    video.addEventListener("error", failed, { once: true });
+    video.load();
+    if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) ready();
+  });
+  return video;
+}
+
+function waitUntil(deadline: number): Promise<void> {
+  return new Promise((resolve) => {
+    const tick = () => {
+      if (performance.now() >= deadline) resolve();
+      else requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
+
+function seekVideo(video: HTMLVideoElement, time: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const target = Math.max(0, Math.min(time, Math.max(0, video.duration - 0.05)));
+    if (Math.abs(video.currentTime - target) < 0.08) { resolve(); return; }
+    const timer = window.setTimeout(() => reject(new Error("Could not seek the selected scene video.")), 8000);
+    const cleanup = () => {
+      window.clearTimeout(timer);
+      video.removeEventListener("seeked", ready);
+      video.removeEventListener("error", failed);
+    };
+    const ready = () => { cleanup(); resolve(); };
+    const failed = () => { cleanup(); reject(new Error("The selected scene video could not be decoded.")); };
+    video.addEventListener("seeked", ready, { once: true });
+    video.addEventListener("error", failed, { once: true });
+    video.currentTime = target;
   });
 }
 
@@ -279,6 +334,7 @@ export function drawSceneFrame(
   height: number,
   scene: Scene,
   image: HTMLImageElement | undefined,
+  video: HTMLVideoElement | undefined,
   elapsed: number,
   duration: number,
   sceneIndex: number,
@@ -293,7 +349,14 @@ export function drawSceneFrame(
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, width, height);
 
-  if (image) {
+  if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+    const scale = Math.max(width / video.videoWidth, height / video.videoHeight) * (1.025 + progress * 0.025);
+    const drawWidth = video.videoWidth * scale;
+    const drawHeight = video.videoHeight * scale;
+    ctx.save();
+    ctx.drawImage(video, (width - drawWidth) / 2 + drift, (height - drawHeight) / 2, drawWidth, drawHeight);
+    ctx.restore();
+  } else if (image) {
     const scale = Math.max(width / image.width, height / image.height) * (1.04 + progress * 0.045);
     const drawWidth = image.width * scale;
     const drawHeight = image.height * scale;
@@ -316,7 +379,7 @@ export function drawSceneFrame(
     ctx.restore();
   }
 
-  drawSceneMotif(ctx, width, height, scene, elapsed);
+  if (!video) drawSceneMotif(ctx, width, height, scene, elapsed);
 
   const overlay = ctx.createLinearGradient(0, 0, 0, height);
   overlay.addColorStop(0, "rgba(3,9,18,.50)");
@@ -350,6 +413,12 @@ export function drawSceneFrame(
   ctx.font = "500 " + Math.round(width * 0.032) + "px Arial";
   const captionY = height * 0.88;
   captionLines.forEach((line, index) => ctx.fillText(line, width * 0.075, captionY + index * height * 0.042));
+
+  if (scene.videoClipAuthor) {
+    ctx.fillStyle = "rgba(246,249,252,.72)";
+    ctx.font = "500 " + Math.round(width * 0.016) + "px Arial";
+    ctx.fillText("FOOTAGE: " + scene.videoClipAuthor + " · PIXABAY", width * 0.075, height * 0.94);
+  }
 
   const barY = height * 0.965;
   ctx.fillStyle = "rgba(255,255,255,.22)";
@@ -392,6 +461,9 @@ export async function exportMp4(
   onProgress: (progress: ExportProgress) => void,
 ): Promise<Blob> {
   if (!project.scenes.length) throw new Error("Add at least one scene before exporting.");
+  const missingVideo = project.scenes.filter((scene) => !getSceneVideoSrc(scene));
+  if (missingVideo.length) throw new Error("Add real video footage to every scene before exporting: " + missingVideo.map((scene) => scene.title).join(", ") + ".");
+  if (!project.voiceAudioDataUrl) throw new Error("Add a narration audio track before exporting. Device voice preview is not included in MP4 files.");
   if (project.scenes.length > 80) throw new Error("A project can contain up to 80 scenes. Split this video into smaller parts.");
   if (project.scenes.some((scene) => !Number.isFinite(scene.duration) || scene.duration <= 0 || scene.duration > 90)) {
     throw new Error("Every scene must have a valid duration between 1 and 90 seconds.");
@@ -414,10 +486,17 @@ export async function exportMp4(
   const context = canvas.getContext("2d", { alpha: false });
   if (!context) throw new Error("Could not create the video rendering canvas.");
 
-  onProgress({ progress: 0.02, message: "Preparing scene artwork…" });
+  onProgress({ progress: 0.02, message: "Preparing scene footage…" });
   const images = new Map<string, HTMLImageElement>();
-  for (const scene of project.scenes) {
-    if (scene.imageDataUrl) images.set(scene.id, await loadImage(scene.imageDataUrl));
+  const videos = new Map<string, HTMLVideoElement>();
+  try {
+    for (const scene of project.scenes) {
+      if (scene.imageDataUrl) images.set(scene.id, await loadImage(scene.imageDataUrl));
+      videos.set(scene.id, await loadSceneVideo(scene));
+    }
+  } catch (error) {
+    videos.forEach((video) => { video.pause(); video.removeAttribute("src"); video.load(); });
+    throw error;
   }
 
   const format = new Mp4OutputFormat();
@@ -444,16 +523,31 @@ export async function exportMp4(
   output.setMetadataTags({ title: project.title || "SochoZara Studio", artist: "SochoZara" });
   await output.start();
   const totalFrames = Math.ceil(duration * fps);
+  let activeSceneId = "";
+  let activeVideo: HTMLVideoElement | undefined;
+  const renderStartedAt = performance.now();
   try {
     for (let frame = 0; frame < totalFrames; frame += 1) {
       const time = frame / fps;
+      if (frame > 0) await waitUntil(renderStartedAt + time * 1000);
       const current = sceneAtTime(project.scenes, time);
+      const nextVideo = videos.get(current.scene.id);
+      if (nextVideo && activeSceneId !== current.scene.id) {
+        activeVideo?.pause();
+        const clipStart = Math.max(0, current.scene.videoClipStart || 0);
+        await seekVideo(nextVideo, clipStart);
+        activeVideo = nextVideo;
+        activeSceneId = current.scene.id;
+        await activeVideo.play();
+      }
+      if (activeVideo && activeVideo.paused) await activeVideo.play();
       drawSceneFrame(
         context,
         width,
         height,
         current.scene,
         images.get(current.scene.id),
+        activeVideo,
         current.offset,
         current.scene.duration,
         current.index,
@@ -463,10 +557,11 @@ export async function exportMp4(
       if (frame % 12 === 0 || frame === totalFrames - 1) {
         onProgress({
           progress: 0.05 + 0.88 * ((frame + 1) / totalFrames),
-          message: "Rendering frame " + (frame + 1) + " of " + totalFrames + "…",
+          message: "Rendering real footage · frame " + (frame + 1) + " of " + totalFrames + "…",
         });
       }
     }
+    activeVideo?.pause();
     videoSource.close();
     if (audioSource && project.voiceAudioDataUrl) {
       onProgress({ progress: 0.94, message: "Adding narration audio…" });
@@ -481,8 +576,11 @@ export async function exportMp4(
     onProgress({ progress: 1, message: "Your video is ready." });
     return new Blob([buffer], { type: "video/mp4" });
   } catch (error) {
+    activeVideo?.pause();
     videoSource.close();
     audioSource?.close();
     throw error;
+  } finally {
+    videos.forEach((video) => { video.pause(); video.removeAttribute("src"); video.load(); });
   }
 }
