@@ -142,6 +142,9 @@ select { appearance: auto; }
 .progress-track { height: 5px; border-radius: 10px; background: rgba(255,255,255,.08); overflow: hidden; }
 .progress-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,var(--cyan),var(--orange)); transition: width .15s ease; }
 .render-progress small { display: block; margin-top: 7px; color: #90a2b7; font-size: 9px; }
+.render-progress-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cancel-render-button { color: #f0a6a6; flex: 0 0 auto; }
+.cancel-render-button:hover { color: #ffd0d0; }
 .download-ready { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; border-top: 1px solid var(--line); padding-top: 12px; color: #60d9ac; font-size: 10px; font-weight: 700; gap: 10px; }
 .button-download { background: rgba(53,211,154,.13); color: #a4f4d4; border-color: rgba(53,211,154,.25); }
 .scene-panel { padding-bottom: 14px; }
