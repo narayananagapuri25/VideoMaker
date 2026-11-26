@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { AspectRatio, Scene } from "../types";
 import { getSceneAtTime, getSceneStartTime, getTimelineDuration } from "../lib/timeline";
 
@@ -200,6 +200,7 @@ export default function PlaybackTimeline({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const imagesRef = useRef<Map<string, HTMLImageElement>>(new Map());
+  const [imageVersion, setImageVersion] = useState(0);
   const playheadRef = useRef(playhead);
   const selectedRef = useRef(selectedSceneId);
   const rafRef = useRef<number | null>(null);
@@ -216,10 +217,11 @@ export default function PlaybackTimeline({
 
   useEffect(() => {
     const next = new Map<string, HTMLImageElement>();
+    imagesRef.current = next;
     for (const scene of scenes) {
       if (!scene.imageDataUrl) continue;
       const image = new Image();
-      image.onload = () => { next.set(scene.id, image); imagesRef.current = new Map(next); };
+      image.onload = () => { next.set(scene.id, image); imagesRef.current = new Map(next); setImageVersion((version) => version + 1); };
       image.src = scene.imageDataUrl;
     }
     imagesRef.current = next;
@@ -236,7 +238,7 @@ export default function PlaybackTimeline({
     if (position) {
       drawFrame(ctx, width, height, position.scene, imagesRef.current.get(position.scene.id), position.offset, position.scene.duration, position.index, scenes.length, playheadRef.current, totalDuration);
     }
-  }, [width, height, scenes, playhead, totalDuration]);
+  }, [width, height, scenes, playhead, totalDuration, imageVersion]);
 
   useEffect(() => {
     if (!isPlaying) {
