@@ -5,8 +5,8 @@ export type SceneTheme =
   | "space" | "earth" | "weather" | "ocean" | "city"
   | "technology" | "history" | "nature" | "science" | "finance" | "generic";
 
-export function getSceneTheme(scene: Pick<Scene, "title" | "caption" | "visualPrompt">): SceneTheme {
-  const subject = (scene.title + " " + scene.caption + " " + scene.visualPrompt).toLowerCase();
+export function getSceneTheme(scene: Pick<Scene, "title" | "caption" | "visualPrompt" | "visualPlan">): SceneTheme {
+  const subject = (scene.title + " " + scene.caption + " " + scene.visualPrompt + " " + (scene.visualPlan?.subject ?? "")).toLowerCase();
   if (/stock market|share market|stock exchange|trading floor|investor|investment portfolio|initial public offering|\\bipo\\b|\\bnifty\\b|\\bsensex\\b|candlestick|order book|equity market|bull market|bear market|dividend/.test(subject)) return "finance";
   if (/earth|planet|rotation|equator|globe|continent|world/.test(subject)) return "earth";
   if (/space|galaxy|black hole|nebula|moon|mars|orbit|cosmos|astronaut|star/.test(subject)) return "space";
