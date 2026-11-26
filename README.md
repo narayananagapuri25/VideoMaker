@@ -9,6 +9,9 @@ The first milestone is designed for a single creator: enter a topic, build a Hin
 - Responsive React + TypeScript video studio, installable as an Android-friendly PWA with a small offline app shell.
 - Hinglish, Hindi, English and Telugu project settings.
 - Offline starter scripts and scene plans.
+- Channel launch kit with SochoZara positioning, channel descriptions, logo and banner direction, a publishing rhythm and a practical quality checklist.
+- Searchable library of 30 Hinglish-ready video topics that can be loaded directly into the editor.
+- Reusable AI prompt templates for Shorts, long-form explainers, fact-check planning and motion storyboards.
 - Optional Gemini 3.8 Flash story/storyboard generation using a user-provided API key.
 - Scene-by-scene editing for titles, narration, captions, prompts and durations.
 - A live playback timeline with play/pause, scrubbing, scene segments and narration sync.
