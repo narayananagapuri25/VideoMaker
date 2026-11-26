@@ -32,14 +32,13 @@ export async function providerRequest<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<{ response: Response; payload: T | null }> {
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/json");
+  headers.set("Authorization", "Bearer " + key);
+  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   const response = await fetch("https://api.magichour.ai" + path, {
     ...init,
-    headers: {
-      Accept: "application/json",
-      Authorization: "Bearer " + key,
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
-      ...init.headers,
-    },
+    headers,
     signal: AbortSignal.timeout(30_000),
   });
   let payload: T | null = null;
