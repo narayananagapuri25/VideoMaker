@@ -1,4 +1,5 @@
 import type { Language } from "../types";
+import { MAX_NARRATION_AUDIO_BYTES } from "./media-data";
 
 interface TtsResponse {
   output_audio?: { data?: string; mime_type?: string };
@@ -8,13 +9,43 @@ interface TtsResponse {
   }>;
 }
 
+const REQUEST_TIMEOUT_MS = 120_000;
+const MAX_TRANSCRIPT_LENGTH = 26_000;
+
 function decodeBase64Audio(encoded: string, mimeType: string): Blob {
-  const binary = atob(encoded);
+  if (encoded.length > Math.ceil(MAX_NARRATION_AUDIO_BYTES * 4 / 3) + 4) {
+    throw new Error("Generated narration is larger than 30 MB. Use a shorter script.");
+  }
+  let binary: string;
+  try {
+    binary = atob(encoded);
+  } catch {
+    throw new Error("Gemini returned an invalid audio payload. Please retry.");
+  }
+  if (!binary.length) throw new Error("Gemini returned an empty audio file. Please retry.");
+  if (binary.length > MAX_NARRATION_AUDIO_BYTES) {
+    throw new Error("Generated narration is larger than 30 MB. Use a shorter script.");
+  }
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index += 1) {
     bytes[index] = binary.charCodeAt(index);
   }
   return new Blob([bytes], { type: mimeType || "audio/wav" });
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = globalThis.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error("Gemini voice generation timed out. Try a shorter script and generate again.");
+    }
+    throw error;
+  } finally {
+    globalThis.clearTimeout(timeout);
+  }
 }
 
 export async function generateNarration(
@@ -26,7 +57,7 @@ export async function generateNarration(
   const transcript = script.trim();
   if (!transcript) throw new Error("Add narration text before generating speech.");
   if (!apiKey.trim()) throw new Error("Enter your Gemini API key first.");
-  if (transcript.length > 26000) {
+  if (transcript.length > MAX_TRANSCRIPT_LENGTH) {
     throw new Error("This narration is too long for one request. Split it into shorter sections.");
   }
 
@@ -38,7 +69,7 @@ export async function generateNarration(
         ? "Clear natural Telugu pronunciation with a warm, expressive delivery."
         : "Clear Indian English pronunciation with natural pacing.";
 
-  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+  const response = await fetchWithTimeout("https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -66,10 +97,15 @@ export async function generateNarration(
   });
 
   if (!response.ok) {
-    const detail = await response.text();
-    throw new Error("Gemini TTS request failed (" + response.status + "): " + detail.slice(0, 260));
+    const detail = (await response.text()).slice(0, 260);
+    throw new Error("Gemini TTS request failed (" + response.status + "): " + detail);
   }
-  const payload = await response.json() as TtsResponse;
+  let payload: TtsResponse;
+  try {
+    payload = await response.json() as TtsResponse;
+  } catch {
+    throw new Error("Gemini returned an unreadable voice response. Please retry.");
+  }
   const audioParts = (payload.steps ?? [])
     .filter((step) => !step.type || step.type === "model_output")
     .flatMap((step) => step.content ?? [])
@@ -77,5 +113,9 @@ export async function generateNarration(
   const selected = audioParts[audioParts.length - 1];
   const encoded = payload.output_audio?.data || selected?.data;
   if (!encoded) throw new Error("Gemini returned no audio. Check model access and try a shorter script.");
-  return decodeBase64Audio(encoded, payload.output_audio?.mime_type || selected?.mime_type || "audio/wav");
+  const mimeType = payload.output_audio?.mime_type || selected?.mime_type || "audio/wav";
+  if (!mimeType.startsWith("audio/")) throw new Error("Gemini returned an unsupported audio format.");
+  const audio = decodeBase64Audio(encoded, mimeType);
+  if (audio.size > MAX_NARRATION_AUDIO_BYTES) throw new Error("Generated narration is larger than 30 MB. Use a shorter script.");
+  return audio;
 }

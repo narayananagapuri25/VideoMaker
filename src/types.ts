@@ -29,6 +29,8 @@ export interface StudioProject {
   storyboardSourceScript?: string;
   storyboardSourceTargetDuration?: number;
   storyboardSourceAspectRatio?: AspectRatio;
+  /** Language used when the current storyboard was generated or last rebuilt. */
+  storyboardSourceLanguage?: Language;
   /** Research/editorial caveat shown in the editor, never included in narration. */
   editorialNote?: string;
   voiceAudioDataUrl?: string;

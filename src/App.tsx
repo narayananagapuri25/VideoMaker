@@ -9,7 +9,8 @@ import { getSceneStartTime, getTimelineDuration } from "./lib/timeline";
 import PlaybackTimeline from "./components/PlaybackTimeline";
 import CreatorKit from "./components/CreatorKit";
 import type { AspectRatio, Language, Scene, StudioProject } from "./types";
-import { getEmbeddedAudioSize, getEmbeddedImageSize, isSupportedImageMimeType, MAX_NARRATION_AUDIO_BYTES, MAX_SCENE_IMAGE_BYTES } from "./lib/media-data";
+import { getProjectMediaSize, isSupportedImageMimeType, MAX_NARRATION_AUDIO_BYTES, MAX_PROJECT_MEDIA_BYTES, MAX_SCENE_IMAGE_BYTES } from "./lib/media-data";
+import { MAX_PROJECT_BACKUP_BYTES, restoreProjectBackup } from "./lib/project-backup";
 
 const initialProject = () => makeProject("Why do we see lightning before thunder?", "Hinglish", "9:16", 45);
 
@@ -64,7 +65,8 @@ export default function App() {
     project.storyboardSourceTopic === project.topic &&
     project.storyboardSourceScript === project.script &&
     project.storyboardSourceTargetDuration === project.targetDuration &&
-    project.storyboardSourceAspectRatio === project.aspectRatio;
+    project.storyboardSourceAspectRatio === project.aspectRatio &&
+    project.storyboardSourceLanguage === project.language;
   const handlePlaybackError = useCallback((message: string) => setNotice(message), []);
 
   useEffect(() => {
@@ -87,10 +89,11 @@ export default function App() {
             topic,
             script: restoredScript,
             scenes: restoredScenes,
-            storyboardSourceTopic: topic,
-            storyboardSourceScript: restoredScript,
-            storyboardSourceTargetDuration: saved.targetDuration,
-            storyboardSourceAspectRatio: saved.aspectRatio,
+            storyboardSourceTopic: pasted ? topic : saved.storyboardSourceTopic,
+            storyboardSourceScript: pasted ? restoredScript : saved.storyboardSourceScript,
+            storyboardSourceTargetDuration: pasted ? saved.targetDuration : saved.storyboardSourceTargetDuration,
+            storyboardSourceAspectRatio: pasted ? saved.aspectRatio : saved.storyboardSourceAspectRatio,
+            storyboardSourceLanguage: pasted ? saved.language : (saved.storyboardSourceLanguage ?? saved.language),
             editorialNote: pasted ? pasted.editorialNote : saved.editorialNote,
           };
           setProject(restored);
@@ -138,7 +141,7 @@ export default function App() {
   }
 
   function updateProject(patch: Partial<StudioProject>) {
-    if (["topic", "script", "scenes", "targetDuration", "aspectRatio", "voiceAudioDataUrl"].some((key) => key in patch)) {
+    if (["topic", "script", "scenes", "targetDuration", "aspectRatio", "language", "voiceAudioDataUrl"].some((key) => key in patch)) {
       invalidateExport();
     }
     setProject((current) => ({ ...current, ...patch, updatedAt: Date.now() }));
@@ -151,6 +154,15 @@ export default function App() {
       updatedAt: Date.now(),
       scenes: current.scenes.map((scene) => scene.id === sceneId ? { ...scene, ...patch } : scene),
     }));
+  }
+
+  function wouldExceedMediaLimit(additionalBytes: number, replacingSceneId?: string, replacingAudio = false): boolean {
+    const currentBytes = getProjectMediaSize(project.scenes, project.voiceAudioDataUrl, replacingSceneId, replacingAudio);
+    if (currentBytes + additionalBytes > MAX_PROJECT_MEDIA_BYTES) {
+      setNotice("This project has a 64 MB combined image/audio limit in local storage. Remove unused media or use smaller files before adding more.");
+      return true;
+    }
+    return false;
   }
 
   async function handleGenerateStory() {
@@ -171,6 +183,7 @@ export default function App() {
         storyboardSourceScript: pastedNarration.script,
         storyboardSourceTargetDuration: project.targetDuration,
         storyboardSourceAspectRatio: project.aspectRatio,
+        storyboardSourceLanguage: project.language,
       });
       setSelectedSceneId(scenes[0]?.id ?? "");
       setPlayhead(0);
@@ -202,6 +215,7 @@ export default function App() {
         storyboardSourceScript: result.story.script,
         storyboardSourceTargetDuration: project.targetDuration,
         storyboardSourceAspectRatio: project.aspectRatio,
+        storyboardSourceLanguage: project.language,
       });
       setSelectedSceneId(scenes[0]?.id ?? "");
       setPlayhead(0);
@@ -235,6 +249,7 @@ export default function App() {
       storyboardSourceScript: sourceScript,
       storyboardSourceTargetDuration: project.targetDuration,
       storyboardSourceAspectRatio: project.aspectRatio,
+      storyboardSourceLanguage: project.language,
     });
     setSelectedSceneId(scenes[0]?.id ?? "");
     setPlayhead(0);
@@ -257,6 +272,10 @@ export default function App() {
     }
     if (file.size > MAX_SCENE_IMAGE_BYTES) {
       setNotice("For a smoother browser editor, keep scene images under 12 MB.");
+      event.target.value = "";
+      return;
+    }
+    if (wouldExceedMediaLimit(file.size, sceneId)) {
       event.target.value = "";
       return;
     }
@@ -297,6 +316,8 @@ export default function App() {
     setNotice("Generating narration with Gemini 3.8 Flash TTS free-tier model…");
     try {
       const audio = await generateNarration(project.script, apiKey, ttsVoice, project.language);
+      if (audio.size > MAX_NARRATION_AUDIO_BYTES) throw new Error("Generated narration is larger than 30 MB. Use a shorter script.");
+      if (wouldExceedMediaLimit(audio.size, undefined, true)) return;
       const audioDataUrl = await fileToDataUrl(audio);
       updateProject({ voiceAudioDataUrl: audioDataUrl, voiceAudioName: "Gemini TTS · " + ttsVoice + ".wav" });
       setNotice("AI narration generated. Preview it and check pronunciation before exporting.");
@@ -317,6 +338,10 @@ export default function App() {
     }
     if (file.size > MAX_NARRATION_AUDIO_BYTES) {
       setNotice("Keep narration audio under 30 MB for local projects.");
+      event.target.value = "";
+      return;
+    }
+    if (wouldExceedMediaLimit(file.size, undefined, true)) {
       event.target.value = "";
       return;
     }
@@ -351,6 +376,15 @@ export default function App() {
         stream.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
         try {
+          if (blob.size > MAX_NARRATION_AUDIO_BYTES) {
+            setRecordingError("Recording is larger than 30 MB. Record a shorter narration and try again.");
+            setIsRecording(false);
+            return;
+          }
+          if (wouldExceedMediaLimit(blob.size, undefined, true)) {
+            setIsRecording(false);
+            return;
+          }
           updateProject({
             voiceAudioDataUrl: await fileToDataUrl(blob),
             voiceAudioName: "Recorded narration." + (blob.type.includes("ogg") ? "ogg" : "webm"),
@@ -388,7 +422,11 @@ export default function App() {
 
   async function handleExport() {
     if (!storyboardInSync) {
-      setNotice("Export paused: your topic, narration, format or target length changed after the storyboard was created. Generate again or rebuild the storyboard first.");
+      setNotice("Export paused: your topic, narration, language, format or target length changed after the storyboard was created. Generate again or rebuild the storyboard first.");
+      return;
+    }
+    if (project.scenes.length > 80 || totalDuration > 600) {
+      setNotice("For reliable browser rendering, keep exports to 80 scenes and 10 minutes or less. Split longer videos into parts.");
       return;
     }
     const unverified = project.scenes.filter((scene) => scene.imageDataUrl && !scene.imageCommercialUseConfirmed);
@@ -420,6 +458,10 @@ export default function App() {
   }
 
   function addScene() {
+    if (project.scenes.length >= 80) {
+      setNotice("A project can contain up to 80 scenes. Remove an unused scene before adding another.");
+      return;
+    }
     const scene: Scene = {
       id: globalThis.crypto?.randomUUID?.() ?? ("scene-" + Date.now()),
       title: "New scene",
@@ -462,98 +504,45 @@ export default function App() {
     anchor.href = url;
     anchor.download = (project.title || "sochozara-project").toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".sochozara.json";
     anchor.click();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
     setNotice("Project backup downloaded, including any imported scene artwork and narration audio.");
   }
 
   async function importProjectBackup(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (file.size > 80 * 1024 * 1024) {
+    if (file.size > MAX_PROJECT_BACKUP_BYTES) {
       setNotice("Project backup is larger than 80 MB. Reduce media sizes and try again.");
       event.target.value = "";
       return;
     }
     try {
-      const imported = JSON.parse(await file.text()) as Partial<StudioProject>;
-      if (!imported.title || !imported.topic || !Array.isArray(imported.scenes) || imported.scenes.length === 0) {
-        throw new Error("This file is not a valid SochoZara project backup.");
-      }
-      if (imported.scenes.length > 80) {
-        throw new Error("This backup contains too many scenes. Split it into smaller projects and try again.");
-      }
-      const scenes = imported.scenes.map((scene, index) => {
-        if (!scene || typeof scene !== "object") {
-          throw new Error("This backup contains an invalid scene.");
-        }
-        let imageDataUrl: string | undefined;
-        if (scene.imageDataUrl) {
-          const imageSize = getEmbeddedImageSize(scene.imageDataUrl);
-          if (imageSize === null || imageSize > MAX_SCENE_IMAGE_BYTES) {
-            throw new Error("This backup contains an unsupported, external or oversized scene image. Use an embedded PNG, JPEG, WebP, GIF, AVIF or BMP image under 12 MB.");
-          }
-          imageDataUrl = scene.imageDataUrl;
-        }
-        return {
-          id: String(scene.id || ("imported-scene-" + index + "-" + Date.now())),
-          title: String(scene.title || "Scene " + (index + 1)),
-          narration: String(scene.narration || ""),
-          caption: String(scene.caption || ""),
-          visualPrompt: String(scene.visualPrompt || ""),
-          duration: Math.max(1, Math.min(90, Number(scene.duration) || 5)),
-          imageDataUrl,
-          imageProvider: scene.imageProvider === "adobe-firefly" || scene.imageProvider === "pexels" || scene.imageProvider === "other" ? scene.imageProvider : undefined,
-          imageSourceNote: typeof scene.imageSourceNote === "string" ? scene.imageSourceNote : undefined,
-          imageCommercialUseConfirmed: Boolean(scene.imageCommercialUseConfirmed),
-        };
-      });
-      let voiceAudioDataUrl: string | undefined;
-      if (imported.voiceAudioDataUrl) {
-        const audioSize = getEmbeddedAudioSize(imported.voiceAudioDataUrl);
-        if (audioSize === null || audioSize > MAX_NARRATION_AUDIO_BYTES) {
-          throw new Error("This backup contains an unsupported, external or oversized narration file. Use an embedded audio file under 30 MB.");
-        }
-        voiceAudioDataUrl = imported.voiceAudioDataUrl;
-      }
-      const restored: StudioProject = {
-        id: String(imported.id || Date.now()),
-        title: String(imported.title),
-        topic: String(imported.topic),
-        language: ["Hinglish", "Hindi", "English", "Telugu"].includes(String(imported.language)) ? imported.language as Language : "Hinglish",
-        aspectRatio: imported.aspectRatio === "16:9" ? "16:9" : "9:16",
-        targetDuration: Math.max(10, Number(imported.targetDuration) || 45),
-        script: String(imported.script || ""),
-        scenes,
-        storyboardSourceTopic: typeof imported.storyboardSourceTopic === "string" ? imported.storyboardSourceTopic : String(imported.topic),
-        storyboardSourceScript: typeof imported.storyboardSourceScript === "string" ? imported.storyboardSourceScript : String(imported.script || ""),
-        storyboardSourceTargetDuration: typeof imported.storyboardSourceTargetDuration === "number" ? imported.storyboardSourceTargetDuration : Math.max(10, Number(imported.targetDuration) || 45),
-        storyboardSourceAspectRatio: imported.storyboardSourceAspectRatio === "16:9" ? "16:9" : "9:16",
-        editorialNote: typeof imported.editorialNote === "string" ? imported.editorialNote : undefined,
-        voiceAudioDataUrl,
-        voiceAudioName: typeof imported.voiceAudioName === "string" ? imported.voiceAudioName : undefined,
-        updatedAt: Date.now(),
-      };
-      const pasted = parsePastedNarration(restored.topic);
+      const imported = restoreProjectBackup(JSON.parse(await file.text()));
+      const pasted = parsePastedNarration(imported.topic);
       if (pasted) {
         const topic = deriveTopicFromScript(pasted.script);
-        const recoveredScenes = scenesFromScript(pasted.script, restored.targetDuration, topic);
-        restored.title = topic;
-        restored.topic = topic;
-        restored.script = pasted.script;
-        restored.scenes = recoveredScenes;
-        restored.storyboardSourceTopic = topic;
-        restored.storyboardSourceScript = pasted.script;
-        restored.storyboardSourceTargetDuration = restored.targetDuration;
-        restored.storyboardSourceAspectRatio = restored.aspectRatio;
-        restored.editorialNote = pasted.editorialNote;
+        const recoveredScenes = scenesFromScript(pasted.script, imported.targetDuration, topic);
+        imported.title = topic;
+        imported.topic = topic;
+        imported.script = pasted.script;
+        imported.scenes = recoveredScenes;
+        imported.storyboardSourceTopic = topic;
+        imported.storyboardSourceScript = pasted.script;
+        imported.storyboardSourceTargetDuration = imported.targetDuration;
+        imported.storyboardSourceAspectRatio = imported.aspectRatio;
+        imported.storyboardSourceLanguage = imported.language;
+        imported.editorialNote = pasted.editorialNote;
         setGenerationSource("provided-script");
+      } else {
+        setGenerationSource("local");
       }
-      updateProject(restored);
-      setSelectedSceneId(restored.scenes[0]?.id ?? "");
+      updateProject(imported);
+      setSelectedSceneId(imported.scenes[0]?.id ?? "");
       setPlayhead(0);
       setIsPlaying(false);
-      setExportUrl("");
-      setNotice("Project backup imported. Check the media and audio before exporting.");
+      setNotice(pasted
+        ? "Project imported. Pasted narration was repaired, matching scenes rebuilt and image rights reset for confirmation."
+        : "Project imported. Review imported artwork rights and audio before exporting.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Could not import this project backup.");
     }
@@ -583,7 +572,7 @@ export default function App() {
         <button className={"nav-item " + (activeSection === "guide" ? "active" : "")} onClick={() => setActiveSection("guide")}><span>▤</span> Channel launch kit</button>
         <div className="sidebar-bottom">
           <div className="privacy-card"><span className="privacy-dot" /><strong>Local-first workspace</strong><p>Your scripts, images and recordings stay in this browser unless you send a prompt to an AI provider.</p></div>
-          <div className="sidebar-version">VERSION 0.1 · EARLY BUILD</div>
+          <div className="sidebar-version">LOCAL-FIRST CREATOR STUDIO</div>
         </div>
       </aside>
 

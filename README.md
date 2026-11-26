@@ -2,9 +2,9 @@
 
 A zero-cost-first, browser-based creator studio for original YouTube Shorts, Instagram Reels and longer documentary videos.
 
-The first milestone is designed for a single creator: enter a topic, build a Hinglish story and storyboard, add your own scene artwork and narration, preview the motion treatment, then render an MP4 locally in the browser.
+The browser-first studio is designed for a creator workflow: enter a topic, build a Hinglish story and storyboard, add your own scene artwork and narration, preview the motion treatment, then render an MP4 locally in the browser.
 
-## Current MVP capabilities
+## Studio capabilities
 
 - Responsive React + TypeScript video studio, installable as an Android-friendly PWA with a small offline app shell.
 - Hinglish, Hindi, English and Telugu project settings.
