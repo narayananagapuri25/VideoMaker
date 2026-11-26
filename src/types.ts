@@ -21,6 +21,8 @@ export interface Scene {
   videoClipDuration?: number;
   videoClipStart?: number;
   videoDataUrl?: string;
+  videoSourceNote?: string;
+  videoCommercialUseConfirmed?: boolean;
 }
 
 export interface StudioProject {
