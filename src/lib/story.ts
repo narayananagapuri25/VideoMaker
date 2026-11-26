@@ -201,6 +201,7 @@ export function makeProject(topic: string, language: Language, aspectRatio: Aspe
     storyboardSourceScript: story.script,
     storyboardSourceTargetDuration: targetDuration,
     storyboardSourceAspectRatio: aspectRatio,
+    storyboardSourceLanguage: language,
     editorialNote: story.editorialNote,
     updatedAt: Date.now(),
   };
