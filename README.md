@@ -12,7 +12,8 @@ The browser-first studio is designed for a creator workflow: enter a topic, buil
 - Channel launch kit with SochoZara positioning, channel descriptions, logo and banner direction, a publishing rhythm and a practical quality checklist.
 - Searchable library of 30 Hinglish-ready video topics that can be loaded directly into the editor.
 - Reusable AI prompt templates for Shorts, long-form explainers, fact-check planning and motion storyboards.
-- Optional Gemini 4 Hydrogen story/storyboard generation through the Interactions API using a user-provided API key; requests are stateless (`store: false`) and structured as validated JSON.
+- Gemini AI director: turns a question into a complete story, scene-by-scene narration and structured visual plans (charts, candlesticks, dashboards, comparisons, timelines, diagrams and infographics) through the Interactions API.
+- One-click video workflow: generate the AI story, generate English narration with Gemini TTS, direct every scene and render the complete MP4 locally.
 - Scene-by-scene editing for titles, narration, captions, prompts, durations and visual direction.
 - Built-in, on-device motion-video generation: create a complete MP4 from the storyboard without importing video clips or using an external video-generation service.
 - Topic-aware animated graphics, slow camera moves, slow camera pan/zoom, atmospheric effects, scene titles, captions and timeline progress are rendered locally into the MP4.
@@ -30,11 +31,13 @@ The browser-first studio is designed for a creator workflow: enter a topic, buil
 - Portable JSON project backup/import, including imported scene artwork, video clips and narration audio. Import validates embedded media, enforces size limits and rejects remote media URLs.
 - CI workflow for unit tests and production builds.
 
-## Free in-house video generation
+## AI director and free in-house video generation
 
-The **Generate complete video · Free** action uses the studio's own browser renderer. It builds 24 fps H.264 MP4 output from topic-aware motion graphics, animated scene artwork, camera drift/zoom, environmental effects, chapter titles and captions. Imported images and video clips are optional enhancements; they are not prerequisites. The rendered MP4 is composed locally on the user's device and is not uploaded to a video provider.
+Enter a question such as **How does the stock market work?** and choose **Generate entire video with AI**. With a Gemini API key, the studio creates a new English story, scene-specific narration and a structured visual plan for every scene, then generates the narration and assembles the MP4 locally. The AI director selects among layouts such as animated candlestick charts, line charts, financial dashboards, process flows, comparisons, timelines, diagrams and infographics. The renderer uses the same scene plan for the live preview and exported video. No scene-by-scene prompt copying or clip importing is required.
 
-This is a motion-graphics generator, not a diffusion-model service: it does not invent photorealistic moving scenes the way a hosted Veo, Wan or LTX video model can. Its advantage is that it works without paid video API credits, a Flow account, an external queue or a dedicated GPU server. Users who need photorealistic generated clips can add licensed footage or run an open model on their own GPU computer and import the resulting clips.
+The in-house renderer creates 24 fps H.264 MP4 output using Canvas and WebCodecs. Topic-aware artwork, camera movement, scene entry fades, moving accents, titles and captions are rendered on the device. Stock-market charts use illustrative shapes and are explicitly marked as not-live data; the app does not make up current share prices or returns. A specialised offline stock-market explainer is available without a Gemini key, but AI-written scripts and generated English narration require a Google AI Studio API key and are subject to that project's live model access and quota.
+
+This is an AI-directed motion-graphics studio, not a photorealistic diffusion-model video service: it does not synthesize live-action footage like a hosted Veo or self-hosted Wan/LTX video model. It works without paid video API credits, a Flow account, an external rendering queue or a dedicated GPU server. Users can optionally add licensed photos or footage to scenes when realistic imagery is needed.
 
 ## Important current limitations
 
