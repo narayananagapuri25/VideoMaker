@@ -3,6 +3,7 @@ import {
   BufferTarget,
   CanvasSource,
   Mp4OutputFormat,
+  WebMOutputFormat,
   Output,
   Quality,
   getFirstEncodableAudioCodec,
@@ -12,6 +13,7 @@ import type { Scene, StudioProject } from "../types";
 import { getSceneVideoSrc } from "./stock-video";
 import { drawSceneFrame } from "./scene-visuals";
 import { createExportAbortError, throwIfExportAborted } from "./export-cancel";
+import { shouldUseWebmFallback } from "./export-format";
 
 export interface ExportProgress {
   progress: number;
@@ -258,19 +260,38 @@ export async function exportMp4(
     throw error;
   }
 
-  const format = new Mp4OutputFormat();
+  let format: Mp4OutputFormat | WebMOutputFormat = new Mp4OutputFormat();
   let videoCodec: Awaited<ReturnType<typeof getFirstEncodableVideoCodec>>;
   let audioCodec: Awaited<ReturnType<typeof getFirstEncodableAudioCodec>>;
+  let usingWebmFallback = false;
   try {
-    videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), { width, height });
+    videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), { width, height, frameRate: fps });
     throwIfExportAborted(signal);
-    if (!videoCodec) {
-      throw new Error("This browser does not expose an MP4-compatible video encoder. Try Chrome on a desktop or another supported device.");
-    }
     audioCodec = await getFirstEncodableAudioCodec(format.getSupportedAudioCodecs());
     throwIfExportAborted(signal);
-    if (project.voiceAudioDataUrl && !audioCodec) {
-      throw new Error("This browser cannot encode AAC audio for an MP4 export.");
+
+    // Prefer MP4, but use WebM if this browser cannot encode either the MP4
+    // video stream or its required narration audio track.
+    if (shouldUseWebmFallback(Boolean(videoCodec), Boolean(audioCodec), Boolean(project.voiceAudioDataUrl))) {
+      format = new WebMOutputFormat();
+      videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), { width, height, frameRate: fps });
+      throwIfExportAborted(signal);
+      audioCodec = await getFirstEncodableAudioCodec(format.getSupportedAudioCodecs());
+      throwIfExportAborted(signal);
+      usingWebmFallback = Boolean(videoCodec);
+      if (!videoCodec) {
+        throw new Error("This device cannot encode MP4 (H.264) or WebM (VP8/VP9) video. Update Chrome or try another supported browser/device.");
+      }
+      if (project.voiceAudioDataUrl && !audioCodec) {
+        throw new Error("This browser cannot encode narration audio in MP4 or WebM. Update Chrome or try another supported browser/device.");
+      }
+      onProgress({
+        progress: 0.025,
+        message: "This device cannot encode the required MP4 tracks. Using compatible WebM video output…",
+      });
+    }
+    if (!videoCodec) {
+      throw new Error("No compatible video encoder was selected for this device.");
     }
   } catch (error) {
     releaseVideos();
@@ -357,14 +378,17 @@ export async function exportMp4(
       throwIfExportAborted(signal);
       audioSource.close();
     }
-    onProgress({ progress: 0.97, message: "Finalising MP4…" });
+    onProgress({ progress: 0.97, message: usingWebmFallback ? "Finalising WebM video…" : "Finalising MP4…" });
     throwIfExportAborted(signal);
     await output.finalize();
     throwIfExportAborted(signal);
     const buffer = output.target.buffer;
-    if (!buffer) throw new Error("The MP4 renderer completed without producing a file.");
-    onProgress({ progress: 1, message: "Your in-house video is ready." });
-    return new Blob([buffer], { type: "video/mp4" });
+    if (!buffer || buffer.byteLength === 0) throw new Error("The video encoder finished without producing any video data. Try a shorter project or a different browser/device.");
+    onProgress({
+      progress: 1,
+      message: usingWebmFallback ? "Your WebM video is ready to download." : "Your MP4 video is ready to download.",
+    });
+    return new Blob([buffer], { type: format.mimeType });
   } catch (error) {
     activeVideo?.pause();
     if (output.state !== "canceled" && output.state !== "finalized") {
