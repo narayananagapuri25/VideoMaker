@@ -253,6 +253,7 @@ export default function PlaybackTimeline({
       video.playsInline = true;
       video.preload = "auto";
       video.onloadeddata = () => setImageVersion((version) => version + 1);
+      video.onseeked = () => setImageVersion((version) => version + 1);
       video.onerror = () => onPlaybackError?.("The video clip for “" + scene.title + "” could not be loaded. Check the Pixabay service or replace the clip.");
       video.src = source;
       video.load();
