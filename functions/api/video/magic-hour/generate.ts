@@ -8,7 +8,7 @@ import {
   requireMagicHourKey,
 } from "./_shared";
 
-const MODELS = ["ltx-2.5", "minimax-h3"] as const;
+const MODELS = ["default", "minimax-h3"] as const;
 const CREDITS_PER_SECOND_AT_480P = 24;
 
 export async function onRequestPost({ request }: { request: Request }): Promise<Response> {
