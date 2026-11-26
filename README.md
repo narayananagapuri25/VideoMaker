@@ -6,7 +6,7 @@ The first milestone is designed for a single creator: enter a topic, build a Hin
 
 ## Current MVP capabilities
 
-- Responsive React + TypeScript video studio.
+- Responsive React + TypeScript video studio, installable as an Android-friendly PWA with a small offline app shell.
 - Hinglish, Hindi, English and Telugu project settings.
 - Offline starter scripts and scene plans.
 - Optional Gemini 3.8 Flash story/storyboard generation using a user-provided API key.
