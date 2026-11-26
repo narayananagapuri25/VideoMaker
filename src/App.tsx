@@ -42,6 +42,7 @@ export default function App() {
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const exportUrlRef = useRef("");
+  const backupInputRef = useRef<HTMLInputElement | null>(null);
 
   const selectedScene = useMemo(
     () => project.scenes.find((scene) => scene.id === selectedSceneId) ?? project.scenes[0],
@@ -297,6 +298,62 @@ export default function App() {
     setSelectedSceneId(scenes[0].id);
   }
 
+  function exportProjectBackup() {
+    const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = (project.title || "sochozara-project").toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".sochozara.json";
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setNotice("Project backup downloaded, including any imported scene artwork and narration audio.");
+  }
+
+  async function importProjectBackup(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 80 * 1024 * 1024) {
+      setNotice("Project backup is larger than 80 MB. Reduce media sizes and try again.");
+      event.target.value = "";
+      return;
+    }
+    try {
+      const imported = JSON.parse(await file.text()) as Partial<StudioProject>;
+      if (!imported.title || !imported.topic || !Array.isArray(imported.scenes) || imported.scenes.length === 0) {
+        throw new Error("This file is not a valid SochoZara project backup.");
+      }
+      const scenes = imported.scenes.map((scene, index) => ({
+        id: String(scene.id || ("imported-scene-" + index + "-" + Date.now())),
+        title: String(scene.title || "Scene " + (index + 1)),
+        narration: String(scene.narration || ""),
+        caption: String(scene.caption || ""),
+        visualPrompt: String(scene.visualPrompt || ""),
+        duration: Math.max(1, Math.min(90, Number(scene.duration) || 5)),
+        imageDataUrl: typeof scene.imageDataUrl === "string" ? scene.imageDataUrl : undefined,
+      }));
+      const restored: StudioProject = {
+        id: String(imported.id || Date.now()),
+        title: String(imported.title),
+        topic: String(imported.topic),
+        language: ["Hinglish", "Hindi", "English", "Telugu"].includes(String(imported.language)) ? imported.language as Language : "Hinglish",
+        aspectRatio: imported.aspectRatio === "16:9" ? "16:9" : "9:16",
+        targetDuration: Math.max(10, Number(imported.targetDuration) || 45),
+        script: String(imported.script || ""),
+        scenes,
+        voiceAudioDataUrl: typeof imported.voiceAudioDataUrl === "string" ? imported.voiceAudioDataUrl : undefined,
+        voiceAudioName: typeof imported.voiceAudioName === "string" ? imported.voiceAudioName : undefined,
+        updatedAt: Date.now(),
+      };
+      updateProject(restored);
+      setSelectedSceneId(scenes[0].id);
+      setExportUrl("");
+      setNotice("Project backup imported. Check the media and audio before exporting.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not import this project backup.");
+    }
+    event.target.value = "";
+  }
+
   function newProject() {
     const fresh = makeProject("Enter your next video topic", "Hinglish", "9:16", 45);
     updateProject(fresh);
@@ -328,7 +385,7 @@ export default function App() {
       <main className="main-area">
         <header className="topbar">
           <div className="mobile-brand"><div className="brand-symbol small"><span>?</span><i>▶</i></div><strong>SOCHOZARA STUDIO</strong></div>
-          <div className="topbar-right"><span className="save-indicator"><i />{saveStatus}</span><button className="button button-quiet" onClick={newProject}>＋ New project</button></div>
+          <div className="topbar-right"><span className="save-indicator"><i />{saveStatus}</span><button className="button button-quiet backup-button" onClick={exportProjectBackup}>↓ Backup</button><label className="button button-quiet file-button backup-button">↑ Import<input ref={backupInputRef} type="file" accept=".json,.sochozara.json,application/json" onChange={importProjectBackup} /></label><button className="button button-quiet" onClick={newProject}>＋ New project</button></div>
         </header>
 
         {activeSection === "guide" ? (
