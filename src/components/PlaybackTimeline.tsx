@@ -264,7 +264,11 @@ export default function PlaybackTimeline({
     let lastSelected = "";
     const tick = (now: number) => {
       const elapsed = (now - startedAt) / 1000;
-      const nextTime = Math.min(totalDuration, startPlayhead + elapsed);
+      const wallClockTime = startPlayhead + elapsed;
+      const audioClockTime = audio && !audio.paused && !audio.ended ? audio.currentTime : wallClockTime;
+      // Let narration drive preview timing while it is playing to minimise drift.
+      // Continue the visual timeline on the monotonic clock after a shorter track ends.
+      const nextTime = Math.min(totalDuration, Math.max(playheadRef.current, audioClockTime));
       const position = getSceneAtTime(scenes, nextTime);
       if (position) {
         if (ctx) {
