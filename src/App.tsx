@@ -15,6 +15,7 @@ import { MAX_PROJECT_BACKUP_BYTES, restoreProjectBackup } from "./lib/project-ba
 import { getUnverifiedSceneMedia } from "./lib/video-generation";
 import { isExportAbortError } from "./lib/export-cancel";
 import { getVideoFileExtension } from "./lib/export-format";
+import { clearGeminiSessionKey, getGeminiSessionHeaders, hasGeminiSessionKey, saveGeminiSessionKey } from "./lib/gemini-session";
 
 const initialProject = () => makeProject("Why do we see lightning before thunder?", "English", "9:16", 45);
 
@@ -39,6 +40,8 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [visualProvider, setVisualProvider] = useState<"adobe-firefly" | "pexels" | "other">("adobe-firefly");
   const [geminiConfigured, setGeminiConfigured] = useState<boolean | null>(null);
+  const [geminiSessionKeyInput, setGeminiSessionKeyInput] = useState("");
+  const [geminiSessionKeySaved, setGeminiSessionKeySaved] = useState(() => hasGeminiSessionKey());
   const [activeSection, setActiveSection] = useState<"studio" | "guide">("studio");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingFullVideo, setIsGeneratingFullVideo] = useState(false);
@@ -79,7 +82,8 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/ai/status", { cache: "no-store" })
+    setGeminiSessionKeySaved(hasGeminiSessionKey());
+    fetch("/api/ai/status", { headers: getGeminiSessionHeaders(), cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) throw new Error("Gemini server status is unavailable.");
         const payload: unknown = await response.json();
@@ -201,9 +205,38 @@ export default function App() {
     return false;
   }
 
+  function handleSaveGeminiSessionKey() {
+    try {
+      saveGeminiSessionKey(geminiSessionKeyInput);
+      setGeminiSessionKeyInput("");
+      setGeminiSessionKeySaved(true);
+      setGeminiConfigured(true);
+      setNotice("Gemini key saved for this browser tab. Test the connection before generating a video.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not save the Gemini key for this tab.");
+    }
+  }
+
+  function handleClearGeminiSessionKey() {
+    clearGeminiSessionKey();
+    setGeminiSessionKeySaved(false);
+    setGeminiConfigured(null);
+    setNotice("The Gemini key was removed from this tab session.");
+    fetch("/api/ai/status", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((payload: unknown) => {
+        if (typeof payload === "object" && payload !== null && "configured" in payload) {
+          setGeminiConfigured(Boolean(payload.configured));
+        }
+      })
+      .catch(() => setGeminiConfigured(false));
+  }
+
   async function handleTestGemini() {
     setIsTestingGemini(true);
-    setNotice("Checking the encrypted Gemini key stored on the Cloudflare server…");
+    setNotice(geminiSessionKeySaved
+      ? "Testing the Gemini key saved in this browser tab…"
+      : "Testing the Gemini connection configured for this site…");
     try {
       const result = await testGeminiConnection();
       setGeminiConfigured(true);
@@ -743,12 +776,29 @@ export default function App() {
                     <div><label className="field-label" htmlFor="duration">TARGET LENGTH</label><select id="duration" value={project.targetDuration} onChange={(event) => updateProject({ targetDuration: Number(event.target.value) })}><option value={30}>30 seconds</option><option value={45}>45 seconds</option><option value={60}>60 seconds</option><option value={90}>90 seconds</option><option value={300}>5 minutes</option><option value={480}>8 minutes</option></select></div>
                   </div>
                   <div className="ai-key-box">
-                    <div className="key-title"><span>✦</span><strong>Secure Gemini AI connection</strong><em>SERVER SIDE</em></div>
+                    <div className="key-title"><span>✦</span><strong>Gemini AI connection</strong><em>YOUR API KEY</em></div>
+                    <label className="field-label" htmlFor="gemini-api-key">GOOGLE AI STUDIO API KEY</label>
+                    <input
+                      id="gemini-api-key"
+                      className="gemini-key-input"
+                      type="password"
+                      autoComplete="off"
+                      spellCheck={false}
+                      value={geminiSessionKeyInput}
+                      onChange={(event) => setGeminiSessionKeyInput(event.target.value)}
+                      placeholder={geminiSessionKeySaved ? "Key saved for this tab · enter a new key to replace it" : "Paste your Gemini API key"}
+                    />
                     <div className="gemini-test-row">
-                      <span className={geminiConfigured ? "clip-status ready" : "clip-status"}>{geminiConfigured === null ? "CHECKING SERVER…" : geminiConfigured ? "SERVER KEY CONFIGURED" : "SERVER KEY NOT CONFIGURED"}</span>
-                      <button className="button button-secondary" disabled={isTestingGemini || isGenerating || isGeneratingFullVideo} onClick={handleTestGemini}>{isTestingGemini ? <><span className="spinner" /> Testing…</> : "Test secure Gemini connection"}</button>
+                      <span className={geminiConfigured ? "clip-status ready" : "clip-status"}>
+                        {geminiConfigured === null ? "CHECKING…" : geminiSessionKeySaved ? "TAB SESSION KEY SAVED" : geminiConfigured ? "SERVER KEY CONFIGURED" : "KEY REQUIRED"}
+                      </span>
+                      <button className="button button-primary" disabled={!geminiSessionKeyInput.trim()} onClick={handleSaveGeminiSessionKey}>Save key for this tab</button>
+                      {geminiSessionKeySaved && <button className="text-button" onClick={handleClearGeminiSessionKey}>Remove saved key</button>}
+                      <button className="button button-secondary" disabled={isTestingGemini || isGenerating || isGeneratingFullVideo} onClick={handleTestGemini}>{isTestingGemini ? <><span className="spinner" /> Testing…</> : "Test Gemini connection"}</button>
                     </div>
-                    <small>The Gemini key is stored once as an encrypted Cloudflare Pages secret. It is never entered into this page, saved in your browser, sent to GitHub or included in the JavaScript bundle. Configure GEMINI_API_KEY in Cloudflare Pages → Settings → Variables and Secrets, then redeploy. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Google AI Studio ↗</a></small>
+                    <small>
+                      The key is saved in this browser tab's session storage, survives refreshes in this tab and is removed when the tab session ends. It is not saved in your video project, IndexedDB or GitHub. For Gemini requests, this app sends it over HTTPS to its same-origin Cloudflare Function, which forwards it to Google. Session storage is not a password vault: scripts running on this site can access it, so use this only in a trusted browser and on a device you control. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Google AI Studio ↗</a>
+                    </small>
                   </div>
                   <div className="button-row">
                     <button className="button button-primary" disabled={isGenerating} onClick={handleGenerateStory}>{isGenerating ? <><span className="spinner" /> Creating…</> : "✦ Generate story & scenes"}</button>
@@ -823,7 +873,7 @@ export default function App() {
                     <button className="button button-primary export-button" onClick={handleGenerateFullVideo} disabled={isRendering || isGeneratingFullVideo || isGenerating || !project.topic.trim()}>{isGeneratingFullVideo ? <><span className="spinner" /> AI is creating your video…</> : "✦ Generate entire video with AI"}</button>
                     <button className="button button-secondary export-button" onClick={handleExport} disabled={isRendering || isGeneratingFullVideo || !project.scenes.length || !storyboardInSync || getUnverifiedSceneMedia(project.scenes).length > 0}>{isRendering ? <><span className="spinner" /> Rendering…</> : "Render current storyboard"}</button>
                     <span className="export-spec">{project.aspectRatio === "9:16" ? "720 × 1280" : "1280 × 720"} · H.264 · on-device</span>
-                    <small className="inhouse-hint">{geminiConfigured ? "Gemini AI writes the script and voice-over through the secure server; scene graphics, soundtrack and MP4 rendering run in-house." : "The generator is ready, but the encrypted Cloudflare GEMINI_API_KEY secret must be configured once before AI generation can start."}</small>
+                    <small className="inhouse-hint">{geminiConfigured ? "Gemini AI writes the script and voice-over through the same-origin server function; scene graphics, soundtrack and video rendering run in-house." : "Save a Google AI Studio key in the Gemini connection panel, then test the connection to enable AI video generation."}</small>
                     {getUnverifiedSceneMedia(project.scenes).length > 0 && <small className="export-blocked-note">Confirm usage rights for imported artwork or footage before generation.</small>}
                   </div>
                   {isRendering && <div className="render-progress"><div className="progress-track"><span style={{ width: (renderProgress * 100) + "%" }} /></div><div className="render-progress-meta"><small>{renderMessage} · {Math.round(renderProgress * 100)}%</small><button className="text-button cancel-render-button" onClick={handleCancelRender}>Cancel export</button></div></div>}
