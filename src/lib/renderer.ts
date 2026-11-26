@@ -392,6 +392,14 @@ export async function exportMp4(
   onProgress: (progress: ExportProgress) => void,
 ): Promise<Blob> {
   if (!project.scenes.length) throw new Error("Add at least one scene before exporting.");
+  if (project.scenes.length > 80) throw new Error("A project can contain up to 80 scenes. Split this video into smaller parts.");
+  if (project.scenes.some((scene) => !Number.isFinite(scene.duration) || scene.duration <= 0 || scene.duration > 90)) {
+    throw new Error("Every scene must have a valid duration between 1 and 90 seconds.");
+  }
+  const duration = project.scenes.reduce((sum, scene) => sum + scene.duration, 0);
+  if (!Number.isFinite(duration) || duration > 600) {
+    throw new Error("This browser renderer supports videos up to 10 minutes. Split longer projects into parts.");
+  }
   if (!("VideoEncoder" in window)) {
     throw new Error("This browser does not support WebCodecs video encoding. Try an up-to-date desktop Chrome or Edge browser.");
   }
@@ -400,7 +408,6 @@ export async function exportMp4(
   const width = vertical ? 720 : 1280;
   const height = vertical ? 1280 : 720;
   const fps = 24;
-  const duration = project.scenes.reduce((sum, scene) => sum + Math.max(1, scene.duration), 0);
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
