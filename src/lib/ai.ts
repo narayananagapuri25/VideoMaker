@@ -280,8 +280,7 @@ export function buildStoryPrompt(options: StoryPromptOptions): string {
     "Keep scene durations positive and make their sum close to target duration. Script and narration must sound natural when read aloud.",
     "Return exactly one JSON object with title, script, editorialNote and scenes. Every scene must contain title, narration, caption, visualPrompt, visualPlan and duration. visualPlan must contain layout (hero, illustration, chart, candlestick, dashboard, process, comparison, timeline, diagram or infographic), subject, headline, labels, steps, values, trend and note. Use 4 to 8 complete scenes. Do not omit visualPlan fields; use empty arrays or empty strings when not needed.",
     "Return the requested JSON object only. Do not wrap it in Markdown fences or add commentary.",
-  ].join("
-");
+  ].join("\n");
 }
 
 export async function generateStoryWithApiKey(options: GenerateOptions): Promise<{ story: GeneratedStory; source: "gemini" }> {
