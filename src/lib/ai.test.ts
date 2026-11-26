@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { generateStory } from "./ai";
+import { generateStory, testGeminiConnection } from "./ai";
 
 afterEach(() => vi.restoreAllMocks());
 
