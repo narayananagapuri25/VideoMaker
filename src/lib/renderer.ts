@@ -3,6 +3,7 @@ import {
   BufferTarget,
   CanvasSource,
   Mp4OutputFormat,
+  WebMOutputFormat,
   Output,
   Quality,
   getFirstEncodableAudioCodec,
@@ -258,19 +259,34 @@ export async function exportMp4(
     throw error;
   }
 
-  const format = new Mp4OutputFormat();
+  let format: Mp4OutputFormat | WebMOutputFormat = new Mp4OutputFormat();
   let videoCodec: Awaited<ReturnType<typeof getFirstEncodableVideoCodec>>;
   let audioCodec: Awaited<ReturnType<typeof getFirstEncodableAudioCodec>>;
+  let usingWebmFallback = false;
   try {
-    videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), { width, height });
+    videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), { width, height, frameRate: fps });
     throwIfExportAborted(signal);
     if (!videoCodec) {
-      throw new Error("This browser does not expose an MP4-compatible video encoder. Try Chrome on a desktop or another supported device.");
+      // Some mobile browsers expose WebCodecs but cannot encode H.264 for MP4.
+      // Try the broadly supported VP8/VP9 WebM path before giving up.
+      format = new WebMOutputFormat();
+      videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), { width, height, frameRate: fps });
+      throwIfExportAborted(signal);
+      usingWebmFallback = Boolean(videoCodec);
+      if (!videoCodec) {
+        throw new Error("This device cannot encode either MP4 (H.264) or WebM (VP8/VP9). Update Chrome or try another supported browser/device.");
+      }
+      onProgress({
+        progress: 0.025,
+        message: "MP4 encoding is unavailable on this device. Using compatible WebM video output…",
+      });
     }
     audioCodec = await getFirstEncodableAudioCodec(format.getSupportedAudioCodecs());
     throwIfExportAborted(signal);
     if (project.voiceAudioDataUrl && !audioCodec) {
-      throw new Error("This browser cannot encode AAC audio for an MP4 export.");
+      throw new Error(usingWebmFallback
+        ? "This browser cannot encode narration audio for the WebM export. Try an up-to-date Chrome browser."
+        : "This browser cannot encode AAC audio for an MP4 export.");
     }
   } catch (error) {
     releaseVideos();
@@ -357,14 +373,17 @@ export async function exportMp4(
       throwIfExportAborted(signal);
       audioSource.close();
     }
-    onProgress({ progress: 0.97, message: "Finalising MP4…" });
+    onProgress({ progress: 0.97, message: usingWebmFallback ? "Finalising WebM video…" : "Finalising MP4…" });
     throwIfExportAborted(signal);
     await output.finalize();
     throwIfExportAborted(signal);
     const buffer = output.target.buffer;
     if (!buffer) throw new Error("The MP4 renderer completed without producing a file.");
-    onProgress({ progress: 1, message: "Your in-house video is ready." });
-    return new Blob([buffer], { type: "video/mp4" });
+    onProgress({
+      progress: 1,
+      message: usingWebmFallback ? "Your WebM video is ready to download." : "Your MP4 video is ready to download.",
+    });
+    return new Blob([buffer], { type: format.mimeType });
   } catch (error) {
     activeVideo?.pause();
     if (output.state !== "canceled" && output.state !== "finalized") {
