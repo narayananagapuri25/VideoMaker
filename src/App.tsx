@@ -366,7 +366,7 @@ export default function App() {
                   <div className="ai-key-box">
                     <div className="key-title"><span>✦</span><strong>Optional Gemini AI connection</strong><em>FREE TIER</em></div>
                     <input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Paste your Google AI Studio API key" autoComplete="off" />
-                    <small>Key stays in memory only and is not saved to your project. Free-tier limits apply. Google's free tier may use prompts to improve products; never send private information. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Get a key ↗</a></small>
+                    <small>Key stays in memory only and is not saved to your project. Use a key with billing disabled. The app selects only this free-tier model, but cannot inspect your Google billing settings. Free-tier prompts may be used to improve Google products; never send private information. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Get a key ↗</a></small>
                   </div>
                   <div className="button-row">
                     <button className="button button-primary" disabled={isGenerating} onClick={handleGenerateStory}>{isGenerating ? <><span className="spinner" /> Creating…</> : "✦ Generate story & scenes"}</button>
