@@ -14,7 +14,7 @@ export async function onRequestPost({ request }: { request: Request }): Promise<
   const account = await getMagicHourAccount(key);
   if (account instanceof Response) return account;
 
-  const freeTier = account.tier === "free" && account.subscription === null;
+  const freeTier = account.tier === "free";
   const creditsPerSecond = 24;
   return jsonNoStore({
     connected: true,
