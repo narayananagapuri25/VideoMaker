@@ -15,7 +15,7 @@ import type { AspectRatio, Language, Scene, StudioProject } from "./types";
 import { getEmbeddedImageSize, getEmbeddedVideoSize, getProjectMediaSize, isSupportedImageMimeType, MAX_NARRATION_AUDIO_BYTES, MAX_PROJECT_MEDIA_BYTES, MAX_SCENE_IMAGE_BYTES } from "./lib/media-data";
 import { MAX_PROJECT_BACKUP_BYTES, restoreProjectBackup } from "./lib/project-backup";
 
-const initialProject = () => makeProject("Why do we see lightning before thunder?", "Hinglish", "9:16", 45);
+const initialProject = () => makeProject("Why do we see lightning before thunder?", "English", "9:16", 45);
 
 function fileToDataUrl(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -322,20 +322,6 @@ export default function App() {
     event.target.value = "";
   }
 
-  async function copyNarrationForFreeTts() {
-    if (!project.script.trim()) {
-      setNotice("Add narration text before copying it to the free voice generator.");
-      return;
-    }
-    try {
-      if (!navigator.clipboard?.writeText) throw new Error("Clipboard access is unavailable.");
-      await navigator.clipboard.writeText(project.script);
-      setNotice("Narration copied. Open TTSMaker, paste the text, choose a voice, preview and download the MP3, then upload it here.");
-    } catch {
-      setNotice("Could not copy automatically. Select the narration in the script editor and copy it manually, then open TTSMaker.");
-    }
-  }
-
   async function handleGenerateAiVoice() {
     if (!apiKey.trim()) {
       setNotice("Enter your Gemini API key in the connection field above before generating AI narration.");
@@ -346,14 +332,14 @@ export default function App() {
       return;
     }
     setIsGeneratingVoice(true);
-    setNotice("Generating narration with Gemini 3.8 Flash TTS free-tier model…");
+    setNotice("Generating English narration with Gemini 3.8 Flash TTS…");
     try {
-      const audio = await generateNarration(project.script, apiKey, ttsVoice, project.language);
+      const audio = await generateNarration(project.script, apiKey, ttsVoice, "English");
       if (audio.size > MAX_NARRATION_AUDIO_BYTES) throw new Error("Generated narration is larger than 30 MB. Use a shorter script.");
       if (wouldExceedMediaLimit(audio.size, undefined, true)) return;
       const audioDataUrl = await fileToDataUrl(audio);
       updateProject({ voiceAudioDataUrl: audioDataUrl, voiceAudioName: "Gemini TTS · " + ttsVoice + ".wav" });
-      setNotice("AI narration generated. Preview it and check pronunciation before exporting.");
+      setNotice("English Gemini narration generated and saved locally. Preview the WAV and check pronunciation before exporting.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "AI narration generation failed.");
     } finally {
@@ -717,26 +703,17 @@ export default function App() {
                   ) : (
                     <div className="audio-empty"><div className="audio-wave">▂ ▅ ▃ ▆ ▄ ▇</div><strong>No narration audio yet</strong><p>Use the free voice workflow below, upload an audio file, or record your narration. Device voice preview is not embedded in the exported video.</p></div>
                   )}
-                  <div className="free-tts-card">
-                    <div className="free-tts-title"><strong>Free AI voice · TTSMaker</strong><span>NO API KEY</span></div>
-                    <p>Copy your script, open TTSMaker, choose a Hindi or multilingual voice, adjust speed, preview it and download the MP3. Then return here and upload the MP3 below.</p>
-                    <div className="free-tts-actions">
-                      <button className="button button-secondary" disabled={!project.script.trim()} onClick={copyNarrationForFreeTts}>▣ Copy narration</button>
-                      <a className="button button-primary" href="https://ttsmaker.app/" target="_blank" rel="noopener noreferrer">Open free TTSMaker ↗</a>
-                    </div>
-                    <small className="tts-disclaimer">TTSMaker is an external service. Your script is sent to it when you paste it there. It does not offer a public API, so voice generation and MP3 download happen on its website; do not submit private text.</small>
-                  </div>
                   <div className="tts-controls">
-                    <div><label className="field-label">GEMINI AI VOICE</label><select value={ttsVoice} onChange={(event) => setTtsVoice(event.target.value)}><option value="Kore">Kore · warm</option><option value="Aoede">Aoede · expressive</option><option value="Puck">Puck · energetic</option><option value="Charon">Charon · deep</option><option value="Fenrir">Fenrir · bold</option><option value="Zephyr">Zephyr · bright</option></select></div>
-                    <button className="button button-primary tts-button" disabled={isGeneratingVoice || !apiKey.trim()} onClick={handleGenerateAiVoice}>{isGeneratingVoice ? <><span className="spinner" /> Generating voice…</> : "✦ Generate with Gemini"}</button>
+                    <div><label className="field-label">GEMINI AI VOICE</label><select value={ttsVoice} onChange={(event) => setTtsVoice(event.target.value)}><option value="Kore">Kore · warm documentary</option><option value="Aoede">Aoede · expressive</option><option value="Puck">Puck · energetic</option><option value="Charon">Charon · deep narrator</option><option value="Fenrir">Fenrir · bold</option><option value="Zephyr">Zephyr · bright</option></select></div>
+                    <button className="button button-primary tts-button" disabled={isGeneratingVoice || !apiKey.trim() || !project.script.trim()} onClick={handleGenerateAiVoice}>{isGeneratingVoice ? <><span className="spinner" /> Generating voice…</> : project.voiceAudioDataUrl ? "↻ Regenerate Gemini narration" : "✦ Generate Gemini narration"}</button>
                   </div>
-                  <small className="tts-disclaimer">Optional Gemini API route: use a key with billing disabled, check current free-tier access and quotas first, and avoid private text. This provider is separate from TTSMaker.</small>
+                  <small className="tts-disclaimer">Gemini 3.8 Flash TTS · English (India) narration · WAV audio. Generated audio is saved in this browser project and embedded in the MP4. Free-tier use is subject to your Google AI Studio project's quota and data-use terms.</small>
                   <div className="button-row audio-actions">
-                    <label className="button button-secondary file-button">↑ Upload MP3 / audio<input type="file" accept="audio/*" onChange={handleAudioUpload} /></label>
+                    <button className="button button-quiet" onClick={listenWithDeviceVoice} disabled={!project.script.trim()}>▶ Device voice preview (not exported)</button>
+                    <label className="button button-secondary file-button">↑ Import audio<input type="file" accept="audio/*" onChange={handleAudioUpload} /></label>
                     {isRecording
                       ? <button className="button button-danger" onClick={stopRecording}>■ Stop recording</button>
                       : <button className="button button-secondary" onClick={startRecording}>● Record voice</button>}
-                    <button className="button button-quiet" onClick={listenWithDeviceVoice}>▶ Device voice preview</button>
                   </div>
                   {recordingError && <p className="error-text">{recordingError}</p>}
                 </article>
