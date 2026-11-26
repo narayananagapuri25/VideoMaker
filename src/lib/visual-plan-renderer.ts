@@ -46,7 +46,7 @@ function header(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, 
 
 function drawGrid(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, theme: Theme) {
   ctx.save();
-  ctx.strokeStyle = "rgba(180,211,229,.12)";
+  ctx.strokeStyle = "rgba(" + theme.glow + ",.13)";
   ctx.lineWidth = 1;
   for (let i = 1; i <= 4; i += 1) {
     const yy = y + h * i / 5;
