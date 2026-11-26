@@ -26,7 +26,7 @@ function loadImage(dataUrl: string): Promise<HTMLImageElement> {
 }
 
 async function loadSceneVideo(scene: Scene): Promise<HTMLVideoElement> {
-  const source = getSceneVideoSrc(scene, "small");
+  const source = getSceneVideoSrc(scene, "medium");
   if (!source) throw new Error("Scene “" + scene.title + "” has no video clip.");
   const video = document.createElement("video");
   video.muted = true;
