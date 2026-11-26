@@ -89,8 +89,8 @@ export default function StockVideoPanel({ scene, onChange }: StockVideoPanelProp
   return (
     <section className="stock-video-panel">
       <div className="stock-video-heading">
-        <div><strong>REAL VIDEO FOOTAGE</strong><small>Choose moving footage for this scene, or import your own clip.</small></div>
-        <span className={selectedSrc ? "clip-status ready" : "clip-status"}>{selectedSrc ? "CLIP ADDED" : "NO CLIP"}</span>
+        <div><strong>OPTIONAL REAL FOOTAGE</strong><small>The built-in motion engine already animates this scene. Add stock or local footage only when you want a real-world video layer.</small></div>
+        <span className={selectedSrc ? "clip-status ready" : "clip-status"}>{selectedSrc ? "FOOTAGE ADDED" : "MOTION READY"}</span>
       </div>
 
       {selectedSrc && (
@@ -130,7 +130,7 @@ export default function StockVideoPanel({ scene, onChange }: StockVideoPanelProp
       )}
 
       <div className="stock-video-search">
-        <label className="field-label">SEARCH PIXABAY VIDEO LIBRARY</label>
+        <label className="field-label">OPTIONAL PIXABAY FOOTAGE</label>
         <div className="stock-video-search-row">
           <input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void search(); } }} placeholder="e.g. Earth from space, ocean waves" />
           <button className="button button-secondary" disabled={isSearching || query.trim().length < 2} onClick={() => void search()}>
