@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { generateNarration, generateNarrationWithApiKey } from "./tts";
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("Gemini narration", () => {
   it("uses a stateless TTS interaction and extracts returned WAV audio", async () => {
@@ -43,6 +43,21 @@ describe("Gemini narration", () => {
     expect(url).toBe("/api/ai/narration");
     expect(new Headers(init?.headers).get("x-goog-api-key")).toBeNull();
     expect(JSON.parse(String(init?.body))).toEqual({ script: "Hello from SochoZara", voice: "Kore", language: "English" });
+  });
+
+  it("attaches the saved tab-session key to the same-origin narration request", async () => {
+    vi.stubGlobal("sessionStorage", {
+      getItem: () => "tab-session-tts-key",
+      setItem: () => undefined,
+      removeItem: () => undefined,
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(new Uint8Array([1, 2, 3]), {
+      status: 200,
+      headers: { "Content-Type": "audio/wav" },
+    }));
+    await generateNarration("Session narration", "Kore", "English");
+    const [, init] = fetchMock.mock.calls[0];
+    expect(new Headers(init?.headers).get("x-sochozara-gemini-key")).toBe("tab-session-tts-key");
   });
 
   it("rejects invalid base64 audio returned by the provider", async () => {
