@@ -465,6 +465,11 @@ export default function App() {
       setNotice("Before export, review and confirm commercial-use rights for artwork in: " + unverified.map((scene) => scene.title).join(", ") + ".");
       return;
     }
+    const unverifiedVideo = project.scenes.filter((scene) => (scene.videoDataUrl || (scene.videoClipSource === "pixabay" && scene.videoClipId)) && !scene.videoCommercialUseConfirmed);
+    if (unverifiedVideo.length) {
+      setNotice("Before export, review the footage source and confirm rights for: " + unverifiedVideo.map((scene) => scene.title).join(", ") + ".");
+      return;
+    }
     setIsPlaying(false);
     setIsRendering(true);
     setRenderProgress(0);
@@ -573,7 +578,7 @@ export default function App() {
       setIsPlaying(false);
       setNotice(pasted
         ? "Project imported. Pasted narration was repaired, matching scenes rebuilt and image rights reset for confirmation."
-        : "Project imported. Review imported artwork rights and audio before exporting.");
+        : "Project imported. Reconfirm imported artwork and video rights, and review narration audio before exporting.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Could not import this project backup.");
     }
@@ -732,7 +737,7 @@ export default function App() {
                   />
                   <div className="preview-caption"><span className="sound-icon">◖))</span><span>{selectedScene?.caption || selectedScene?.narration || "Scene narration preview"}</span></div>
                   <div className="export-controls">
-                    <button className="button button-primary export-button" onClick={handleExport} disabled={isRendering || !project.scenes.length || !storyboardInSync || !project.voiceAudioDataUrl || !project.scenes.every((scene) => Boolean(scene.videoDataUrl || (scene.videoClipSource === "pixabay" && scene.videoClipId)))}>{isRendering ? <><span className="spinner" /> Rendering MP4…</> : "↓ Export real video MP4"}</button>
+                    <button className="button button-primary export-button" onClick={handleExport} disabled={isRendering || !project.scenes.length || !storyboardInSync || !project.voiceAudioDataUrl || !project.scenes.every((scene) => Boolean((scene.videoDataUrl || (scene.videoClipSource === "pixabay" && scene.videoClipId)) && scene.videoCommercialUseConfirmed))}>{isRendering ? <><span className="spinner" /> Rendering MP4…</> : "↓ Export real video MP4"}</button>
                     <span className="export-spec">{project.aspectRatio === "9:16" ? "720 × 1280" : "1280 × 720"} · H.264</span>
                     {!storyboardInSync && <small className="export-blocked-note">Rebuild the storyboard before exporting.</small>}
                     {!project.scenes.every((scene) => Boolean(scene.videoDataUrl || (scene.videoClipSource === "pixabay" && scene.videoClipId))) && <small className="export-blocked-note">Add real moving footage to every storyboard scene before exporting. The renderer will not substitute abstract graphics.</small>}
