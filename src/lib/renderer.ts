@@ -13,6 +13,7 @@ import type { Scene, StudioProject } from "../types";
 import { getSceneVideoSrc } from "./stock-video";
 import { drawSceneFrame } from "./scene-visuals";
 import { createExportAbortError, throwIfExportAborted } from "./export-cancel";
+import { shouldUseWebmFallback } from "./export-format";
 
 export interface ExportProgress {
   progress: number;
@@ -271,7 +272,7 @@ export async function exportMp4(
 
     // Prefer MP4, but use WebM if this browser cannot encode either the MP4
     // video stream or its required narration audio track.
-    if (!videoCodec || (project.voiceAudioDataUrl && !audioCodec)) {
+    if (shouldUseWebmFallback(Boolean(videoCodec), Boolean(audioCodec), Boolean(project.voiceAudioDataUrl))) {
       format = new WebMOutputFormat();
       videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), { width, height, frameRate: fps });
       throwIfExportAborted(signal);
