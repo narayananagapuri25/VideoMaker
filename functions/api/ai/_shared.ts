@@ -2,6 +2,14 @@ export interface GeminiEnv {
   GEMINI_API_KEY?: string;
 }
 
+export interface AIRequestCredentials {
+  gemini?: string;
+  groq?: string;
+  openrouter?: string;
+  cloudflareApiToken?: string;
+  cloudflareAccountId?: string;
+}
+
 export interface PagesContext {
   request: Request;
   env: GeminiEnv;
