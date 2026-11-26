@@ -151,8 +151,13 @@ export function getSecondaryAIHeaders(): Record<string, string> {
 }
 
 export function getSecondaryAIProviderHeaders(provider: SecondaryAIProvider): Record<string, string> {
-  return {
-    ...getSecondaryAIHeaders(),
-    "X-SochoZara-AI-Provider": provider,
-  };
+  const keys = getSecondaryAIKeys();
+  const headers: Record<string, string> = { "X-SochoZara-AI-Provider": provider };
+  if (provider === "groq" && keys.groq) headers["X-SochoZara-Groq-Key"] = keys.groq;
+  if (provider === "openrouter" && keys.openrouter) headers["X-SochoZara-OpenRouter-Key"] = keys.openrouter;
+  if (provider === "cloudflare" && keys.cloudflareApiToken && keys.cloudflareAccountId) {
+    headers["X-SochoZara-Cloudflare-Token"] = keys.cloudflareApiToken;
+    headers["X-SochoZara-Cloudflare-Account"] = keys.cloudflareAccountId;
+  }
+  return headers;
 }
