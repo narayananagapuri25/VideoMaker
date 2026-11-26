@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
-import { generateStory, testGeminiConnection } from "./lib/ai";
+import { generateStory, testGeminiConnection } from "./lib/ai";\nimport AIProviderConnections from "./components/AIProviderConnections";\nimport { hasAnySecondaryAIKey } from "./lib/ai-provider-session";
 import { deriveTopicFromScript, makeProject, parsePastedNarration, scenesFromScript } from "./lib/story";
 import { loadLatestProject, saveProject } from "./lib/storage";
 import { generateNarration } from "./lib/tts";
@@ -14,7 +14,7 @@ import { getEmbeddedImageSize, getEmbeddedVideoSize, getProjectMediaSize, isSupp
 import { MAX_PROJECT_BACKUP_BYTES, restoreProjectBackup } from "./lib/project-backup";
 import { getUnverifiedSceneMedia } from "./lib/video-generation";
 import { isExportAbortError } from "./lib/export-cancel";
-import { getVideoFileExtension } from "./lib/export-format";
+import { getVideoFileExtension } from "./lib/export-format";\nimport type { AIProvider } from "./lib/ai-provider-session";
 import { clearGeminiSessionKey, getGeminiSessionHeaders, hasGeminiSessionKey, saveGeminiSessionKey } from "./lib/gemini-session";
 
 const initialProject = () => makeProject("Why do we see lightning before thunder?", "English", "9:16", 45);
@@ -39,7 +39,7 @@ export default function App() {
   const [playhead, setPlayhead] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [visualProvider, setVisualProvider] = useState<"adobe-firefly" | "pexels" | "other">("adobe-firefly");
-  const [geminiConfigured, setGeminiConfigured] = useState<boolean | null>(null);
+  const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
   const [geminiSessionKeyInput, setGeminiSessionKeyInput] = useState("");
   const [geminiSessionKeySaved, setGeminiSessionKeySaved] = useState(() => hasGeminiSessionKey());
   const [activeSection, setActiveSection] = useState<"studio" | "guide">("studio");
@@ -57,7 +57,7 @@ export default function App() {
   const [exportFileType, setExportFileType] = useState<"mp4" | "webm">("mp4");
   const [notice, setNotice] = useState("Your project is stored locally in this browser.");
   const [saveStatus, setSaveStatus] = useState("Loading project…");
-  const [generationSource, setGenerationSource] = useState<"local" | "gemini" | "provided-script">("local");
+  const [generationSource, setGenerationSource] = useState<"local" | AIProvider | "provided-script">("local");
   const [isRecording, setIsRecording] = useState(false);
   const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
   const [ttsVoice, setTtsVoice] = useState("Kore");
@@ -97,7 +97,7 @@ export default function App() {
         // A key may be saved while the initial status request is still in flight.
         // Re-check session storage at response time so a stale "not configured"
         // response cannot overwrite the newly saved tab key.
-        if (active) setGeminiConfigured(hasGeminiSessionKey() || Boolean(payload.configured));
+        if (active) setGeminiConfigured(hasGeminiSessionKey() || hasAnySecondaryAIKey() || Boolean(payload.configured));
       })
       .catch(() => {
         if (active) setGeminiConfigured(false);
@@ -291,7 +291,7 @@ export default function App() {
       return;
     }
     setIsGenerating(true);
-    setNotice("Sending your topic to the secure Gemini server for story and scene direction…");
+    setNotice("Sending your topic to the primary AI provider. Automatic fallback is enabled if it is unavailable…");
     try {
       const result = await generateStory({
         topic: project.topic,
@@ -319,7 +319,7 @@ export default function App() {
       setIsPlaying(false);
       setGenerationSource(result.source);
       setGeminiConfigured(true);
-      setNotice("Gemini created the story and scene direction. Verify factual claims before publishing.");
+      setNotice((result.fallbackNotice ? result.fallbackNotice + " " : "") + result.source + " created the story and scene direction. Verify factual claims before publishing.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Story generation failed.");
     } finally {
@@ -832,6 +832,7 @@ export default function App() {
                       The key is saved in this browser tab's session storage, survives refreshes in this tab and is removed when the tab session ends. It is not saved in your video project, IndexedDB or GitHub. For Gemini requests, this app sends it over HTTPS to its same-origin Cloudflare Function, which forwards it to Google. Session storage is not a password vault: scripts running on this site can access it, so use this only in a trusted browser and on a device you control. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Google AI Studio ↗</a>
                     </small>
                   </div>
+                  <AIProviderConnections onConnectionChange={() => setAiConfigured(hasGeminiSessionKey() || hasAnySecondaryAIKey())} />
                   <div className="button-row">
                     <button className="button button-primary" disabled={isGenerating} onClick={handleGenerateStory}>{isGenerating ? <><span className="spinner" /> Creating…</> : "✦ Generate story & scenes"}</button>
                     <span className="microcopy">{geminiConfigured ? (geminiSessionKeySaved ? "Gemini · tab session" : "Gemini · server key") : "Save a Gemini key to continue"}</span>
@@ -841,7 +842,7 @@ export default function App() {
                 <article className="panel">
                   <div className="panel-heading"><div><span className="step-number">02</span><div><h2>Shape the script</h2><p>Edit the narration before making scenes.</p></div></div><span className="panel-icon">Aa</span></div>
                   <textarea className="script-input" value={project.script} onChange={(event) => updateProject({ script: event.target.value })} rows={8} placeholder="Your narration appears here…" />
-                  <div className="script-footer"><span>{project.script.trim().split(/\s+/).filter(Boolean).length} words · {generationSource === "gemini" ? "AI-generated draft" : generationSource === "provided-script" ? "Your supplied narration" : "Local starter draft"}</span><button className="text-button" onClick={rebuildScenesFromScript}>↻ Rebuild storyboard from script</button></div>
+                  <div className="script-footer"><span>{project.script.trim().split(/\s+/).filter(Boolean).length} words · {generationSource !== "local" && generationSource !== "provided-script" ? "AI-generated draft" : generationSource === "provided-script" ? "Your supplied narration" : "Local starter draft"}</span><button className="text-button" onClick={rebuildScenesFromScript}>↻ Rebuild storyboard from script</button></div>
                   {!storyboardInSync && (
                     <div className="sync-warning" role="status">
                       <strong>Storyboard is out of sync</strong>
