@@ -5,7 +5,7 @@ const MAX_SESSION_KEY_LENGTH = 512;
 export function saveGeminiSessionKey(value: string): void {
   const key = value.trim();
   if (!key) throw new Error("Paste your Google AI Studio API key first.");
-  if (key.length > MAX_SESSION_KEY_LENGTH) throw new Error("The Gemini API key is unexpectedly long.");
+  if (key.length > MAX_SESSION_KEY_LENGTH) throw new Error("The Gemini API key is too long (maximum 512 characters).");
   try {
     globalThis.sessionStorage.setItem(SESSION_KEY_NAME, key);
   } catch {
