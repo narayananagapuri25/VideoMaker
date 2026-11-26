@@ -6,6 +6,7 @@ export interface SecondaryAIKeys {
   openrouter?: string;
   cloudflareApiToken?: string;
   cloudflareAccountId?: string;
+  magicHour?: string;
 }
 
 const STORAGE = {
