@@ -448,10 +448,6 @@ export default function App() {
       setNotice("For reliable on-device rendering, keep videos to 80 scenes and 10 minutes or less. Split longer projects into parts.");
       return;
     }
-    if (!project.voiceAudioDataUrl) {
-      setNotice("Add narration audio before generating the full video. Generate Gemini narration, record your voice or import an audio track.");
-      return;
-    }
     const unverifiedAssets = getUnverifiedSceneMedia(project.scenes);
     if (unverifiedAssets.length) {
       setNotice("Confirm usage rights for imported artwork or footage in: " + unverifiedAssets.join(", ") + ".");
@@ -721,10 +717,10 @@ export default function App() {
                       <span className="inhouse-free-tag">FREE</span>
                     </div>
                     <p>Turns every storyboard scene into moving video using animated camera moves, topic-aware motion graphics, atmospheric effects, titles and captions. Imported images or optional footage make scenes more specific, but are not required.</p>
-                    <button className="button button-primary export-button" onClick={handleExport} disabled={isRendering || !project.scenes.length || !storyboardInSync || !project.voiceAudioDataUrl || getUnverifiedSceneMedia(project.scenes).length > 0}>{isRendering ? <><span className="spinner" /> Generating video…</> : "✦ Generate complete video · Free"}</button>
+                    <button className="button button-primary export-button" onClick={handleExport} disabled={isRendering || !project.scenes.length || !storyboardInSync || getUnverifiedSceneMedia(project.scenes).length > 0}>{isRendering ? <><span className="spinner" /> Generating video…</> : "✦ Generate complete video · Free"}</button>
                     <span className="export-spec">{project.aspectRatio === "9:16" ? "720 × 1280" : "1280 × 720"} · H.264 · on-device</span>
                     {!storyboardInSync && <small className="export-blocked-note">Rebuild the storyboard before generating video.</small>}
-                    {!project.voiceAudioDataUrl && <small className="export-blocked-note">Add narration audio to create the complete video with voice.</small>}
+                    {!project.voiceAudioDataUrl && <small className="inhouse-hint">Narration is optional. Generate the visual video now, then add voice audio whenever you are ready.</small>}
                     {getUnverifiedSceneMedia(project.scenes).length > 0 && <small className="export-blocked-note">Confirm usage rights for imported artwork or footage before generation.</small>}
                     {project.scenes.some((scene) => getSceneVisualMode(scene) === "procedural-motion") && <small className="inhouse-hint">Scenes without imported media will use original animated graphics guided by their scene titles, captions and visual prompts.</small>}
                   </div>
