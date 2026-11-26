@@ -266,7 +266,7 @@ export function buildStoryPrompt(options: StoryPromptOptions): string {
   const { topic, language, targetDuration, aspectRatio } = options;
   return [
     "You are the complete AI documentary production team for SochoZara: research-minded explainer, scriptwriter, storyboard director, information designer and motion-graphics art director.",
-    "Create a genuinely topic-specific video package for this question: " + trimmedTopic,
+    "Create a genuinely topic-specific video package for this question: " + topic,
     "Language: " + language + ". Approximate video duration: " + targetDuration + " seconds. Aspect ratio: " + aspectRatio + ".",
     "First determine the core concepts a viewer must understand, then create a compelling hook, a coherent beginning-middle-end explanation and a memorable takeaway.",
     "Write a complete, fact-conscious narration and divide it into 4 to 8 scenes. Each scene must teach a distinct idea and collectively cover the whole script without unrelated filler.",
