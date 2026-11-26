@@ -218,22 +218,33 @@ export default function App() {
   }
 
   function rebuildScenesFromScript() {
-    if (!project.script.trim()) {
-      setNotice("Add narration before rebuilding the storyboard.");
+    // If a full narration is currently pasted into the Topic field, it is the
+    // source of truth. Never rebuild from an older script left by a previous draft.
+    const sourceScript = pastedNarration?.script ?? project.script.trim();
+    if (!sourceScript) {
+      setNotice("Paste narration or add script text before rebuilding the storyboard.");
       return;
     }
-    const scenes = scenesFromScript(project.script, project.targetDuration, project.topic);
+    const topic = pastedNarration ? deriveTopicFromScript(sourceScript) : project.topic;
+    const editorialNote = pastedNarration?.editorialNote ?? project.editorialNote;
+    const scenes = scenesFromScript(sourceScript, project.targetDuration, topic);
     updateProject({
+      ...(pastedNarration ? { title: topic, topic, script: sourceScript, editorialNote } : {}),
       scenes,
-      storyboardSourceTopic: project.topic,
-      storyboardSourceScript: project.script,
+      storyboardSourceTopic: topic,
+      storyboardSourceScript: sourceScript,
       storyboardSourceTargetDuration: project.targetDuration,
       storyboardSourceAspectRatio: project.aspectRatio,
     });
     setSelectedSceneId(scenes[0]?.id ?? "");
     setPlayhead(0);
     setIsPlaying(false);
-    setNotice("Storyboard rebuilt from your current script.");
+    if (pastedNarration) {
+      setGenerationSource("provided-script");
+      setNotice("Pasted narration applied. Previous draft text removed, scientific note kept separate, and scenes rebuilt only from your narration.");
+    } else {
+      setNotice("Storyboard rebuilt from your current script.");
+    }
   }
 
   async function handleSceneImage(sceneId: string, event: ChangeEvent<HTMLInputElement>) {
