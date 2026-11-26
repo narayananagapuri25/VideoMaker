@@ -1,5 +1,6 @@
 export type AspectRatio = "9:16" | "16:9";
 export type Language = "Hinglish" | "Hindi" | "English" | "Telugu";
+export type VisualProvider = "adobe-firefly" | "pexels" | "other";
 
 export interface Scene {
   id: string;
@@ -9,6 +10,9 @@ export interface Scene {
   visualPrompt: string;
   duration: number;
   imageDataUrl?: string;
+  imageProvider?: VisualProvider;
+  imageSourceNote?: string;
+  imageCommercialUseConfirmed?: boolean;
 }
 
 export interface StudioProject {
