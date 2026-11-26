@@ -56,7 +56,7 @@ describe("Gemini connection diagnostics", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
       error: { code: 429, message: "Quota exceeded." },
     }), { status: 429 }));
-    await expect(testGeminiConnection("sample-api-key")).rejects.toThrow(/quota or rate limit reached (429)/i);
+    await expect(testGeminiConnection("sample-api-key")).rejects.toThrow(/quota or rate limit reached \\(429\\)/i);
   });
 });
 
