@@ -1,6 +1,5 @@
 import type { AspectRatio, GeneratedStory, Language } from "../types";
 import { buildStoryPrompt, generateStoryWithApiKey, parseStory } from "./ai";
-import { testGeminiConnectionWithApiKey } from "./ai";
 import type { AIProvider } from "./ai-provider-session";
 
 export interface AIProviderCredentials {
