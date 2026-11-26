@@ -50,6 +50,9 @@ describe("local story helpers", () => {
     expect(scenes.map((scene) => scene.narration).join(" ")).toContain("Equator ke paas");
     expect(scenes.map((scene) => scene.narration).join(" ")).not.toContain("surface-level fact");
     expect(scenes[0].title).toBe("The impossible stop");
+    expect(scenes[1].title).toBe("The speed we already carry");
+    expect(scenes[2].title).toBe("The impact on the surface");
+    expect(scenes[5].title).toBe("The takeaway");
     expect(scenes[0].visualPrompt).toContain("Earth");
     expect(scenes.reduce((total, scene) => total + scene.duration, 0)).toBeCloseTo(45, 4);
   });

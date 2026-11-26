@@ -9,7 +9,8 @@ function isEarthStopTopic(topic: string): boolean {
 function splitIntoSentences(script: string): string[] {
   return script.replace(/\r\n?/g, "\n")
     .split(/\n+/)
-    .flatMap((line) => line.split(/(?<=[.!?])\s+/u))
+    // Ellipses followed by a lowercase continuation are a pause, not a new scene.
+    .flatMap((line) => line.replace(/\.{2,}(?=\s+[a-z])/g, "…").split(/(?<=[.!?])\s+/u))
     .map((part) => part.trim())
     .filter(Boolean);
 }
@@ -60,9 +61,9 @@ function captionFromNarration(narration: string): string {
 
 function earthVisualPrompt(narration: string, index: number): string {
   const text = narration.toLowerCase();
+  if (/equator|speed|rotation|spin|kilomet/.test(text)) return "Educational cinematic visualization of Earth rotating with a luminous equatorial ring and subtle eastward motion arrows, no numbers or words";
   if (/atmosphere|air|wind|inertia|hawa/.test(text)) return "Scientific thought-experiment visualization: blue Earth seen from low orbit while translucent atmospheric streamlines continue eastward over the planet, cinematic documentary graphic, no text or labels";
   if (/ocean|sea|water|samundar|wave|tsunami/.test(text)) return "Scientific thought-experiment visualization: blue oceans and curved Earth horizon with broad directional water-momentum lines, cinematic orbital documentary artwork, no text or labels";
-  if (/equator|speed|rotation|spin|kilomet/.test(text)) return "Educational cinematic visualization of Earth rotating with a luminous equatorial ring and subtle eastward motion arrows, no numbers or words";
   if (/building|infrastructure|city|damage|destruction/.test(text)) return "Clearly hypothetical cinematic city skyline under extreme horizontal wind, dust and ocean spray, restrained documentary style, no text";
   return index === 0
     ? "Dramatic but realistic view of Earth from space, thin blue atmosphere glowing against deep space, restrained documentary lighting, no text"
@@ -232,8 +233,9 @@ export function scenesFromScript(script: string, duration: number, topicContext 
         : /atmosphere|air|wind|hawa|inertia/.test(text) ? "Air keeps its momentum"
         : /ocean|sea|water|samundar|wave|tsunami/.test(text) ? "Oceans keep moving"
         : /building|infrastructure|city|damage|destruction/.test(text) ? "The impact on the surface"
-        : /survive|question|socho/.test(text) ? "Could anyone survive?"
-        : ["The scenario", "Momentum matters", "The atmosphere", "The oceans", "The consequences", "The takeaway"][index % 6];
+        : /survive|question/.test(text) ? "Could anyone survive?"
+        : index === groupCount - 1 ? "The takeaway"
+        : ["The scenario", "Momentum matters", "The atmosphere", "The consequences", "The turning point", "The takeaway"][index % 6];
     }
     return {
       id: id(),
