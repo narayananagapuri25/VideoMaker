@@ -10,7 +10,10 @@ interface GenerateOptions {
 }
 
 function parseStory(text: string): GeneratedStory {
-  const cleaned = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const fence = String.fromCharCode(96).repeat(3);
+  const cleaned = text.trim()
+    .replace(new RegExp("^\\s*" + fence + "(?:json)?\\s*", "i"), "")
+    .replace(new RegExp("\\s*" + fence + "\\s*$"), "");
   const parsed = JSON.parse(cleaned) as GeneratedStory;
   if (!parsed.title || !parsed.script || !Array.isArray(parsed.scenes) || parsed.scenes.length < 2) {
     throw new Error("The AI response did not contain a complete storyboard.");
@@ -41,9 +44,12 @@ export async function generateStory(options: GenerateOptions): Promise<{ story: 
     "Create 4 to 8 scenes. The sum of scene durations should be close to the target duration."
   ].join("\n");
 
-  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" + encodeURIComponent(apiKey.trim()), {
+  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey.trim(),
+    },
     body: JSON.stringify({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.75, responseMimeType: "application/json" },
