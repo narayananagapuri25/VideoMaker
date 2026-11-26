@@ -12,7 +12,8 @@ const STORAGE = {
   groq: "sochozara.ai.groq-key",
   openrouter: "sochozara.ai.openrouter-key",
   cloudflareApiToken: "sochozara.ai.cloudflare-token",
-  cloudflareAccountId: "sochozara.ai.cloudflare-account",\n  magicHour: "sochozara.video.magichour-key",
+  cloudflareAccountId: "sochozara.ai.cloudflare-account",
+  magicHour: "sochozara.video.magichour-key",
 } as const;
 
 const MAX_KEY_LENGTH = 2_048;
@@ -45,7 +46,28 @@ function remove(name: string): void {
   }
 }
 
-export function saveMagicHourApiKey(value: string): void {\n  save(STORAGE.magicHour, value, MAX_KEY_LENGTH, "Magic Hour API key");\n}\n\nexport function getMagicHourApiKey(): string {\n  return read(STORAGE.magicHour);\n}\n\nexport function hasMagicHourApiKey(): boolean {\n  return Boolean(getMagicHourApiKey());\n}\n\nexport function clearMagicHourApiKey(): void {\n  remove(STORAGE.magicHour);\n}\n\nexport function getMagicHourHeaders(): Record<string, string> {\n  const key = getMagicHourApiKey();\n  return key ? { "X-SochoZara-Magic-Hour-Key": key } : {};\n}\n\nexport function saveSecondaryAIKey(provider: SecondaryAIProvider, value: string): void {
+export function saveMagicHourApiKey(value: string): void {
+  save(STORAGE.magicHour, value, MAX_KEY_LENGTH, "Magic Hour API key");
+}
+
+export function getMagicHourApiKey(): string {
+  return read(STORAGE.magicHour);
+}
+
+export function hasMagicHourApiKey(): boolean {
+  return Boolean(getMagicHourApiKey());
+}
+
+export function clearMagicHourApiKey(): void {
+  remove(STORAGE.magicHour);
+}
+
+export function getMagicHourHeaders(): Record<string, string> {
+  const key = getMagicHourApiKey();
+  return key ? { "X-SochoZara-Magic-Hour-Key": key } : {};
+}
+
+export function saveSecondaryAIKey(provider: SecondaryAIProvider, value: string): void {
   if (provider === "groq") save(STORAGE.groq, value, MAX_KEY_LENGTH, "Groq API key");
   else if (provider === "openrouter") save(STORAGE.openrouter, value, MAX_KEY_LENGTH, "OpenRouter API key");
   else throw new Error("Cloudflare requires both an account ID and an API token.");
@@ -72,7 +94,8 @@ export function getSecondaryAIKeys(): SecondaryAIKeys {
     groq: read(STORAGE.groq),
     openrouter: read(STORAGE.openrouter),
     cloudflareApiToken: read(STORAGE.cloudflareApiToken),
-    cloudflareAccountId: read(STORAGE.cloudflareAccountId),\n    magicHour: read(STORAGE.magicHour),
+    cloudflareAccountId: read(STORAGE.cloudflareAccountId),
+    magicHour: read(STORAGE.magicHour),
   };
 }
 
