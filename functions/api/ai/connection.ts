@@ -1,4 +1,6 @@
-import { testGeminiConnectionWithApiKey } from "../../../src/lib/ai";\nimport { testSecondaryAIProvider } from "../../../src/lib/multi-ai";\nimport type { SecondaryAIProvider } from "../../../src/lib/ai-provider-session";
+import { testGeminiConnectionWithApiKey } from "../../../src/lib/ai";
+import { testSecondaryAIProvider } from "../../../src/lib/multi-ai";
+import type { SecondaryAIProvider } from "../../../src/lib/ai-provider-session";
 import { checkSameOrigin, jsonNoStore, providerError, requireGeminiKey, resolveAIRequestCredentials, type PagesContext } from "./_shared";
 
 export async function onRequestPost({ request, env }: PagesContext): Promise<Response> {
