@@ -128,7 +128,7 @@ export default function VideoProviderConnections() {
         {account && (
           <div className={account.freeTier ? "video-credit-note" : "video-credit-note warning"}>
             {account.freeTier
-              ? "Free account detected. LTX 2.5 and MiniMax H3 are available at 480p. A 5-second clip is estimated at 120 credits."
+              ? "Free account detected. LTX 2.5 is the preferred free model at 480p. MiniMax H3 is attempted only if the API accepts it on this account. A 5-second clip is estimated at 120 credits."
               : "This account is not currently on the Free tier. VideoMaker will not submit free-tier generation jobs for this account."}
           </div>
         )}
@@ -139,7 +139,7 @@ export default function VideoProviderConnections() {
             disabled={!account?.freeTier || !saved}
             onChange={(event) => handleFreeCreditsChange(event.target.checked)}
           />
-          <span>I have checked that this account's available credits are free signup / free reward credits, not purchased credits. Use only the free-tier LTX 2.5 or MiniMax H3 models at 480p.</span>
+          <span>I confirm this account balance contains only free signup / reward credits, not purchased credits. I will use every free-plan clip for personal, non-commercial projects only; I understand a watermark may be included.</span>
         </label>
         {message && <div className={"gemini-test-result " + (messageType || (testing ? "testing" : "success"))} role={messageType === "error" ? "alert" : "status"}>{message}</div>}
         <p className="video-provider-help">
