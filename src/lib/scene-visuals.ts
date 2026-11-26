@@ -342,7 +342,7 @@ function drawCity(ctx: CanvasRenderingContext2D, x: number, y: number, unit: num
     gradient.addColorStop(1, "#0B172B");
     ctx.fillStyle = gradient;
     ctx.fillRect(bx, by, bw, bh);
-    ctx.fillStyle = i % 3 ? "rgba(255,203,136,.76)" : "rgba(86,224,235,.75)";
+    ctx.fillStyle = i % 3 ? palette.secondary : palette.accent;
     for (let row = 0; row < 5; row += 1) {
       for (let col = 0; col < 2; col += 1) {
         const pulse = 0.72 + 0.28 * Math.sin(time * 0.8 + i * 3 + row + col);
