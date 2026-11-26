@@ -728,7 +728,7 @@ export default function App() {
                       <button className="button button-secondary" disabled={!apiKey.trim() || isTestingGemini || isGenerating} onClick={handleTestGemini}>{isTestingGemini ? <><span className="spinner" /> Testing…</> : "Test Gemini connection"}</button>
                       <span className="microcopy">Uses a tiny test prompt, not your video topic</span>
                     </div>
-                    <small>Key stays in memory only and is not saved to your project. Gemini 4 Hydrogen currently has free-tier API access, subject to your project's live quota and availability. Free-tier prompts may be used to improve Google products. Never submit private information. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Get a key ↗</a></small>
+                    <small>Key stays in memory only and is not saved to your project. Gemini model access and free-tier quota depend on your Google AI Studio project. Check current model availability and limits before generating. Free-tier prompts may be used to improve Google products. Never submit private information. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Get a key ↗</a></small>
                   </div>
                   <div className="button-row">
                     <button className="button button-primary" disabled={isGenerating} onClick={handleGenerateStory}>{isGenerating ? <><span className="spinner" /> Creating…</> : "✦ Generate story & scenes"}</button>
