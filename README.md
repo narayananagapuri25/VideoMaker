@@ -11,7 +11,9 @@ The first milestone is designed for a single creator: enter a topic, build a Hin
 - Offline starter scripts and scene plans.
 - Optional Gemini 3.8 Flash story/storyboard generation using a user-provided API key.
 - Scene-by-scene editing for titles, narration, captions, prompts and durations.
-- Upload a local image for each scene.
+- A live playback timeline with play/pause, scrubbing, scene segments and narration sync.
+- Generate a scene-specific art prompt and open Adobe Firefly or Pexels; import a generated or licensed image for each scene.
+- Record the asset source and confirm intended commercial-use rights before MP4 export.
 - Generate AI narration using Gemini 3.8 Flash TTS (limited free tier) and select from built-in voices.
 - Upload narration audio or record a voice track from the microphone.
 - Device speech synthesis for listening to a draft; this preview is not captured in the exported video.
@@ -24,11 +26,12 @@ The first milestone is designed for a single creator: enter a topic, build a Hin
 
 ## Important current limitations
 
-- AI image/video generation is not called automatically. Create visuals in a separately licensed tool and import them into scenes.
+- AI image generation is not performed through a paid API by the editor. The editor builds a full scene prompt, opens Firefly for manual one-scene-at-a-time generation, and imports the resulting image. Firefly Free offers limited daily generations; Google Gemini image-generation API models currently have no free API tier.
 - AI narration uses the optional Gemini 3.8 Flash TTS endpoint and a user-provided API key. Google's current pricing page lists free-tier text and audio generation for this model, but quotas/access may change; free-tier content may be used to improve Google products. Use a key with billing disabled. Free tier is limited, may use submitted content to improve Google products, and is not guaranteed to remain available. Keep billing disabled for a zero-cost workflow. Device speech is only a preview.
 - The Gemini API key is held in memory only. The app selects the Gemini 3.8 Flash model, but it cannot inspect the Google account's billing settings. Use a key with billing disabled and check current free-tier limits before each use. Free-tier prompt data may be used by Google to improve its products.
 - MP4 export depends on the browser exposing compatible WebCodecs H.264 and AAC encoders. The app does not upload media to a server.
-- The first renderer uses a 720p canvas output to reduce device memory pressure. Longer exports are best performed on a desktop or recent high-performance device.
+- The renderer uses a 720p canvas output to reduce device memory pressure. Longer exports are best performed on a desktop or recent high-performance device.
+- The live timeline preview is a browser Canvas playback view; the MP4 renderer creates the final encoded file.
 - Generated scripts are drafts, not verified research. Check factual claims and add credible sources before publishing.
 
 ## Cost and privacy principles
