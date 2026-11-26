@@ -12,7 +12,7 @@ import StockVideoPanel from "./components/StockVideoPanel";
 import type { AspectRatio, Language, Scene, StudioProject } from "./types";
 import { getEmbeddedImageSize, getEmbeddedVideoSize, getProjectMediaSize, isSupportedImageMimeType, MAX_NARRATION_AUDIO_BYTES, MAX_PROJECT_MEDIA_BYTES, MAX_SCENE_IMAGE_BYTES } from "./lib/media-data";
 import { MAX_PROJECT_BACKUP_BYTES, restoreProjectBackup } from "./lib/project-backup";
-import { getSceneVisualMode, getUnverifiedSceneMedia } from "./lib/video-generation";
+import { getUnverifiedSceneMedia } from "./lib/video-generation";
 
 const initialProject = () => makeProject("Why do we see lightning before thunder?", "English", "9:16", 45);
 
