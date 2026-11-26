@@ -13,6 +13,14 @@ export interface Scene {
   imageProvider?: VisualProvider;
   imageSourceNote?: string;
   imageCommercialUseConfirmed?: boolean;
+  videoClipSource?: "pixabay" | "local";
+  videoClipId?: number;
+  videoClipName?: string;
+  videoClipAuthor?: string;
+  videoClipPageUrl?: string;
+  videoClipDuration?: number;
+  videoClipStart?: number;
+  videoDataUrl?: string;
 }
 
 export interface StudioProject {
