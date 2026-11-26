@@ -37,7 +37,7 @@ export function checkSameOrigin(request: Request): Response | null {
 /** A per-tab browser key takes precedence; otherwise use the encrypted Pages secret. */
 export function resolveGeminiKey(request: Request, env: GeminiEnv): string | undefined {
   const sessionKey = request.headers.get(SESSION_KEY_HEADER)?.trim();
-  if (sessionKey) return sessionKey;
+  if (sessionKey && sessionKey.length <= MAX_SESSION_KEY_LENGTH) return sessionKey;
   const serverKey = env.GEMINI_API_KEY?.trim();
   return serverKey || undefined;
 }
