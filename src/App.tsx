@@ -260,7 +260,7 @@ export default function App() {
       setNotice(result);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Gemini connection test failed.";
-      setAiConfigured(false);
+      setAiConfigured(hasAnySecondaryAIKey());
       setGeminiTestResult({ status: "error", message });
       setNotice(message);
     } finally {
