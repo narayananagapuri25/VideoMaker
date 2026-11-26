@@ -281,7 +281,7 @@ export async function generateStory(options: GenerateOptions): Promise<{ story: 
     "Do not invent factual details, dates, statistics, prices, quotations or company data. If a factual claim requires verification, mark it [VERIFY] in narration and explain it in editorialNote. Distinguish illustrative examples from real-world data.",
     "Keep scene durations positive and make their sum close to target duration. Script and narration must sound natural when read aloud.",
     "Return the requested JSON object only. Do not wrap it in Markdown fences or add commentary.",
-  ].join("\\n");
+  ].join("\n");
 
   const response = await fetchWithTimeout(GEMINI_INTERACTIONS_URL, {
     method: "POST",
