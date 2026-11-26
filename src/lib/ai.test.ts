@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { generateStory, testGeminiConnection } from "./ai";
+import { generateStory, generateStoryWithApiKey, testGeminiConnection, testGeminiConnectionWithApiKey } from "./ai";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -33,7 +33,7 @@ describe("Gemini connection diagnostics", () => {
       status: "completed",
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
 
-    const result = await testGeminiConnection(" sample-api-key ");
+    const result = await testGeminiConnectionWithApiKey(" sample-api-key ");
 
     expect(result).toContain("Gemini connection successful");
     expect(fetchMock).toHaveBeenCalledOnce();
@@ -46,9 +46,21 @@ describe("Gemini connection diagnostics", () => {
     expect(request.input).toContain("SOCHOZARA_GEMINI_OK");
   });
 
+  it("checks Gemini through the same-origin secure endpoint without sending a key", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      message: "Secure server connection successful.",
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    const message = await testGeminiConnection();
+    expect(message).toContain("Secure server connection successful");
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/ai/connection");
+    expect(new Headers(init?.headers).get("x-goog-api-key")).toBeNull();
+  });
+
   it("requires a key without making a network request", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
-    await expect(testGeminiConnection("  ")).rejects.toThrow(/paste your google ai studio api key/i);
+    await expect(testGeminiConnectionWithApiKey("  ")).rejects.toThrow(/paste your google ai studio api key/i);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -56,22 +68,30 @@ describe("Gemini connection diagnostics", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
       error: { code: 429, message: "Quota exceeded." },
     }), { status: 429 }));
-    await expect(testGeminiConnection("sample-api-key")).rejects.toThrow(/quota or rate limit reached.*429/i);
+    await expect(testGeminiConnectionWithApiKey("sample-api-key")).rejects.toThrow(/quota or rate limit reached.*429/i);
   });
 });
 
 describe("AI story generation", () => {
-  it("uses the offline story path without sending a network request", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch");
+  it("sends story generation to the secure same-origin endpoint without a browser API key", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      story: storyResponse,
+      source: "gemini",
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
     const result = await generateStory({
-      topic: "Why do we see lightning before thunder?",
-      language: "Hinglish",
-      targetDuration: 45,
+      topic: "How does the stock market work?",
+      language: "English",
+      targetDuration: 60,
       aspectRatio: "9:16",
     });
-    expect(result.source).toBe("local");
-    expect(result.story.scenes.length).toBeGreaterThan(1);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.source).toBe("gemini");
+    expect(result.story.title).toBe("A test story");
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/ai/story");
+    expect(new Headers(init?.headers).get("x-goog-api-key")).toBeNull();
+    expect(String(init?.body)).not.toContain("apiKey");
+    expect(JSON.parse(String(init?.body))).toMatchObject({ topic: "How does the stock market work?", targetDuration: 60 });
   });
 
   it("uses the current stateless Gemini Interactions API and validates its structured JSON response", async () => {
@@ -80,7 +100,7 @@ describe("AI story generation", () => {
       { status: 200, headers: { "Content-Type": "application/json" } },
     ));
 
-    const result = await generateStory({
+    const result = await generateStoryWithApiKey({
       topic: "A test topic",
       language: "English",
       targetDuration: 30,
@@ -121,7 +141,7 @@ describe("AI story generation", () => {
       }],
     }), { status: 200 }));
 
-    const result = await generateStory({
+    const result = await generateStoryWithApiKey({
       topic: "A test topic", language: "English", targetDuration: 30, aspectRatio: "9:16", apiKey: "example-key",
     });
     expect(result.story.title).toBe("A test story");
@@ -131,7 +151,7 @@ describe("AI story generation", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(
       interactionResponse({ ...storyResponse, scenes: [] }),
     ), { status: 200 }));
-    await expect(generateStory({
+    await expect(generateStoryWithApiKey({
       topic: "A test topic", language: "English", targetDuration: 30, aspectRatio: "9:16", apiKey: "example-key",
     })).rejects.toThrow(/complete storyboard/i);
   });
@@ -140,7 +160,7 @@ describe("AI story generation", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
       error: { code: 429, message: "Resource exhausted. Quota exceeded." },
     }), { status: 429, headers: { "Content-Type": "application/json" } }));
-    await expect(generateStory({
+    await expect(generateStoryWithApiKey({
       topic: "A test topic", language: "English", targetDuration: 30, aspectRatio: "9:16", apiKey: "example-key",
     })).rejects.toThrow(/quota or rate limit reached \(429\).*Quota exceeded/i);
   });
@@ -149,7 +169,7 @@ describe("AI story generation", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
       error: { code: 401, message: "API key not valid." },
     }), { status: 401, headers: { "Content-Type": "application/json" } }));
-    await expect(generateStory({
+    await expect(generateStoryWithApiKey({
       topic: "A test topic", language: "English", targetDuration: 30, aspectRatio: "9:16", apiKey: "example-key",
     })).rejects.toThrow(/rejected the API key \(401\)/i);
   });
@@ -158,17 +178,17 @@ describe("AI story generation", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
       steps: [], status: "completed",
     }), { status: 200 }));
-    await expect(generateStory({
+    await expect(generateStoryWithApiKey({
       topic: "A test topic", language: "English", targetDuration: 30, aspectRatio: "9:16", apiKey: "example-key",
     })).rejects.toThrow(/without returning story text/i);
   });
 
   it("rejects empty and oversized topics before any network request", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
-    await expect(generateStory({
+    await expect(generateStoryWithApiKey({
       topic: " ", language: "English", targetDuration: 30, aspectRatio: "9:16", apiKey: "example-key",
     })).rejects.toThrow(/enter a topic/i);
-    await expect(generateStory({
+    await expect(generateStoryWithApiKey({
       topic: "x".repeat(2_001), language: "English", targetDuration: 30, aspectRatio: "9:16", apiKey: "example-key",
     })).rejects.toThrow(/2,000 characters/i);
     expect(fetchMock).not.toHaveBeenCalled();

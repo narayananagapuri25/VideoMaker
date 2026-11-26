@@ -48,7 +48,7 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<Respons
   }
 }
 
-export async function generateNarration(
+export async function generateNarrationWithApiKey(
   script: string,
   apiKey: string,
   voice: string,
@@ -118,4 +118,44 @@ export async function generateNarration(
   const audio = decodeBase64Audio(encoded, mimeType);
   if (audio.size > MAX_NARRATION_AUDIO_BYTES) throw new Error("Generated narration is larger than 30 MB. Use a shorter script.");
   return audio;
+}
+
+
+/** Requests audio from the same-origin Pages Function; the API key never reaches this browser module. */
+export async function generateNarration(
+  script: string,
+  voice: string,
+  language: Language,
+): Promise<Blob> {
+  const transcript = script.trim();
+  if (!transcript) throw new Error("Add narration text before generating speech.");
+  if (transcript.length > MAX_TRANSCRIPT_LENGTH) {
+    throw new Error("This narration is too long for one request. Split it into shorter sections.");
+  }
+  const response = await fetch("/api/ai/narration", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "audio/wav, application/json" },
+    body: JSON.stringify({ script: transcript, voice, language }),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    let message = "Gemini narration generation failed (HTTP " + response.status + ").";
+    try {
+      const payload: unknown = await response.json();
+      if (typeof payload === "object" && payload !== null && "error" in payload && typeof payload.error === "string") {
+        message = payload.error;
+      }
+    } catch {
+      // Retain the HTTP status message for unreadable gateway responses.
+    }
+    throw new Error(message);
+  }
+  const blob = await response.blob();
+  if (!blob.type.startsWith("audio/") || !blob.size) {
+    throw new Error("The secure Gemini service returned an empty or invalid audio file.");
+  }
+  if (blob.size > MAX_NARRATION_AUDIO_BYTES) {
+    throw new Error("Generated narration is larger than 30 MB. Use a shorter script.");
+  }
+  return blob;
 }

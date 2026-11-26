@@ -1,12 +1,11 @@
 import type { AspectRatio, GeneratedStory, Language, SceneVisualLayout, SceneVisualPlan } from "../types";
-import { buildLocalStory } from "./story";
 
 interface GenerateOptions {
   topic: string;
   language: Language;
   targetDuration: number;
   aspectRatio: AspectRatio;
-  apiKey?: string;
+  apiKey: string;
 }
 
 const GEMINI_INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
@@ -217,7 +216,7 @@ function extractInteractionText(payload: unknown): string {
  * Runs a minimal, stateless request so creators can verify API connectivity,
  * model access and the API key without sending their video topic or script.
  */
-export async function testGeminiConnection(apiKey: string): Promise<string> {
+export async function testGeminiConnectionWithApiKey(apiKey: string): Promise<string> {
   const key = apiKey.trim();
   if (!key) throw new Error("Paste your Google AI Studio API key before testing Gemini.");
 
@@ -254,7 +253,7 @@ export async function testGeminiConnection(apiKey: string): Promise<string> {
   return "Gemini connection successful · " + GEMINI_TEXT_MODEL + ". Your API key and project can reach the model.";
 }
 
-export async function generateStory(options: GenerateOptions): Promise<{ story: GeneratedStory; source: "gemini" | "local" }> {
+export async function generateStoryWithApiKey(options: GenerateOptions): Promise<{ story: GeneratedStory; source: "gemini" }> {
   const { topic, language, targetDuration, aspectRatio, apiKey } = options;
   const trimmedTopic = topic.trim();
   if (!trimmedTopic) throw new Error("Enter a topic before generating a story.");
@@ -262,9 +261,7 @@ export async function generateStory(options: GenerateOptions): Promise<{ story: 
   if (!Number.isFinite(targetDuration) || targetDuration < 10 || targetDuration > 600) {
     throw new Error("Choose a video duration between 10 seconds and 10 minutes.");
   }
-  if (!apiKey?.trim()) {
-    return { story: buildLocalStory(trimmedTopic, language, targetDuration), source: "local" };
-  }
+  if (!apiKey.trim()) throw new Error("Gemini API key is not configured on the server.");
 
   const prompt = [
     "You are the complete AI documentary production team for SochoZara: research-minded explainer, scriptwriter, storyboard director, information designer and motion-graphics art director.",
@@ -319,4 +316,59 @@ export async function generateStory(options: GenerateOptions): Promise<{ story: 
     throw new Error("Gemini completed without returning story text (status: " + state + "). Try a shorter topic or generate again.");
   }
   return { story: parseStory(responseText), source: "gemini" };
+}
+
+
+async function readApiError(response: Response): Promise<Error> {
+  let detail = "The secure Gemini service returned HTTP " + response.status + ".";
+  try {
+    const payload: unknown = await response.json();
+    if (isRecord(payload) && typeof payload.error === "string") detail = payload.error;
+  } catch {
+    // Keep the status-based error when the gateway did not return JSON.
+  }
+  return new Error(detail);
+}
+
+/** Public browser entry point: the API key is held only by the Cloudflare Pages Function. */
+export async function generateStory(
+  options: Omit<GenerateOptions, "apiKey">,
+): Promise<{ story: GeneratedStory; source: "gemini" }> {
+  const response = await fetch("/api/ai/story", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(options),
+    cache: "no-store",
+  });
+  if (!response.ok) throw await readApiError(response);
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error("The secure Gemini service returned an unreadable story response.");
+  }
+  if (!isRecord(payload) || !isRecord(payload.story) || typeof payload.story.title !== "string" || !Array.isArray(payload.story.scenes)) {
+    throw new Error("The secure Gemini service returned an incomplete video storyboard.");
+  }
+  return { story: payload.story as unknown as GeneratedStory, source: "gemini" };
+}
+
+/** Connection check uses the server-side key and never sends a credential from the browser. */
+export async function testGeminiConnection(): Promise<string> {
+  const response = await fetch("/api/ai/connection", {
+    method: "POST",
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+  if (!response.ok) throw await readApiError(response);
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error("The secure Gemini service returned an unreadable connection response.");
+  }
+  if (!isRecord(payload) || typeof payload.message !== "string") {
+    throw new Error("The secure Gemini service returned an invalid connection response.");
+  }
+  return payload.message;
 }
