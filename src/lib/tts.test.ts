@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { generateNarration } from "./tts";
+import { generateNarration, generateNarrationWithApiKey } from "./tts";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -14,7 +14,7 @@ describe("Gemini narration", () => {
       }), { status: 200, headers: { "Content-Type": "application/json" } }),
     );
 
-    const audio = await generateNarration("Hello world", "test-api-key", "Kore", "English");
+    const audio = await generateNarrationWithApiKey("Hello world", "test-api-key", "Kore", "English");
 
     expect(audio.type).toBe("audio/wav");
     expect(audio.size).toBe(3);
@@ -30,24 +30,39 @@ describe("Gemini narration", () => {
     expect(request.input[0].content[0].annotations[0].style).toContain("Documentary narrator");
   });
 
+  it("requests narration from the secure same-origin endpoint without a browser API key", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(new Uint8Array([1, 2, 3]), {
+      status: 200,
+      headers: { "Content-Type": "audio/wav" },
+    }));
+    const audio = await generateNarration("Hello from SochoZara", "Kore", "English");
+    expect(audio.type).toBe("audio/wav");
+    expect(audio.size).toBe(3);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/ai/narration");
+    expect(new Headers(init?.headers).get("x-goog-api-key")).toBeNull();
+    expect(JSON.parse(String(init?.body))).toEqual({ script: "Hello from SochoZara", voice: "Kore", language: "English" });
+  });
+
   it("rejects invalid base64 audio returned by the provider", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
       output_audio: { data: "not@base64", mime_type: "audio/wav" },
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
-    await expect(generateNarration("Some narration", "test-api-key", "Kore", "English"))
+    await expect(generateNarrationWithApiKey("Some narration", "test-api-key", "Kore", "English"))
       .rejects.toThrow(/invalid audio payload/i);
   });
 
   it("rejects overlong transcripts before sending a request", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
-    await expect(generateNarration("x".repeat(26_001), "test-api-key", "Kore", "English"))
+    await expect(generateNarrationWithApiKey("x".repeat(26_001), "test-api-key", "Kore", "English"))
       .rejects.toThrow(/too long/i);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("rejects an empty script before sending a request", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
-    await expect(generateNarration("  ", "test-api-key", "Kore", "Hinglish"))
+    await expect(generateNarrationWithApiKey("  ", "test-api-key", "Kore", "Hinglish"))
       .rejects.toThrow("Add narration text before generating speech.");
     expect(fetchMock).not.toHaveBeenCalled();
   });
