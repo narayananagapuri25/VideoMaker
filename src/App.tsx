@@ -636,14 +636,15 @@ export default function App() {
               }
               generatedMediaBytes += clipBytes;
               remainingCredits = Math.max(0, remainingCredits - clip.creditsCharged);
+              const videoModelName = clip.model === "default" ? "LTX-2.5 (automatic Free-tier selection)" : "MiniMax H3";
               scenesWithVideo[index] = {
                 ...scene,
                 videoDataUrl,
                 videoClipSource: "local",
-                videoClipName: "Magic Hour · " + clip.model + " · 480p",
+                videoClipName: "Magic Hour · " + videoModelName + " · 480p",
                 videoClipDuration: clip.seconds,
                 videoClipStart: 0,
-                videoSourceNote: "Magic Hour Free Tier · " + clip.model + " · 480p · personal, non-commercial use only · watermark may apply",
+                videoSourceNote: "Magic Hour Free Tier · " + videoModelName + " · 480p · personal, non-commercial use only · watermark may apply",
                 videoCommercialUseConfirmed: true,
               };
               generatedVideoCount += 1;
