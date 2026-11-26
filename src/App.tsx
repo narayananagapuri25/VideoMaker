@@ -259,6 +259,20 @@ export default function App() {
     event.target.value = "";
   }
 
+  async function copyNarrationForFreeTts() {
+    if (!project.script.trim()) {
+      setNotice("Add narration text before copying it to the free voice generator.");
+      return;
+    }
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard access is unavailable.");
+      await navigator.clipboard.writeText(project.script);
+      setNotice("Narration copied. Open TTSMaker, paste the text, choose a voice, preview and download the MP3, then upload it here.");
+    } catch {
+      setNotice("Could not copy automatically. Select the narration in the script editor and copy it manually, then open TTSMaker.");
+    }
+  }
+
   async function handleGenerateAiVoice() {
     if (!apiKey.trim()) {
       setNotice("Enter your Gemini API key in the connection field above before generating AI narration.");
@@ -635,19 +649,28 @@ export default function App() {
                 </article>
 
                 <article className="panel">
-                  <div className="panel-heading"><div><span className="step-number">03</span><div><h2>Narration track</h2><p>Add audio that will be embedded in the MP4.</p></div></div><span className="panel-icon">◖))</span></div>
+                  <div className="panel-heading"><div><span className="step-number">03</span><div><h2>Narration track</h2><p>Generate or import audio that will be embedded in the MP4.</p></div></div><span className="panel-icon">◖))</span></div>
                   {project.voiceAudioDataUrl ? (
-                    <div className="audio-ready"><div className="audio-file-icon">♫</div><div className="audio-meta"><strong>{project.voiceAudioName || "Narration audio"}</strong><small>Ready for MP4 export</small></div><button className="icon-button" title="Remove narration" onClick={() => updateProject({ voiceAudioDataUrl: undefined, voiceAudioName: undefined })}>×</button><audio controls src={project.voiceAudioDataUrl} /></div>
+                    <div className="audio-ready"><div className="audio-file-icon">♫</div><div className="audio-meta"><strong>{project.voiceAudioName || "Narration audio"}</strong><small>Ready for MP4 export</small></div><button className="icon-button" title="Remove narration" onClick={() => updateProject({ voiceAudioDataUrl: undefined, voiceAudioName: undefined })}>×</button><audio controls src={project.voiceAudioDataUrl} /><a className="audio-download" href={project.voiceAudioDataUrl} download={project.voiceAudioName || "sochozara-narration"}>↓ Download narration audio</a></div>
                   ) : (
-                    <div className="audio-empty"><div className="audio-wave">▂ ▅ ▃ ▆ ▄ ▇</div><strong>No narration audio yet</strong><p>Upload a licensed AI voice track or record your narration. Browser voice preview is not included in the exported video.</p></div>
+                    <div className="audio-empty"><div className="audio-wave">▂ ▅ ▃ ▆ ▄ ▇</div><strong>No narration audio yet</strong><p>Use the free voice workflow below, upload an audio file, or record your narration. Device voice preview is not embedded in the exported video.</p></div>
                   )}
-                  <div className="tts-controls">
-                    <div><label className="field-label">AI VOICE</label><select value={ttsVoice} onChange={(event) => setTtsVoice(event.target.value)}><option value="Kore">Kore · warm</option><option value="Aoede">Aoede · expressive</option><option value="Puck">Puck · energetic</option><option value="Charon">Charon · deep</option><option value="Fenrir">Fenrir · bold</option><option value="Zephyr">Zephyr · bright</option></select></div>
-                    <button className="button button-primary tts-button" disabled={isGeneratingVoice || !apiKey.trim()} onClick={handleGenerateAiVoice}>{isGeneratingVoice ? <><span className="spinner" /> Generating voice…</> : "✦ Generate AI narration"}</button>
+                  <div className="free-tts-card">
+                    <div className="free-tts-title"><strong>Free AI voice · TTSMaker</strong><span>NO API KEY</span></div>
+                    <p>Copy your script, open TTSMaker, choose a Hindi or multilingual voice, adjust speed, preview it and download the MP3. Then return here and upload the MP3 below.</p>
+                    <div className="free-tts-actions">
+                      <button className="button button-secondary" disabled={!project.script.trim()} onClick={copyNarrationForFreeTts}>▣ Copy narration</button>
+                      <a className="button button-primary" href="https://ttsmaker.app/" target="_blank" rel="noopener noreferrer">Open free TTSMaker ↗</a>
+                    </div>
+                    <small className="tts-disclaimer">TTSMaker is an external service. Your script is sent to it when you paste it there. It does not offer a public API, so voice generation and MP3 download happen on its website; do not submit private text.</small>
                   </div>
-                  <small className="tts-disclaimer">Gemini 3.8 Flash TTS currently lists a limited free tier. Free-tier inputs may be used to improve Google products; do not submit private content. Quotas and access can change. Use a key with billing disabled.</small>
+                  <div className="tts-controls">
+                    <div><label className="field-label">GEMINI AI VOICE</label><select value={ttsVoice} onChange={(event) => setTtsVoice(event.target.value)}><option value="Kore">Kore · warm</option><option value="Aoede">Aoede · expressive</option><option value="Puck">Puck · energetic</option><option value="Charon">Charon · deep</option><option value="Fenrir">Fenrir · bold</option><option value="Zephyr">Zephyr · bright</option></select></div>
+                    <button className="button button-primary tts-button" disabled={isGeneratingVoice || !apiKey.trim()} onClick={handleGenerateAiVoice}>{isGeneratingVoice ? <><span className="spinner" /> Generating voice…</> : "✦ Generate with Gemini"}</button>
+                  </div>
+                  <small className="tts-disclaimer">Optional Gemini API route: use a key with billing disabled, check current free-tier access and quotas first, and avoid private text. This provider is separate from TTSMaker.</small>
                   <div className="button-row audio-actions">
-                    <label className="button button-secondary file-button">↑ Upload audio<input type="file" accept="audio/*" onChange={handleAudioUpload} /></label>
+                    <label className="button button-secondary file-button">↑ Upload MP3 / audio<input type="file" accept="audio/*" onChange={handleAudioUpload} /></label>
                     {isRecording
                       ? <button className="button button-danger" onClick={stopRecording}>■ Stop recording</button>
                       : <button className="button button-secondary" onClick={startRecording}>● Record voice</button>}
