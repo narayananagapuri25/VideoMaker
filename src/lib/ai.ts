@@ -1,5 +1,5 @@
 import type { AspectRatio, GeneratedStory, Language, SceneVisualLayout, SceneVisualPlan } from "../types";
-import { getGeminiSessionHeaders } from "./gemini-session";
+import { getGeminiSessionHeaders } from "./gemini-session";\nimport { getSecondaryAIHeaders, type AIProvider } from "./ai-provider-session";
 import { getSecondaryAIHeaders, type AIProvider } from "./ai-provider-session";
 
 interface GenerateOptions {
@@ -347,10 +347,10 @@ async function readApiError(response: Response): Promise<Error> {
 /** Public browser entry point: an optional per-tab key is passed only to the same-origin Pages Function. */
 export async function generateStory(
   options: Omit<GenerateOptions, "apiKey">,
-): Promise<{ story: GeneratedStory; source: "gemini" }> {
+): Promise<{ story: GeneratedStory; source: AIProvider; fallbackNotice?: string }> {
   const response = await fetch("/api/ai/story", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json", ...getGeminiSessionHeaders() },
+    headers: { "Content-Type": "application/json", Accept: "application/json", ...getGeminiSessionHeaders(), ...getSecondaryAIHeaders() },
     body: JSON.stringify(options),
     cache: "no-store",
   });
@@ -364,7 +364,9 @@ export async function generateStory(
   if (!isRecord(payload) || !isRecord(payload.story) || typeof payload.story.title !== "string" || !Array.isArray(payload.story.scenes)) {
     throw new Error("The secure AI service returned an incomplete video storyboard.");
   }
-  const source = payload.source === "groq" || payload.source === "openrouter" || payload.source === "cloudflare" ? payload.source : "gemini";\n  return { story: payload.story as unknown as GeneratedStory, source };
+  const source: AIProvider = payload.source === "groq" || payload.source === "openrouter" || payload.source === "cloudflare" ? payload.source : "gemini";
+  const fallbackNotice = typeof payload.fallbackNotice === "string" ? payload.fallbackNotice : undefined;
+  return { story: payload.story as unknown as GeneratedStory, source, fallbackNotice };
 }
 
 /** Connection check uses the tab-session key when saved, otherwise the Cloudflare Pages secret. */
