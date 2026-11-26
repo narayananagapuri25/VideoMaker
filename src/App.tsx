@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
-import { generateStory } from "./lib/ai";
+import { generateStory, testGeminiConnection } from "./lib/ai";
 import { deriveTopicFromScript, makeProject, parsePastedNarration, scenesFromScript } from "./lib/story";
 import { loadLatestProject, saveProject } from "./lib/storage";
 import { generateNarration } from "./lib/tts";
@@ -37,6 +37,7 @@ export default function App() {
   const [apiKey, setApiKey] = useState("");
   const [activeSection, setActiveSection] = useState<"studio" | "guide">("studio");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isTestingGemini, setIsTestingGemini] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
   const [renderProgress, setRenderProgress] = useState(0);
   const [renderMessage, setRenderMessage] = useState("");
@@ -163,6 +164,23 @@ export default function App() {
       return true;
     }
     return false;
+  }
+
+  async function handleTestGemini() {
+    if (!apiKey.trim()) {
+      setNotice("Paste your Google AI Studio API key before testing Gemini.");
+      return;
+    }
+    setIsTestingGemini(true);
+    setNotice("Checking the Gemini API key and model access with a small test request. Your video topic and script are not sent.");
+    try {
+      const result = await testGeminiConnection(apiKey);
+      setNotice(result);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Gemini connection test failed.");
+    } finally {
+      setIsTestingGemini(false);
+    }
   }
 
   async function handleGenerateStory() {
@@ -623,9 +641,13 @@ export default function App() {
                     <div><label className="field-label" htmlFor="duration">TARGET LENGTH</label><select id="duration" value={project.targetDuration} onChange={(event) => updateProject({ targetDuration: Number(event.target.value) })}><option value={30}>30 seconds</option><option value={45}>45 seconds</option><option value={60}>60 seconds</option><option value={90}>90 seconds</option><option value={300}>5 minutes</option><option value={480}>8 minutes</option></select></div>
                   </div>
                   <div className="ai-key-box">
-                    <div className="key-title"><span>✦</span><strong>Optional Gemini AI connection</strong><em>FREE TIER</em></div>
+                    <div className="key-title"><span>✦</span><strong>Optional Gemini AI connection</strong><em>GEMINI 4 HYDROGEN</em></div>
                     <input type="password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder="Paste your Google AI Studio API key" autoComplete="off" />
-                    <small>Key stays in memory only and is not saved to your project. Use a key with billing disabled. The app selects only this free-tier model, but cannot inspect your Google billing settings. Free-tier prompts may be used to improve Google products; never send private information. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Get a key ↗</a></small>
+                    <div className="gemini-test-row">
+                      <button className="button button-secondary" disabled={!apiKey.trim() || isTestingGemini || isGenerating} onClick={handleTestGemini}>{isTestingGemini ? <><span className="spinner" /> Testing…</> : "Test Gemini connection"}</button>
+                      <span className="microcopy">Uses a tiny test prompt, not your video topic</span>
+                    </div>
+                    <small>Key stays in memory only and is not saved to your project. Gemini 4 Hydrogen currently has free-tier API access, subject to your project's live quota and availability. Free-tier prompts may be used to improve Google products. Never submit private information. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Get a key ↗</a></small>
                   </div>
                   <div className="button-row">
                     <button className="button button-primary" disabled={isGenerating} onClick={handleGenerateStory}>{isGenerating ? <><span className="spinner" /> Creating…</> : "✦ Generate story & scenes"}</button>
