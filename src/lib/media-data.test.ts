@@ -52,7 +52,7 @@ describe("embedded project media validation", () => {
       ...images[0],
       videoDataUrl: "data:video/mp4;base64," + btoa(String.fromCharCode(0, 0, 0, 24, 102, 116, 121, 112, 105, 115, 111, 109)),
     };
-    const videoBytes = 18;
+    const videoBytes = 12;
     expect(getProjectMediaSize([videoScene], audio)).toBe(videoScene.imageDataUrl.length > 0 ? 8 + videoBytes + 3 : videoBytes + 3);
     expect(getProjectMediaSize([videoScene], audio, undefined, false, "scene-1")).toBe(11);
     expect(MAX_PROJECT_MEDIA_BYTES).toBe(64 * 1024 * 1024);
