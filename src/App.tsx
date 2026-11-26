@@ -7,6 +7,7 @@ import { generateNarration } from "./lib/tts";
 import { buildSceneImagePrompt } from "./lib/art-prompt";
 import { getSceneStartTime, getTimelineDuration } from "./lib/timeline";
 import PlaybackTimeline from "./components/PlaybackTimeline";
+import CreatorKit from "./components/CreatorKit";
 import type { AspectRatio, Language, Scene, StudioProject } from "./types";
 
 const initialProject = () => makeProject("Why do we see lightning before thunder?", "Hinglish", "9:16", 45);
@@ -439,19 +440,11 @@ export default function App() {
         </header>
 
         {activeSection === "guide" ? (
-          <section className="guide-page">
-            <div className="eyebrow">HOW THE STUDIO WORKS</div>
-            <h1>From one idea to a finished video.</h1>
-            <p className="page-intro">The editor, motion graphics and MP4 renderer run on your device. AI generation is optional and uses your own provider key.</p>
-            <div className="guide-grid">
-              <article className="guide-card"><span>01</span><h3>Write the story</h3><p>Enter a topic. Use the offline story starter or connect a Gemini API key for AI-written scripts and storyboards.</p></article>
-              <article className="guide-card"><span>02</span><h3>Build your scenes</h3><p>Edit captions, narration and prompts. Add your own AI-created or properly licensed images to each scene.</p></article>
-              <article className="guide-card"><span>03</span><h3>Add narration</h3><p>Upload a commercially usable AI voice file or record narration. The built-in device voice is only a preview and is not exported.</p></article>
-              <article className="guide-card"><span>04</span><h3>Export your MP4</h3><p>Render an H.264 MP4 locally using browser media capabilities. Compatibility depends on the device and browser encoders.</p></article>
-            </div>
-            <div className="notice notice-warn"><strong>Free-tier and rights reminder</strong><p>AI provider quotas can change. A free API tier may use submitted prompts to improve the provider's products. Never send sensitive information. Check the licence of every generated or imported asset before monetised publication.</p></div>
-            <button className="button button-primary" onClick={() => setActiveSection("studio")}>Open video studio →</button>
-          </section>
+          <CreatorKit onUseTopic={(topic) => {
+            updateProject({ topic });
+            setActiveSection("studio");
+            setNotice("Topic selected. Generate your story and storyboard when ready.");
+          }} />
         ) : (
           <div className="studio-page">
             <section className="page-heading">
