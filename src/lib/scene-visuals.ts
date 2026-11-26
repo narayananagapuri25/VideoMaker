@@ -8,7 +8,7 @@ export function getSceneTheme(scene: Pick<Scene, "title" | "caption" | "visualPr
   const subject = (scene.title + " " + scene.caption + " " + scene.visualPrompt).toLowerCase();
   if (/earth|planet|rotation|equator|globe|continent|world/.test(subject)) return "earth";
   if (/space|galaxy|black hole|nebula|moon|mars|orbit|cosmos|astronaut|star/.test(subject)) return "space";
-  if (/lightning|thunder|storm|rain|cloud|hurricane|cyclone|weather|wind|atmosphere|inertia|pressure/.test(subject)) return "weather";
+  if (/lightning|thunder|storm|rain(?!forest)|cloud|hurricane|cyclone|weather|wind|atmosphere|inertia|pressure/.test(subject)) return "weather";
   if (/ocean|sea|water|wave|tsunami|river|underwater|coral|iceberg/.test(subject)) return "ocean";
   if (/city|building|traffic|road|bridge|architecture|skyline|metro|urban/.test(subject)) return "city";
   if (/ai|robot|technology|computer|digital|circuit|internet|data|chip|quantum|future/.test(subject)) return "technology";
@@ -392,7 +392,7 @@ function drawTechnology(ctx: CanvasRenderingContext2D, x: number, y: number, uni
   chip.addColorStop(0, "#23667A");
   chip.addColorStop(1, "#111C42");
   ctx.fillStyle = chip;
-  ctx.strokeStyle = "#65F0E0";
+  ctx.strokeStyle = palette.accent;
   ctx.lineWidth = Math.max(3, unit * 0.025);
   roundedRect(ctx, x - unit * 0.25, y - unit * 0.25, unit * 0.5, unit * 0.5, unit * 0.06);
   ctx.fill();
@@ -424,7 +424,7 @@ function drawTechnology(ctx: CanvasRenderingContext2D, x: number, y: number, uni
 function drawHistory(ctx: CanvasRenderingContext2D, x: number, y: number, unit: number, time: number, palette: typeof PALETTES[SceneTheme]) {
   ctx.save();
   const light = ctx.createRadialGradient(x, y - unit * 0.68, 0, x, y - unit * 0.35, unit * 0.95);
-  light.addColorStop(0, "rgba(255,210,151,.38)");
+  light.addColorStop(0, "rgba(255,210,151," + (0.28 + 0.08 * Math.sin(time * 0.35)) + ")");
   light.addColorStop(1, "rgba(255,190,130,0)");
   ctx.fillStyle = light;
   ctx.fillRect(x - unit, y - unit, unit * 2, unit * 1.6);
@@ -436,7 +436,7 @@ function drawHistory(ctx: CanvasRenderingContext2D, x: number, y: number, unit: 
   }
   const facade = ctx.createLinearGradient(x - unit * 0.58, 0, x + unit * 0.58, 0);
   facade.addColorStop(0, "#624A42");
-  facade.addColorStop(0.5, "#D5AC79");
+  facade.addColorStop(0.5, palette.secondary);
   facade.addColorStop(1, "#5B3F3A");
   ctx.fillStyle = facade;
   ctx.fillRect(x - unit * 0.58, y - unit * 0.42, unit * 1.16, unit * 0.82);
