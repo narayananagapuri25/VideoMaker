@@ -1,8 +1,7 @@
 import type { AspectRatio, Language, Scene, StudioProject, VisualProvider } from "../types";
-import { getEmbeddedAudioSize, getEmbeddedImageSize, MAX_NARRATION_AUDIO_BYTES, MAX_SCENE_IMAGE_BYTES } from "./media-data";
+import { getEmbeddedAudioSize, getEmbeddedImageSize, MAX_NARRATION_AUDIO_BYTES, MAX_PROJECT_MEDIA_BYTES, MAX_SCENE_IMAGE_BYTES } from "./media-data";
 
 export const MAX_PROJECT_BACKUP_BYTES = 80 * 1024 * 1024;
-export const MAX_PROJECT_MEDIA_BYTES = 64 * 1024 * 1024;
 export const MAX_PROJECT_SCENES = 80;
 
 const targetDurations = new Set([30, 45, 60, 90, 300, 480]);
