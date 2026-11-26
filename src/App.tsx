@@ -39,6 +39,7 @@ export default function App() {
   const [apiKey, setApiKey] = useState("");
   const [activeSection, setActiveSection] = useState<"studio" | "guide">("studio");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isGeneratingFullVideo, setIsGeneratingFullVideo] = useState(false);
   const [isTestingGemini, setIsTestingGemini] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
   const [renderProgress, setRenderProgress] = useState(0);
@@ -439,16 +440,23 @@ export default function App() {
     setNotice("Playing your device's voice preview. Browser preview audio is not embedded in the exported file.");
   }
 
-  async function handleExport() {
-    if (!storyboardInSync) {
-      setNotice("Video generation paused: your topic, narration, language, format or target length changed after the storyboard was created. Generate again or rebuild the storyboard first.");
+  async function renderProject(videoProject: StudioProject): Promise<void> {
+    const inSync =
+      videoProject.storyboardSourceTopic === videoProject.topic &&
+      videoProject.storyboardSourceScript === videoProject.script &&
+      videoProject.storyboardSourceTargetDuration === videoProject.targetDuration &&
+      videoProject.storyboardSourceAspectRatio === videoProject.aspectRatio &&
+      videoProject.storyboardSourceLanguage === videoProject.language;
+    if (!inSync) {
+      setNotice("Video generation paused: the storyboard does not match the current topic or script. Generate the full video again or rebuild the storyboard.");
       return;
     }
-    if (project.scenes.length > 80 || totalDuration > 600) {
+    const duration = getTimelineDuration(videoProject.scenes);
+    if (videoProject.scenes.length > 80 || duration > 600) {
       setNotice("For reliable on-device rendering, keep videos to 80 scenes and 10 minutes or less. Split longer projects into parts.");
       return;
     }
-    const unverifiedAssets = getUnverifiedSceneMedia(project.scenes);
+    const unverifiedAssets = getUnverifiedSceneMedia(videoProject.scenes);
     if (unverifiedAssets.length) {
       setNotice("Confirm usage rights for imported artwork or footage in: " + unverifiedAssets.join(", ") + ".");
       return;
@@ -456,11 +464,11 @@ export default function App() {
     setIsPlaying(false);
     setIsRendering(true);
     setRenderProgress(0);
-    setRenderMessage("Starting in-house motion engine…");
-    setNotice("Generating your video locally: animated scenes, camera movement, effects, captions and narration. No Flow handoff, paid video API or footage import is required.");
+    setRenderMessage("Preparing the AI-directed scene sequence…");
+    setNotice("Rendering your complete video locally. The same scene-specific graphics used in the preview are being assembled into the MP4.");
     try {
       const { exportMp4 } = await import("./lib/renderer");
-      const blob = await exportMp4(project, ({ progress, message }) => {
+      const blob = await exportMp4(videoProject, ({ progress, message }) => {
         setRenderProgress(progress);
         setRenderMessage(message);
       });
@@ -468,11 +476,82 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       exportUrlRef.current = url;
       setExportUrl(url);
-      setNotice("Your in-house motion video is ready. Preview it, then download the MP4.");
+      setNotice("Your complete video is ready. Preview it, then download the MP4.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Video generation failed.");
     } finally {
       setIsRendering(false);
+    }
+  }
+
+  async function handleExport() {
+    await renderProject(project);
+  }
+
+  async function handleGenerateFullVideo() {
+    const topic = pastedNarration ? deriveTopicFromScript(pastedNarration.script) : project.topic.trim();
+    if (!topic) {
+      setNotice("Enter a question or topic before generating your video.");
+      return;
+    }
+    setIsGeneratingFullVideo(true);
+    setNotice(apiKey.trim()
+      ? "AI director is writing the story, designing every scene and preparing your narration…"
+      : "Creating a topic-specific offline starter and its scene graphics. Add a Gemini key for AI-written narration and generated voice.");
+    try {
+      const result = await generateStory({
+        topic,
+        language: "English",
+        targetDuration: project.targetDuration,
+        aspectRatio: project.aspectRatio,
+        apiKey,
+      });
+      const scenes: Scene[] = result.story.scenes.map((scene, index) => ({
+        ...scene,
+        id: globalThis.crypto?.randomUUID?.() ?? ("scene-" + Date.now() + "-" + index),
+      }));
+      let voiceAudioDataUrl: string | undefined;
+      let voiceAudioName: string | undefined;
+      if (apiKey.trim()) {
+        setNotice("The AI director has finished the storyboard. Gemini is generating the English documentary narration…");
+        const audio = await generateNarration(result.story.script, apiKey, ttsVoice, "English");
+        if (audio.size > MAX_NARRATION_AUDIO_BYTES) {
+          throw new Error("Generated narration is larger than 30 MB. Shorten the video and try again.");
+        }
+        if (wouldExceedMediaLimit(audio.size, undefined, true)) return;
+        voiceAudioDataUrl = await fileToDataUrl(audio);
+        voiceAudioName = "Gemini TTS · " + ttsVoice + ".wav";
+      }
+      const generatedProject: StudioProject = {
+        ...project,
+        title: result.story.title,
+        topic,
+        language: "English",
+        script: result.story.script,
+        scenes,
+        editorialNote: result.story.editorialNote,
+        voiceAudioDataUrl,
+        voiceAudioName,
+        storyboardSourceTopic: topic,
+        storyboardSourceScript: result.story.script,
+        storyboardSourceTargetDuration: project.targetDuration,
+        storyboardSourceAspectRatio: project.aspectRatio,
+        storyboardSourceLanguage: "English",
+        updatedAt: Date.now(),
+      };
+      updateProject(generatedProject);
+      setSelectedSceneId(scenes[0]?.id ?? "");
+      setPlayhead(0);
+      setIsPlaying(false);
+      setGenerationSource(result.source);
+      setNotice(apiKey.trim()
+        ? "AI story, scene art direction and English narration are ready. Starting local video assembly…"
+        : "Offline stock-market/story draft and scene-specific graphics are ready. Starting local video assembly without narration…");
+      await renderProject(generatedProject);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Full video generation failed.");
+    } finally {
+      setIsGeneratingFullVideo(false);
     }
   }
 
@@ -716,13 +795,12 @@ export default function App() {
                       <div><strong>IN-HOUSE VIDEO GENERATOR</strong><small>Free · runs on this device · no Flow or paid video API</small></div>
                       <span className="inhouse-free-tag">FREE</span>
                     </div>
-                    <p>Turns every storyboard scene into moving video using animated camera moves, topic-aware motion graphics, atmospheric effects, titles and captions. Imported images or optional footage make scenes more specific, but are not required.</p>
-                    <button className="button button-primary export-button" onClick={handleExport} disabled={isRendering || !project.scenes.length || !storyboardInSync || getUnverifiedSceneMedia(project.scenes).length > 0}>{isRendering ? <><span className="spinner" /> Generating video…</> : "✦ Generate complete video · Free"}</button>
+                    <p>Enter a question and let the AI director write the story, plan a different visual for every scene, generate English narration and assemble the MP4. Rendering and graphics run free on this device.</p>
+                    <button className="button button-primary export-button" onClick={handleGenerateFullVideo} disabled={isRendering || isGeneratingFullVideo || isGenerating || !project.topic.trim() || getUnverifiedSceneMedia(project.scenes).length > 0}>{isGeneratingFullVideo ? <><span className="spinner" /> AI is creating your video…</> : "✦ Generate entire video with AI"}</button>
+                    <button className="button button-secondary export-button" onClick={handleExport} disabled={isRendering || isGeneratingFullVideo || !project.scenes.length || !storyboardInSync || getUnverifiedSceneMedia(project.scenes).length > 0}>{isRendering ? <><span className="spinner" /> Rendering…</> : "Render current storyboard"}</button>
                     <span className="export-spec">{project.aspectRatio === "9:16" ? "720 × 1280" : "1280 × 720"} · H.264 · on-device</span>
-                    {!storyboardInSync && <small className="export-blocked-note">Rebuild the storyboard before generating video.</small>}
-                    {!project.voiceAudioDataUrl && <small className="inhouse-hint">Narration is optional. Generate the visual video now, then add voice audio whenever you are ready.</small>}
+                    <small className="inhouse-hint">{apiKey.trim() ? "Gemini AI writes the script and generates the voice; the scene graphics and MP4 renderer are in-house." : "Without a Gemini key, topic-specific offline stories can still be rendered. AI-written stories and generated narration need a Google AI Studio key."}</small>
                     {getUnverifiedSceneMedia(project.scenes).length > 0 && <small className="export-blocked-note">Confirm usage rights for imported artwork or footage before generation.</small>}
-                    {project.scenes.some((scene) => getSceneVisualMode(scene) === "procedural-motion") && <small className="inhouse-hint">Scenes without imported media will use original animated graphics guided by their scene titles, captions and visual prompts.</small>}
                   </div>
                   {isRendering && <div className="render-progress"><div className="progress-track"><span style={{ width: (renderProgress * 100) + "%" }} /></div><small>{renderMessage} · {Math.round(renderProgress * 100)}%</small></div>}
                   {exportUrl && !isRendering && <div className="download-ready"><span>✓ MP4 ready</span><a className="button button-download" href={exportUrl} download={(project.title || "sochozara-video").toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".mp4"}>Download MP4 ↓</a></div>}
