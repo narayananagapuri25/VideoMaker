@@ -64,11 +64,12 @@ describe("Gemini connection diagnostics", () => {
       setItem: () => undefined,
       removeItem: () => undefined,
     });
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
-      message: "Gemini connection successful.",
-      story: storyResponse,
-      source: "gemini",
-    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      return url.endsWith("/connection")
+        ? new Response(JSON.stringify({ message: "Gemini connection successful." }), { status: 200, headers: { "Content-Type": "application/json" } })
+        : new Response(JSON.stringify({ story: storyResponse, source: "gemini" }), { status: 200, headers: { "Content-Type": "application/json" } });
+    });
 
     await testGeminiConnection();
     await generateStory({
