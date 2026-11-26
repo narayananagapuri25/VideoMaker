@@ -210,6 +210,8 @@ export async function exportMp4(
         current.scene.duration,
         current.index,
         project.scenes.length,
+        time,
+        duration,
       );
       await videoSource.add(time, 1 / fps);
       if (frame % 12 === 0 || frame === totalFrames - 1) {
