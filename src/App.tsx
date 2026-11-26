@@ -9,6 +9,7 @@ import { getSceneStartTime, getTimelineDuration } from "./lib/timeline";
 import PlaybackTimeline from "./components/PlaybackTimeline";
 import CreatorKit from "./components/CreatorKit";
 import type { AspectRatio, Language, Scene, StudioProject } from "./types";
+import { getEmbeddedAudioSize, getEmbeddedImageSize, isSupportedImageMimeType, MAX_NARRATION_AUDIO_BYTES, MAX_SCENE_IMAGE_BYTES } from "./lib/media-data";
 
 const initialProject = () => makeProject("Why do we see lightning before thunder?", "Hinglish", "9:16", 45);
 
@@ -159,12 +160,12 @@ export default function App() {
   async function handleSceneImage(sceneId: string, event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setNotice("Choose an image file such as JPG, PNG or WebP.");
+    if (!isSupportedImageMimeType(file.type)) {
+      setNotice("Choose a PNG, JPEG, WebP, GIF, AVIF or BMP image.");
       event.target.value = "";
       return;
     }
-    if (file.size > 12 * 1024 * 1024) {
+    if (file.size > MAX_SCENE_IMAGE_BYTES) {
       setNotice("For a smoother browser editor, keep scene images under 12 MB.");
       event.target.value = "";
       return;
@@ -210,7 +211,7 @@ export default function App() {
       event.target.value = "";
       return;
     }
-    if (file.size > 30 * 1024 * 1024) {
+    if (file.size > MAX_NARRATION_AUDIO_BYTES) {
       setNotice("Keep narration audio under 30 MB for local projects.");
       event.target.value = "";
       return;
@@ -370,18 +371,42 @@ export default function App() {
       if (!imported.title || !imported.topic || !Array.isArray(imported.scenes) || imported.scenes.length === 0) {
         throw new Error("This file is not a valid SochoZara project backup.");
       }
-      const scenes = imported.scenes.map((scene, index) => ({
-        id: String(scene.id || ("imported-scene-" + index + "-" + Date.now())),
-        title: String(scene.title || "Scene " + (index + 1)),
-        narration: String(scene.narration || ""),
-        caption: String(scene.caption || ""),
-        visualPrompt: String(scene.visualPrompt || ""),
-        duration: Math.max(1, Math.min(90, Number(scene.duration) || 5)),
-        imageDataUrl: typeof scene.imageDataUrl === "string" ? scene.imageDataUrl : undefined,
-        imageProvider: scene.imageProvider === "adobe-firefly" || scene.imageProvider === "pexels" || scene.imageProvider === "other" ? scene.imageProvider : undefined,
-        imageSourceNote: typeof scene.imageSourceNote === "string" ? scene.imageSourceNote : undefined,
-        imageCommercialUseConfirmed: Boolean(scene.imageCommercialUseConfirmed),
-      }));
+      if (imported.scenes.length > 80) {
+        throw new Error("This backup contains too many scenes. Split it into smaller projects and try again.");
+      }
+      const scenes = imported.scenes.map((scene, index) => {
+        if (!scene || typeof scene !== "object") {
+          throw new Error("This backup contains an invalid scene.");
+        }
+        let imageDataUrl: string | undefined;
+        if (scene.imageDataUrl) {
+          const imageSize = getEmbeddedImageSize(scene.imageDataUrl);
+          if (imageSize === null || imageSize > MAX_SCENE_IMAGE_BYTES) {
+            throw new Error("This backup contains an unsupported, external or oversized scene image. Use an embedded PNG, JPEG, WebP, GIF, AVIF or BMP image under 12 MB.");
+          }
+          imageDataUrl = scene.imageDataUrl;
+        }
+        return {
+          id: String(scene.id || ("imported-scene-" + index + "-" + Date.now())),
+          title: String(scene.title || "Scene " + (index + 1)),
+          narration: String(scene.narration || ""),
+          caption: String(scene.caption || ""),
+          visualPrompt: String(scene.visualPrompt || ""),
+          duration: Math.max(1, Math.min(90, Number(scene.duration) || 5)),
+          imageDataUrl,
+          imageProvider: scene.imageProvider === "adobe-firefly" || scene.imageProvider === "pexels" || scene.imageProvider === "other" ? scene.imageProvider : undefined,
+          imageSourceNote: typeof scene.imageSourceNote === "string" ? scene.imageSourceNote : undefined,
+          imageCommercialUseConfirmed: Boolean(scene.imageCommercialUseConfirmed),
+        };
+      });
+      let voiceAudioDataUrl: string | undefined;
+      if (imported.voiceAudioDataUrl) {
+        const audioSize = getEmbeddedAudioSize(imported.voiceAudioDataUrl);
+        if (audioSize === null || audioSize > MAX_NARRATION_AUDIO_BYTES) {
+          throw new Error("This backup contains an unsupported, external or oversized narration file. Use an embedded audio file under 30 MB.");
+        }
+        voiceAudioDataUrl = imported.voiceAudioDataUrl;
+      }
       const restored: StudioProject = {
         id: String(imported.id || Date.now()),
         title: String(imported.title),
@@ -391,7 +416,7 @@ export default function App() {
         targetDuration: Math.max(10, Number(imported.targetDuration) || 45),
         script: String(imported.script || ""),
         scenes,
-        voiceAudioDataUrl: typeof imported.voiceAudioDataUrl === "string" ? imported.voiceAudioDataUrl : undefined,
+        voiceAudioDataUrl,
         voiceAudioName: typeof imported.voiceAudioName === "string" ? imported.voiceAudioName : undefined,
         updatedAt: Date.now(),
       };
