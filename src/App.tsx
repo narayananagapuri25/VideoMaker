@@ -426,7 +426,7 @@ export default function App() {
         </div>
         <div className="sidebar-label">WORKSPACE</div>
         <button className={"nav-item " + (activeSection === "studio" ? "active" : "")} onClick={() => setActiveSection("studio")}><span>✦</span> Video studio</button>
-        <button className={"nav-item " + (activeSection === "guide" ? "active" : "")} onClick={() => setActiveSection("guide")}><span>▤</span> Production guide</button>
+        <button className={"nav-item " + (activeSection === "guide" ? "active" : "")} onClick={() => setActiveSection("guide")}><span>▤</span> Channel launch kit</button>
         <div className="sidebar-bottom">
           <div className="privacy-card"><span className="privacy-dot" /><strong>Local-first workspace</strong><p>Your scripts, images and recordings stay in this browser unless you send a prompt to an AI provider.</p></div>
           <div className="sidebar-version">VERSION 0.1 · EARLY BUILD</div>
