@@ -25,6 +25,9 @@ describe("Gemini narration", () => {
     expect(request.store).toBe(false);
     expect(request.response_format).toEqual({ type: "audio" });
     expect(request.generation_config.speech_config).toEqual([{ voice: "Kore" }]);
+    expect(request.input[0].content[0].text).toBe("Namaste duniya");
+    expect(request.input[0].content[0].annotations[0].style).toContain("Indian English pronunciation");
+    expect(request.input[0].content[0].annotations[0].style).toContain("Documentary narrator");
   });
 
   it("rejects invalid base64 audio returned by the provider", async () => {
