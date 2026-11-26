@@ -290,6 +290,9 @@ export async function exportMp4(
         message: "This device cannot encode the required MP4 tracks. Using compatible WebM video output…",
       });
     }
+    if (!videoCodec) {
+      throw new Error("No compatible video encoder was selected for this device.");
+    }
   } catch (error) {
     releaseVideos();
     throw error;
