@@ -18,6 +18,7 @@ The first milestone is designed for a single creator: enter a topic, build a Hin
 - Browser-side H.264 MP4 rendering using WebCodecs and Mediabunny.
 - Local project saving with IndexedDB.
 - Export progress and MP4 download.
+- Portable JSON project backup/import, including imported scene artwork and narration audio.
 - CI workflow for unit tests and production builds.
 
 ## Important current limitations
