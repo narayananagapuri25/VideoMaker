@@ -328,6 +328,46 @@ function drawSceneMotif(ctx: CanvasRenderingContext2D, width: number, height: nu
   ctx.restore();
 }
 
+function drawInHouseAtmosphere(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  scene: Scene,
+  elapsed: number,
+  sceneIndex: number,
+): void {
+  const subject = (scene.visualPrompt + " " + scene.title + " " + scene.caption).toLowerCase();
+  const warm = /fire|sun|desert|heat|volcano|lightning|temple|ancient/.test(subject);
+  const cool = /ocean|water|rain|ice|space|planet|science|technology/.test(subject);
+  const color = warm ? "245,155,72" : cool ? "43,213,231" : "139,177,208";
+
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  for (let i = 0; i < 22; i += 1) {
+    const seed = ((i * 191 + sceneIndex * 67) % 997) / 997;
+    const speed = 0.006 + (i % 5) * 0.002;
+    const x = ((seed + elapsed * speed) % 1) * width;
+    const y = height * (0.12 + ((i * 61) % 997) / 997 * 0.72)
+      + Math.sin(elapsed * (0.22 + (i % 4) * 0.08) + i) * height * 0.012;
+    const radius = Math.max(2, width * (0.002 + (i % 3) * 0.001));
+    ctx.globalAlpha = 0.12 + (i % 4) * 0.035;
+    ctx.fillStyle = "rgba(" + color + ",1)";
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const sweepX = ((elapsed * width * 0.045) % (width * 1.5)) - width * 0.25;
+  const sweep = ctx.createLinearGradient(sweepX - width * 0.08, 0, sweepX + width * 0.08, height);
+  sweep.addColorStop(0, "rgba(" + color + ",0)");
+  sweep.addColorStop(0.5, "rgba(" + color + ",0.075)");
+  sweep.addColorStop(1, "rgba(" + color + ",0)");
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = sweep;
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+}
+
 export function drawSceneFrame(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -380,6 +420,7 @@ export function drawSceneFrame(
   }
 
   if (!video) drawSceneMotif(ctx, width, height, scene, elapsed);
+  drawInHouseAtmosphere(ctx, width, height, scene, elapsed, sceneIndex);
 
   const overlay = ctx.createLinearGradient(0, 0, 0, height);
   overlay.addColorStop(0, "rgba(3,9,18,.50)");
@@ -461,11 +502,12 @@ export async function exportMp4(
   onProgress: (progress: ExportProgress) => void,
 ): Promise<Blob> {
   if (!project.scenes.length) throw new Error("Add at least one scene before exporting.");
-  const missingVideo = project.scenes.filter((scene) => !getSceneVideoSrc(scene));
-  if (missingVideo.length) throw new Error("Add real video footage to every scene before exporting: " + missingVideo.map((scene) => scene.title).join(", ") + ".");
-  const unverifiedVideo = project.scenes.filter((scene) => !scene.videoCommercialUseConfirmed);
-  if (unverifiedVideo.length) throw new Error("Confirm the source and usage rights for scene footage before exporting: " + unverifiedVideo.map((scene) => scene.title).join(", ") + ".");
-  if (!project.voiceAudioDataUrl) throw new Error("Add a narration audio track before exporting. Device voice preview is not included in MP4 files.");
+  const unverifiedImages = project.scenes.filter((scene) => scene.imageDataUrl && !scene.imageCommercialUseConfirmed);
+  if (unverifiedImages.length) throw new Error("Confirm image usage rights before exporting: " + unverifiedImages.map((scene) => scene.title).join(", ") + ".");
+  const unverifiedVideo = project.scenes.filter((scene) =>
+    (scene.videoDataUrl || (scene.videoClipSource === "pixabay" && scene.videoClipId)) && !scene.videoCommercialUseConfirmed,
+  );
+  if (unverifiedVideo.length) throw new Error("Confirm imported footage usage rights before exporting: " + unverifiedVideo.map((scene) => scene.title).join(", ") + ".");
   if (project.scenes.length > 80) throw new Error("A project can contain up to 80 scenes. Split this video into smaller parts.");
   if (project.scenes.some((scene) => !Number.isFinite(scene.duration) || scene.duration <= 0 || scene.duration > 90)) {
     throw new Error("Every scene must have a valid duration between 1 and 90 seconds.");
@@ -488,13 +530,13 @@ export async function exportMp4(
   const context = canvas.getContext("2d", { alpha: false });
   if (!context) throw new Error("Could not create the video rendering canvas.");
 
-  onProgress({ progress: 0.02, message: "Preparing scene footage…" });
+  onProgress({ progress: 0.02, message: "Preparing in-house animated scenes…" });
   const images = new Map<string, HTMLImageElement>();
   const videos = new Map<string, HTMLVideoElement>();
   try {
     for (const scene of project.scenes) {
       if (scene.imageDataUrl) images.set(scene.id, await loadImage(scene.imageDataUrl));
-      videos.set(scene.id, await loadSceneVideo(scene));
+      if (getSceneVideoSrc(scene)) videos.set(scene.id, await loadSceneVideo(scene));
     }
   } catch (error) {
     videos.forEach((video) => { video.pause(); video.removeAttribute("src"); video.load(); });
@@ -534,13 +576,15 @@ export async function exportMp4(
       if (frame > 0) await waitUntil(renderStartedAt + time * 1000);
       const current = sceneAtTime(project.scenes, time);
       const nextVideo = videos.get(current.scene.id);
-      if (nextVideo && activeSceneId !== current.scene.id) {
+      if (activeSceneId !== current.scene.id) {
         activeVideo?.pause();
-        const clipStart = Math.max(0, current.scene.videoClipStart || 0);
-        await seekVideo(nextVideo, clipStart);
         activeVideo = nextVideo;
         activeSceneId = current.scene.id;
-        await activeVideo.play();
+        if (activeVideo) {
+          const clipStart = Math.max(0, current.scene.videoClipStart || 0);
+          await seekVideo(activeVideo, clipStart);
+          await activeVideo.play();
+        }
       }
       if (activeVideo && activeVideo.paused) await activeVideo.play();
       drawSceneFrame(
@@ -559,7 +603,7 @@ export async function exportMp4(
       if (frame % 12 === 0 || frame === totalFrames - 1) {
         onProgress({
           progress: 0.05 + 0.88 * ((frame + 1) / totalFrames),
-          message: "Rendering real footage · frame " + (frame + 1) + " of " + totalFrames + "…",
+          message: "Generating in-house motion video · frame " + (frame + 1) + " of " + totalFrames + "…",
         });
       }
     }
@@ -575,7 +619,7 @@ export async function exportMp4(
     await output.finalize();
     const buffer = output.target.buffer;
     if (!buffer) throw new Error("The MP4 renderer completed without producing a file.");
-    onProgress({ progress: 1, message: "Your video is ready." });
+    onProgress({ progress: 1, message: "Your in-house video is ready." });
     return new Blob([buffer], { type: "video/mp4" });
   } catch (error) {
     activeVideo?.pause();

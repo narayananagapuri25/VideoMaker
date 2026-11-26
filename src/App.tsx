@@ -5,15 +5,14 @@ import { deriveTopicFromScript, makeProject, parsePastedNarration, scenesFromScr
 import { loadLatestProject, saveProject } from "./lib/storage";
 import { generateNarration } from "./lib/tts";
 import { buildSceneImagePrompt } from "./lib/art-prompt";
-import { buildGoogleFlowShotList } from "./lib/flow-prompts";
 import { getSceneStartTime, getTimelineDuration } from "./lib/timeline";
 import PlaybackTimeline from "./components/PlaybackTimeline";
 import CreatorKit from "./components/CreatorKit";
 import StockVideoPanel from "./components/StockVideoPanel";
-import GoogleFlowPanel from "./components/GoogleFlowPanel";
 import type { AspectRatio, Language, Scene, StudioProject } from "./types";
 import { getEmbeddedImageSize, getEmbeddedVideoSize, getProjectMediaSize, isSupportedImageMimeType, MAX_NARRATION_AUDIO_BYTES, MAX_PROJECT_MEDIA_BYTES, MAX_SCENE_IMAGE_BYTES } from "./lib/media-data";
 import { MAX_PROJECT_BACKUP_BYTES, restoreProjectBackup } from "./lib/project-backup";
+import { getSceneVisualMode, getUnverifiedSceneMedia } from "./lib/video-generation";
 
 const initialProject = () => makeProject("Why do we see lightning before thunder?", "English", "9:16", 45);
 
@@ -442,37 +441,23 @@ export default function App() {
 
   async function handleExport() {
     if (!storyboardInSync) {
-      setNotice("Export paused: your topic, narration, language, format or target length changed after the storyboard was created. Generate again or rebuild the storyboard first.");
+      setNotice("Video generation paused: your topic, narration, language, format or target length changed after the storyboard was created. Generate again or rebuild the storyboard first.");
       return;
     }
     if (project.scenes.length > 80 || totalDuration > 600) {
-      setNotice("For reliable browser rendering, keep exports to 80 scenes and 10 minutes or less. Split longer videos into parts.");
+      setNotice("For reliable on-device rendering, keep videos to 80 scenes and 10 minutes or less. Split longer projects into parts.");
       return;
     }
-    const missingVideo = project.scenes.filter((scene) => !scene.videoDataUrl && !(scene.videoClipSource === "pixabay" && scene.videoClipId));
-    if (missingVideo.length) {
-      setNotice("Real video footage is required for every scene. Add a Pixabay or local MP4/WebM clip to: " + missingVideo.map((scene) => scene.title).join(", ") + ".");
-      return;
-    }
-    if (!project.voiceAudioDataUrl) {
-      setNotice("Add narration audio before exporting. Device voice preview is not embedded in an MP4.");
-      return;
-    }
-    const unverified = project.scenes.filter((scene) => scene.imageDataUrl && !scene.imageCommercialUseConfirmed);
-    if (unverified.length) {
-      setNotice("Before export, review and confirm commercial-use rights for artwork in: " + unverified.map((scene) => scene.title).join(", ") + ".");
-      return;
-    }
-    const unverifiedVideo = project.scenes.filter((scene) => (scene.videoDataUrl || (scene.videoClipSource === "pixabay" && scene.videoClipId)) && !scene.videoCommercialUseConfirmed);
-    if (unverifiedVideo.length) {
-      setNotice("Before export, review the footage source and confirm rights for: " + unverifiedVideo.map((scene) => scene.title).join(", ") + ".");
+    const unverifiedAssets = getUnverifiedSceneMedia(project.scenes);
+    if (unverifiedAssets.length) {
+      setNotice("Confirm usage rights for imported artwork or footage in: " + unverifiedAssets.join(", ") + ".");
       return;
     }
     setIsPlaying(false);
     setIsRendering(true);
     setRenderProgress(0);
-    setRenderMessage("Preparing renderer…");
-    setNotice("Rendering real footage and narration on this device. Keep this tab open; export runs at normal video playback speed.");
+    setRenderMessage("Starting in-house motion engine…");
+    setNotice("Generating your video locally: animated scenes, camera movement, effects, captions and narration. No Flow handoff, paid video API or footage import is required.");
     try {
       const { exportMp4 } = await import("./lib/renderer");
       const blob = await exportMp4(project, ({ progress, message }) => {
@@ -483,9 +468,9 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       exportUrlRef.current = url;
       setExportUrl(url);
-      setNotice("MP4 export completed with moving footage and narration. Preview it, then download when ready.");
+      setNotice("Your in-house motion video is ready. Preview it, then download the MP4.");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Video export failed.");
+      setNotice(error instanceof Error ? error.message : "Video generation failed.");
     } finally {
       setIsRendering(false);
     }
@@ -529,17 +514,6 @@ export default function App() {
     setSelectedSceneId(scenes[0].id);
     setPlayhead(Math.min(playhead, getTimelineDuration(scenes)));
     setIsPlaying(false);
-  }
-
-  function downloadGoogleFlowShotList() {
-    const blob = new Blob([buildGoogleFlowShotList(project)], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = (project.title || "sochozara-flow-shot-list").toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-flow-shot-list.txt";
-    anchor.click();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
-    setNotice("Google Flow shot list downloaded with a separate cinematic prompt for every storyboard scene.");
   }
 
   function exportProjectBackup() {
@@ -595,7 +569,7 @@ export default function App() {
   }
 
   function newProject() {
-    const fresh = makeProject("Enter your next video topic", "Hinglish", "9:16", 45);
+    const fresh = makeProject("Enter your next video topic", "English", "9:16", 45);
     updateProject(fresh);
     setSelectedSceneId(fresh.scenes[0]?.id ?? "");
     setPlayhead(0);
@@ -736,20 +710,26 @@ export default function App() {
                     onPlaybackError={handlePlaybackError}
                   />
                   <div className="preview-caption"><span className="sound-icon">◖))</span><span>{selectedScene?.caption || selectedScene?.narration || "Scene narration preview"}</span></div>
-                  <div className="export-controls">
-                    <button className="button button-primary export-button" onClick={handleExport} disabled={isRendering || !project.scenes.length || !storyboardInSync || !project.voiceAudioDataUrl || !project.scenes.every((scene) => Boolean((scene.videoDataUrl || (scene.videoClipSource === "pixabay" && scene.videoClipId)) && scene.videoCommercialUseConfirmed))}>{isRendering ? <><span className="spinner" /> Rendering MP4…</> : "↓ Export real video MP4"}</button>
-                    <span className="export-spec">{project.aspectRatio === "9:16" ? "720 × 1280" : "1280 × 720"} · H.264</span>
-                    {!storyboardInSync && <small className="export-blocked-note">Rebuild the storyboard before exporting.</small>}
-                    {!project.scenes.every((scene) => Boolean(scene.videoDataUrl || (scene.videoClipSource === "pixabay" && scene.videoClipId))) && <small className="export-blocked-note">Add real moving footage to every storyboard scene before exporting. The renderer will not substitute abstract graphics.</small>}
-                    {!project.voiceAudioDataUrl && <small className="export-blocked-note">Add narration audio before export. Device voice preview is not embedded.</small>}
+                  <div className="inhouse-generator">
+                    <div className="inhouse-generator-heading">
+                      <span className="inhouse-generator-mark">✦</span>
+                      <div><strong>IN-HOUSE VIDEO GENERATOR</strong><small>Free · runs on this device · no Flow or paid video API</small></div>
+                      <span className="inhouse-free-tag">FREE</span>
+                    </div>
+                    <p>Turns every storyboard scene into moving video using animated camera moves, topic-aware motion graphics, atmospheric effects, titles and captions. Imported images or optional footage make scenes more specific, but are not required.</p>
+                    <button className="button button-primary export-button" onClick={handleExport} disabled={isRendering || !project.scenes.length || !storyboardInSync || getUnverifiedSceneMedia(project.scenes).length > 0}>{isRendering ? <><span className="spinner" /> Generating video…</> : "✦ Generate complete video · Free"}</button>
+                    <span className="export-spec">{project.aspectRatio === "9:16" ? "720 × 1280" : "1280 × 720"} · H.264 · on-device</span>
+                    {!storyboardInSync && <small className="export-blocked-note">Rebuild the storyboard before generating video.</small>}
+                    {!project.voiceAudioDataUrl && <small className="inhouse-hint">Narration is optional. Generate the visual video now, then add voice audio whenever you are ready.</small>}
+                    {getUnverifiedSceneMedia(project.scenes).length > 0 && <small className="export-blocked-note">Confirm usage rights for imported artwork or footage before generation.</small>}
+                    {project.scenes.some((scene) => getSceneVisualMode(scene) === "procedural-motion") && <small className="inhouse-hint">Scenes without imported media will use original animated graphics guided by their scene titles, captions and visual prompts.</small>}
                   </div>
                   {isRendering && <div className="render-progress"><div className="progress-track"><span style={{ width: (renderProgress * 100) + "%" }} /></div><small>{renderMessage} · {Math.round(renderProgress * 100)}%</small></div>}
                   {exportUrl && !isRendering && <div className="download-ready"><span>✓ MP4 ready</span><a className="button button-download" href={exportUrl} download={(project.title || "sochozara-video").toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".mp4"}>Download MP4 ↓</a></div>}
                 </article>
 
                 <article className="panel scene-panel">
-                  <div className="panel-heading"><div><span className="step-number">04</span><div><h2>Storyboard</h2><p>Select a scene to edit its visuals and captions.</p></div></div><div className="storyboard-header-actions">
-                    <button className="button button-secondary flow-shotlist-button" onClick={downloadGoogleFlowShotList}>↓ Flow shot list</button>
+                  <div className="panel-heading"><div><span className="step-number">04</span><div><h2>Storyboard</h2><p>Every scene can be animated locally without importing video clips.</p></div></div><div className="storyboard-header-actions">
                     <button className="add-scene" onClick={addScene}>＋ Add</button>
                   </div></div>
                   <div className="scene-list">
@@ -763,7 +743,6 @@ export default function App() {
                   </div>
                   {selectedScene && (
                     <div className="scene-editor">
-                      <GoogleFlowPanel scene={selectedScene} aspectRatio={project.aspectRatio} onNotice={setNotice} />
                       <div className="scene-editor-top"><strong>SCENE DETAILS</strong><div><button className="tiny-action" onClick={() => moveScene(selectedScene.id, -1)} title="Move up">↑</button><button className="tiny-action" onClick={() => moveScene(selectedScene.id, 1)} title="Move down">↓</button><button className="tiny-action danger-text" onClick={() => removeScene(selectedScene.id)} title="Delete scene">×</button></div></div>
                       <label className="field-label">SCENE TITLE</label>
                       <input value={selectedScene.title} onChange={(event) => updateScene(selectedScene.id, { title: event.target.value })} />
@@ -821,7 +800,7 @@ export default function App() {
               </section>
             </div>
             <div className="status-line"><span className="status-pulse" />{notice}</div>
-            <footer className="app-footer"><span>SOCHOZARA STUDIO · BUILT FOR ORIGINAL STORIES</span><span>Local-first · No paid rendering API · No automatic uploads</span></footer>
+            <footer className="app-footer"><span>SOCHOZARA STUDIO · BUILT FOR ORIGINAL STORIES</span><span>Local-first · Free in-house motion generation · No automatic uploads</span></footer>
           </div>
         )}
       </main>
