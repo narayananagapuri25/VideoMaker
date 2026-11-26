@@ -494,6 +494,10 @@ export default function App() {
       setNotice("Enter a question or topic before generating your video.");
       return;
     }
+    if (!apiKey.trim()) {
+      setNotice("Connect Gemini with a Google AI Studio API key first. The AI script and generated narration use your Gemini free-tier quota; graphics and MP4 rendering are free on this device.");
+      return;
+    }
     setIsGeneratingFullVideo(true);
     setNotice(apiKey.trim()
       ? "AI director is writing the story, designing every scene and preparing your narration…"
@@ -796,7 +800,7 @@ export default function App() {
                       <span className="inhouse-free-tag">FREE</span>
                     </div>
                     <p>Enter a question and let the AI director write the story, plan a different visual for every scene, generate English narration and assemble the MP4. Rendering and graphics run free on this device.</p>
-                    <button className="button button-primary export-button" onClick={handleGenerateFullVideo} disabled={isRendering || isGeneratingFullVideo || isGenerating || !project.topic.trim() || getUnverifiedSceneMedia(project.scenes).length > 0}>{isGeneratingFullVideo ? <><span className="spinner" /> AI is creating your video…</> : "✦ Generate entire video with AI"}</button>
+                    <button className="button button-primary export-button" onClick={handleGenerateFullVideo} disabled={isRendering || isGeneratingFullVideo || isGenerating || !apiKey.trim() || !project.topic.trim() || getUnverifiedSceneMedia(project.scenes).length > 0}>{isGeneratingFullVideo ? <><span className="spinner" /> AI is creating your video…</> : "✦ Generate entire video with AI"}</button>
                     <button className="button button-secondary export-button" onClick={handleExport} disabled={isRendering || isGeneratingFullVideo || !project.scenes.length || !storyboardInSync || getUnverifiedSceneMedia(project.scenes).length > 0}>{isRendering ? <><span className="spinner" /> Rendering…</> : "Render current storyboard"}</button>
                     <span className="export-spec">{project.aspectRatio === "9:16" ? "720 × 1280" : "1280 × 720"} · H.264 · on-device</span>
                     <small className="inhouse-hint">{apiKey.trim() ? "Gemini AI writes the script and generates the voice; the scene graphics and MP4 renderer are in-house." : "Without a Gemini key, topic-specific offline stories can still be rendered. AI-written stories and generated narration need a Google AI Studio key."}</small>
