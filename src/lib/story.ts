@@ -160,7 +160,7 @@ function stockMarketStory(targetDuration: number): GeneratedStory {
     },
   ];
   const duration = Math.max(1, targetDuration) / scenes.length;
-  const script = scenes.map((scene) => scene.narration).join("\\n\\n");
+  const script = scenes.map((scene) => scene.narration).join("\n\n");
   return {
     title: "How the Stock Market Works",
     script,
