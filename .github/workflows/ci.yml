@@ -23,16 +23,9 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: npm
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
-      - name: Upload resolved dependency lockfile for one-time repository lock-in
-        if: always() && hashFiles('package-lock.json') != ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: generated-npm-lock-${{ github.sha }}
-          path: package-lock.json
-          retention-days: 1
-          compression-level: 0
+        run: npm ci --no-audit --no-fund
       - name: Review dependency advisories
         run: |
           npm audit --json > npm-audit.json || true
@@ -41,29 +34,3 @@ jobs:
         run: npm run test
       - name: Build production app
         run: npm run build
-  lockfile:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/production/hardening-pass'
-    needs: verify
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-      - name: Download resolved lockfile
-        uses: actions/download-artifact@v7
-        with:
-          name: generated-npm-lock-${{ github.sha }}
-          path: generated-lock
-      - name: Commit lockfile for reproducible installs
-        run: |
-          if test -f package-lock.json; then
-            echo 'A lockfile is already committed.'
-            exit 0
-          fi
-          cp generated-lock/package-lock.json package-lock.json
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add package-lock.json
-          git commit -m 'Add npm lockfile for reproducible installs'
-          git push origin HEAD:production/hardening-pass
