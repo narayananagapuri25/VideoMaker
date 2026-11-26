@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { generateStory } from "./lib/ai";
 import { makeProject, scenesFromScript } from "./lib/story";
 import { loadLatestProject, saveProject } from "./lib/storage";
 import { generateNarration } from "./lib/tts";
+import { buildSceneImagePrompt } from "./lib/art-prompt";
+import { getSceneStartTime, getTimelineDuration } from "./lib/timeline";
+import PlaybackTimeline from "./components/PlaybackTimeline";
 import type { AspectRatio, Language, Scene, StudioProject } from "./types";
 
 const initialProject = () => makeProject("Why do we see lightning before thunder?", "Hinglish", "9:16", 45);
@@ -25,6 +28,9 @@ function formatTime(seconds: number): string {
 export default function App() {
   const [project, setProject] = useState<StudioProject>(initialProject);
   const [selectedSceneId, setSelectedSceneId] = useState("");
+  const [playhead, setPlayhead] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [visualProvider, setVisualProvider] = useState<"adobe-firefly" | "pexels" | "other">("adobe-firefly");
   const [apiKey, setApiKey] = useState("");
   const [activeSection, setActiveSection] = useState<"studio" | "guide">("studio");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -50,7 +56,8 @@ export default function App() {
     () => project.scenes.find((scene) => scene.id === selectedSceneId) ?? project.scenes[0],
     [project.scenes, selectedSceneId],
   );
-  const totalDuration = project.scenes.reduce((total, scene) => total + Math.max(1, scene.duration), 0);
+  const totalDuration = getTimelineDuration(project.scenes);
+  const handlePlaybackError = useCallback((message: string) => setNotice(message), []);
 
   useEffect(() => {
     let mounted = true;
@@ -126,6 +133,8 @@ export default function App() {
       }));
       updateProject({ title: result.story.title, script: result.story.script, scenes });
       setSelectedSceneId(scenes[0]?.id ?? "");
+      setPlayhead(0);
+      setIsPlaying(false);
       setGenerationSource(result.source);
       setNotice(result.source === "gemini"
         ? "AI story and storyboard created. Verify all factual claims before publishing."
@@ -141,6 +150,8 @@ export default function App() {
     const scenes = scenesFromScript(project.script, project.targetDuration);
     updateProject({ scenes });
     setSelectedSceneId(scenes[0]?.id ?? "");
+    setPlayhead(0);
+    setIsPlaying(false);
     setNotice("Storyboard rebuilt from your current script.");
   }
 
@@ -159,8 +170,8 @@ export default function App() {
     }
     try {
       const imageDataUrl = await fileToDataUrl(file);
-      updateScene(sceneId, { imageDataUrl });
-      setNotice("Scene artwork added. The image remains in this browser project.");
+      updateScene(sceneId, { imageDataUrl, imageProvider: visualProvider, imageCommercialUseConfirmed: false });
+      setNotice("Scene artwork added. Review its commercial-use terms and confirm the asset rights in the scene editor.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Image upload failed.");
     }
@@ -270,6 +281,12 @@ export default function App() {
   }
 
   async function handleExport() {
+    const unverified = project.scenes.filter((scene) => scene.imageDataUrl && !scene.imageCommercialUseConfirmed);
+    if (unverified.length) {
+      setNotice("Before export, review and confirm commercial-use rights for artwork in: " + unverified.map((scene) => scene.title).join(", ") + ".");
+      return;
+    }
+    setIsPlaying(false);
     setIsRendering(true);
     setRenderProgress(0);
     setRenderMessage("Preparing renderer…");
@@ -303,6 +320,8 @@ export default function App() {
     };
     updateProject({ scenes: [...project.scenes, scene] });
     setSelectedSceneId(scene.id);
+    setPlayhead(totalDuration);
+    setIsPlaying(false);
   }
 
   function moveScene(sceneId: string, direction: -1 | 1) {
@@ -322,6 +341,8 @@ export default function App() {
     const scenes = project.scenes.filter((scene) => scene.id !== sceneId);
     updateProject({ scenes });
     setSelectedSceneId(scenes[0].id);
+    setPlayhead(Math.min(playhead, getTimelineDuration(scenes)));
+    setIsPlaying(false);
   }
 
   function exportProjectBackup() {
@@ -356,6 +377,9 @@ export default function App() {
         visualPrompt: String(scene.visualPrompt || ""),
         duration: Math.max(1, Math.min(90, Number(scene.duration) || 5)),
         imageDataUrl: typeof scene.imageDataUrl === "string" ? scene.imageDataUrl : undefined,
+        imageProvider: scene.imageProvider === "adobe-firefly" || scene.imageProvider === "pexels" || scene.imageProvider === "other" ? scene.imageProvider : undefined,
+        imageSourceNote: typeof scene.imageSourceNote === "string" ? scene.imageSourceNote : undefined,
+        imageCommercialUseConfirmed: Boolean(scene.imageCommercialUseConfirmed),
       }));
       const restored: StudioProject = {
         id: String(imported.id || Date.now()),
@@ -372,6 +396,8 @@ export default function App() {
       };
       updateProject(restored);
       setSelectedSceneId(scenes[0].id);
+      setPlayhead(0);
+      setIsPlaying(false);
       setExportUrl("");
       setNotice("Project backup imported. Check the media and audio before exporting.");
     } catch (error) {
@@ -384,13 +410,11 @@ export default function App() {
     const fresh = makeProject("Enter your next video topic", "Hinglish", "9:16", 45);
     updateProject(fresh);
     setSelectedSceneId(fresh.scenes[0]?.id ?? "");
+    setPlayhead(0);
+    setIsPlaying(false);
     setExportUrl("");
     setNotice("New project created.");
   }
-
-  const previewStyle = selectedScene?.imageDataUrl
-    ? { backgroundImage: "linear-gradient(180deg,rgba(4,10,19,.18),rgba(4,10,19,.84)),url(" + selectedScene.imageDataUrl + ")" }
-    : undefined;
 
   return (
     <div className="app-shell">
@@ -489,18 +513,18 @@ export default function App() {
               <section className="right-column">
                 <article className="panel preview-panel">
                   <div className="panel-heading preview-heading"><div><span className="step-number">PREVIEW</span><div><h2>Video canvas</h2><p>{project.aspectRatio} · {project.scenes.length} scenes · {formatTime(totalDuration)}</p></div></div><span className="preview-live"><i /> LIVE</span></div>
-                  <div className={"preview-stage " + (project.aspectRatio === "16:9" ? "landscape" : "")}>
-                    <div className="preview-image-layer" style={previewStyle} />
-                    <div className="preview-shade" />
-                    <div className="preview-brand"><span className="preview-mark">?</span><strong>SOCHOZARA</strong><small>DUNIYA KE FACTS. EK NAYA ANGLE.</small></div>
-                    <div className="preview-content">
-                      <small>CHAPTER {String(Math.max(0, project.scenes.findIndex((scene) => scene.id === selectedScene?.id) + 1)).padStart(2, "0")}</small>
-                      <h3>{selectedScene?.title || "Your next scene"}</h3>
-                      <p>{selectedScene?.caption || "Your scene caption appears here."}</p>
-                    </div>
-                    <div className="preview-progress"><span style={{ width: "47%" }} /></div>
-                    <div className="preview-watermark">MOTION PREVIEW</div>
-                  </div>
+                  <PlaybackTimeline
+                    scenes={project.scenes}
+                    aspectRatio={project.aspectRatio}
+                    voiceAudioDataUrl={project.voiceAudioDataUrl}
+                    selectedSceneId={selectedSceneId}
+                    playhead={playhead}
+                    isPlaying={isPlaying}
+                    onSelectScene={setSelectedSceneId}
+                    onPlayheadChange={setPlayhead}
+                    onPlayingChange={setIsPlaying}
+                    onPlaybackError={handlePlaybackError}
+                  />
                   <div className="preview-caption"><span className="sound-icon">◖))</span><span>{selectedScene?.narration || "Scene narration preview"}</span></div>
                   <div className="export-controls">
                     <button className="button button-primary export-button" onClick={handleExport} disabled={isRendering || !project.scenes.length}>{isRendering ? <><span className="spinner" /> Rendering MP4…</> : "↓ Export finished MP4"}</button>
@@ -532,12 +556,41 @@ export default function App() {
                       <textarea rows={3} value={selectedScene.narration} onChange={(event) => updateScene(selectedScene.id, { narration: event.target.value })} />
                       <label className="field-label">VISUAL PROMPT / ART DIRECTION</label>
                       <textarea rows={2} value={selectedScene.visualPrompt} onChange={(event) => updateScene(selectedScene.id, { visualPrompt: event.target.value })} />
-                      <div className="prompt-actions"><button className="text-button" onClick={() => navigator.clipboard.writeText(selectedScene.visualPrompt).then(() => setNotice("Scene visual prompt copied. Paste it into your licensed image generator." )).catch(() => setNotice("Clipboard unavailable. Select and copy the visual prompt manually."))}>▣ Copy visual prompt</button><a href="https://firefly.adobe.com/" target="_blank" rel="noreferrer">Open Adobe Firefly ↗</a><a href="https://www.pexels.com/videos/" target="_blank" rel="noreferrer">Find stock footage ↗</a></div>
+                      <div className="artwork-workflow">
+                        <div className="artwork-provider-row">
+                          <label className="field-label" htmlFor="visual-provider">CREATE SCENE ARTWORK</label>
+                          <select id="visual-provider" value={visualProvider} onChange={(event) => setVisualProvider(event.target.value as "adobe-firefly" | "pexels" | "other")}>
+                            <option value="adobe-firefly">Adobe Firefly · free daily generations</option>
+                            <option value="pexels">Pexels · free stock media</option>
+                            <option value="other">Other generator / my own artwork</option>
+                          </select>
+                        </div>
+                        <div className="prompt-actions">
+                          <button className="text-button" onClick={() => navigator.clipboard.writeText(buildSceneImagePrompt(selectedScene, project.aspectRatio)).then(() => setNotice("Full branded scene prompt copied. Paste it into the selected visual generator.")).catch(() => setNotice("Clipboard unavailable. Select and copy the prompt manually."))}>▣ Copy full scene prompt</button>
+                          {visualProvider === "adobe-firefly" && <a href="https://firefly.adobe.com/" target="_blank" rel="noreferrer">Open Firefly ↗</a>}
+                          {visualProvider === "pexels" && <a href="https://www.pexels.com/videos/" target="_blank" rel="noreferrer">Browse Pexels ↗</a>}
+                          {visualProvider === "other" && <span className="microcopy">Use any generator whose terms permit your intended use.</span>}
+                        </div>
+                        <small className="asset-rights-hint">
+                          Firefly Free has limited daily generations. For commercial projects, use an Adobe Firefly model and a non-beta feature; partner models may have different terms. Gemini image-generation API models currently do not include a free API tier.
+                          <a href="https://www.adobe.com/in/products/firefly.html" target="_blank" rel="noreferrer"> Firefly plans ↗</a>
+                        </small>
+                      </div>
                       <div className="scene-editor-bottom">
                         <div><label className="field-label">DURATION (SECONDS)</label><input type="number" min="1" max="90" value={selectedScene.duration} onChange={(event) => updateScene(selectedScene.id, { duration: Math.max(1, Math.min(90, Number(event.target.value) || 1)) })} /></div>
-                        <label className="button button-secondary file-button">{selectedScene.imageDataUrl ? "↻ Replace artwork" : "＋ Add artwork"}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => handleSceneImage(selectedScene.id, event)} /></label>
+                        <label className="button button-secondary file-button">{selectedScene.imageDataUrl ? "↻ Replace artwork" : "＋ Import generated artwork"}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => handleSceneImage(selectedScene.id, event)} /></label>
                       </div>
-                      {selectedScene.imageDataUrl && <button className="text-button remove-artwork" onClick={() => updateScene(selectedScene.id, { imageDataUrl: undefined })}>Remove scene artwork</button>}
+                      {selectedScene.imageDataUrl && (
+                        <div className="asset-rights-box">
+                          <label className="field-label">ASSET SOURCE / LICENCE NOTE</label>
+                          <input value={selectedScene.imageSourceNote || ""} onChange={(event) => updateScene(selectedScene.id, { imageSourceNote: event.target.value })} placeholder="e.g. Adobe Firefly · Firefly Image model · generated 26 Nov 2026" />
+                          <label className="rights-confirm">
+                            <input type="checkbox" checked={Boolean(selectedScene.imageCommercialUseConfirmed)} onChange={(event) => updateScene(selectedScene.id, { imageCommercialUseConfirmed: event.target.checked })} />
+                            <span>I checked the selected model/asset licence and confirm I can use this artwork in the intended video.</span>
+                          </label>
+                          <button className="text-button remove-artwork" onClick={() => updateScene(selectedScene.id, { imageDataUrl: undefined, imageCommercialUseConfirmed: false, imageSourceNote: undefined, imageProvider: undefined })}>Remove scene artwork</button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </article>
