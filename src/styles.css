@@ -420,3 +420,8 @@ select { appearance: auto; }
 .video-rights-box .field-label { display: block; margin: 0 0 6px; }
 .video-rights-box input:not([type="checkbox"]) { font-size: 8px; padding: 7px 8px; }
 .video-rights-box .rights-confirm { margin-top: 8px; }
+
+.video-trim-control { display: grid; grid-template-columns: minmax(0,1fr) 90px; gap: 6px 10px; align-items: center; margin-top: 9px; padding: 9px; border: 1px solid rgba(149,173,204,.12); border-radius: 8px; background: rgba(255,255,255,.02); }
+.video-trim-control .field-label { margin: 0; }
+.video-trim-control input { font-size: 9px; padding: 7px 8px; }
+.video-trim-control small { grid-column: 1 / -1; color: #7f93a9; font-size: 8px; line-height: 1.5; }
