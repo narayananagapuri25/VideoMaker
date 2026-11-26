@@ -4,6 +4,7 @@ import { generateStory } from "./lib/ai";
 import { makeProject, scenesFromScript } from "./lib/story";
 import { loadLatestProject, saveProject } from "./lib/storage";
 import { exportMp4 } from "./lib/renderer";
+import { generateNarration } from "./lib/tts";
 import type { AspectRatio, Language, Scene, StudioProject } from "./types";
 
 const initialProject = () => makeProject("Why do we see lightning before thunder?", "Hinglish", "9:16", 45);
@@ -36,6 +37,8 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState("Loading project…");
   const [generationSource, setGenerationSource] = useState<"local" | "gemini">("local");
   const [isRecording, setIsRecording] = useState(false);
+  const [isGeneratingVoice, setIsGeneratingVoice] = useState(false);
+  const [ttsVoice, setTtsVoice] = useState("Kore");
   const [recordingError, setRecordingError] = useState("");
   const didLoad = useRef(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -163,6 +166,29 @@ export default function App() {
       setNotice(error instanceof Error ? error.message : "Image upload failed.");
     }
     event.target.value = "";
+  }
+
+  async function handleGenerateAiVoice() {
+    if (!apiKey.trim()) {
+      setNotice("Enter your Gemini API key in the connection field above before generating AI narration.");
+      return;
+    }
+    if (!project.script.trim()) {
+      setNotice("Add narration text before generating AI voice.");
+      return;
+    }
+    setIsGeneratingVoice(true);
+    setNotice("Generating narration with Gemini 3.8 Flash TTS free-tier model…");
+    try {
+      const audio = await generateNarration(project.script, apiKey, ttsVoice, project.language);
+      const audioDataUrl = await fileToDataUrl(audio);
+      updateProject({ voiceAudioDataUrl: audioDataUrl, voiceAudioName: "Gemini TTS · " + ttsVoice + ".wav" });
+      setNotice("AI narration generated. Preview it and check pronunciation before exporting.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "AI narration generation failed.");
+    } finally {
+      setIsGeneratingVoice(false);
+    }
   }
 
   async function handleAudioUpload(event: ChangeEvent<HTMLInputElement>) {
@@ -444,12 +470,17 @@ export default function App() {
                   ) : (
                     <div className="audio-empty"><div className="audio-wave">▂ ▅ ▃ ▆ ▄ ▇</div><strong>No narration audio yet</strong><p>Upload a licensed AI voice track or record your narration. Browser voice preview is not included in the exported video.</p></div>
                   )}
+                  <div className="tts-controls">
+                    <div><label className="field-label">AI VOICE</label><select value={ttsVoice} onChange={(event) => setTtsVoice(event.target.value)}><option value="Kore">Kore · warm</option><option value="Aoede">Aoede · expressive</option><option value="Puck">Puck · energetic</option><option value="Charon">Charon · deep</option><option value="Fenrir">Fenrir · bold</option><option value="Zephyr">Zephyr · bright</option></select></div>
+                    <button className="button button-primary tts-button" disabled={isGeneratingVoice || !apiKey.trim()} onClick={handleGenerateAiVoice}>{isGeneratingVoice ? <><span className="spinner" /> Generating voice…</> : "✦ Generate AI narration"}</button>
+                  </div>
+                  <small className="tts-disclaimer">Gemini 3.8 Flash TTS currently lists a limited free tier. Free-tier inputs may be used to improve Google products; do not submit private content. Quotas and access can change. Use a key with billing disabled.</small>
                   <div className="button-row audio-actions">
                     <label className="button button-secondary file-button">↑ Upload audio<input type="file" accept="audio/*" onChange={handleAudioUpload} /></label>
                     {isRecording
                       ? <button className="button button-danger" onClick={stopRecording}>■ Stop recording</button>
                       : <button className="button button-secondary" onClick={startRecording}>● Record voice</button>}
-                    <button className="button button-quiet" onClick={listenWithDeviceVoice}>▶ Voice preview</button>
+                    <button className="button button-quiet" onClick={listenWithDeviceVoice}>▶ Device voice preview</button>
                   </div>
                   {recordingError && <p className="error-text">{recordingError}</p>}
                 </article>
