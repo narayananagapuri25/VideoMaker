@@ -15,7 +15,7 @@ The browser-first studio is designed for a creator workflow: enter a topic, buil
 - Optional Gemini 4 Hydrogen story/storyboard generation through the Interactions API using a user-provided API key; requests are stateless (`store: false`) and structured as validated JSON.
 - Scene-by-scene editing for titles, narration, captions, prompts, durations and visual direction.
 - Built-in, on-device motion-video generation: create a complete MP4 from the storyboard without importing video clips or using an external video-generation service.
-- Topic-aware animated graphics, slow camera moves, parallax-style image motion, atmospheric effects, scene titles, captions and timeline progress are rendered locally into the MP4.
+- Topic-aware animated graphics, slow camera moves, slow camera pan/zoom, atmospheric effects, scene titles, captions and timeline progress are rendered locally into the MP4.
 - Search Pixabay stock footage from each scene, preview the clip and attach it to the storyboard. Import local MP4/WebM clips as an alternative.
 - A live canvas playback timeline that animates the selected scene's artwork or topic-based motion graphics, and plays optional imported footage, with play/pause, scrubbing, scene segments and narration sync.
 - Generate a scene-specific art prompt and open Adobe Firefly or Pexels; import a generated or licensed image for each scene.
