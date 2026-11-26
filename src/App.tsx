@@ -170,7 +170,7 @@ export default function App() {
     }
     try {
       const imageDataUrl = await fileToDataUrl(file);
-      updateScene(sceneId, { imageDataUrl, imageProvider: visualProvider, imageCommercialUseConfirmed: false });
+      updateScene(sceneId, { imageDataUrl, imageProvider: visualProvider, imageCommercialUseConfirmed: false, imageSourceNote: visualProvider === "adobe-firefly" ? "Adobe Firefly · confirm selected Adobe model and non-beta feature" : visualProvider === "pexels" ? "Pexels · record asset URL/creator and verify licence" : "Other source · record model/provider and licence" });
       setNotice("Scene artwork added. Review its commercial-use terms and confirm the asset rights in the scene editor.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Image upload failed.");
@@ -538,7 +538,7 @@ export default function App() {
                   <div className="panel-heading"><div><span className="step-number">04</span><div><h2>Storyboard</h2><p>Select a scene to edit its visuals and captions.</p></div></div><button className="add-scene" onClick={addScene}>＋ Add</button></div>
                   <div className="scene-list">
                     {project.scenes.map((scene, index) => (
-                      <button key={scene.id} className={"scene-row " + (scene.id === selectedScene?.id ? "selected" : "")} onClick={() => setSelectedSceneId(scene.id)}>
+                      <button key={scene.id} className={"scene-row " + (scene.id === selectedScene?.id ? "selected" : "")} onClick={() => { setSelectedSceneId(scene.id); setIsPlaying(false); setPlayhead(getSceneStartTime(project.scenes, scene.id)); }}>
                         <span className="scene-number">{String(index + 1).padStart(2, "0")}</span>
                         <span className="scene-row-main"><strong>{scene.title || "Untitled scene"}</strong><small>{scene.caption.slice(0, 74) || "No caption yet"}</small></span>
                         <span className="scene-time">{formatTime(scene.duration)}</span>
