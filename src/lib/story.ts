@@ -29,8 +29,9 @@ export function parsePastedNarration(input: string): ParsedPastedNarration | nul
     ? raw.slice(noteMatch.index + noteMatch[0].length).trim() || undefined
     : undefined;
   const fence = String.fromCharCode(96).repeat(3);
-  script = script.replace(new RegExp("^\s*" + fence + "(?:json)?\s*", "i"), "")
-    .replace(new RegExp("\s*" + fence + "\s*$"), "")
+  const whitespace = String.fromCharCode(92) + "s*";
+  script = script.replace(new RegExp("^" + whitespace + fence + "(?:json)?" + whitespace, "i"), "")
+    .replace(new RegExp(whitespace + fence + whitespace + "$"), "")
     .replace(/["”]\s*$/u, "")
     .trim();
   const words = script.split(/\s+/).filter(Boolean).length;

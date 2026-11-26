@@ -91,7 +91,7 @@ export default function App() {
             storyboardSourceScript: restoredScript,
             storyboardSourceTargetDuration: saved.targetDuration,
             storyboardSourceAspectRatio: saved.aspectRatio,
-            editorialNote: pasted?.editorialNote ?? saved.editorialNote,
+            editorialNote: pasted ? pasted.editorialNote : saved.editorialNote,
           };
           setProject(restored);
           setSelectedSceneId(restored.scenes[0]?.id ?? "");
@@ -520,7 +520,7 @@ export default function App() {
         restored.storyboardSourceScript = pasted.script;
         restored.storyboardSourceTargetDuration = restored.targetDuration;
         restored.storyboardSourceAspectRatio = restored.aspectRatio;
-        restored.editorialNote = pasted.editorialNote ?? restored.editorialNote;
+        restored.editorialNote = pasted.editorialNote;
         setGenerationSource("provided-script");
       }
       updateProject(restored);
