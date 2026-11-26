@@ -461,10 +461,12 @@ export async function exportMp4(
   onProgress: (progress: ExportProgress) => void,
 ): Promise<Blob> {
   if (!project.scenes.length) throw new Error("Add at least one scene before exporting.");
-  const missingVideo = project.scenes.filter((scene) => !getSceneVideoSrc(scene));
-  if (missingVideo.length) throw new Error("Add real video footage to every scene before exporting: " + missingVideo.map((scene) => scene.title).join(", ") + ".");
-  const unverifiedVideo = project.scenes.filter((scene) => !scene.videoCommercialUseConfirmed);
-  if (unverifiedVideo.length) throw new Error("Confirm the source and usage rights for scene footage before exporting: " + unverifiedVideo.map((scene) => scene.title).join(", ") + ".");
+  const unverifiedImages = project.scenes.filter((scene) => scene.imageDataUrl && !scene.imageCommercialUseConfirmed);
+  if (unverifiedImages.length) throw new Error("Confirm image usage rights before exporting: " + unverifiedImages.map((scene) => scene.title).join(", ") + ".");
+  const unverifiedVideo = project.scenes.filter((scene) =>
+    (scene.videoDataUrl || (scene.videoClipSource === "pixabay" && scene.videoClipId)) && !scene.videoCommercialUseConfirmed,
+  );
+  if (unverifiedVideo.length) throw new Error("Confirm imported footage usage rights before exporting: " + unverifiedVideo.map((scene) => scene.title).join(", ") + ".");
   if (!project.voiceAudioDataUrl) throw new Error("Add a narration audio track before exporting. Device voice preview is not included in MP4 files.");
   if (project.scenes.length > 80) throw new Error("A project can contain up to 80 scenes. Split this video into smaller parts.");
   if (project.scenes.some((scene) => !Number.isFinite(scene.duration) || scene.duration <= 0 || scene.duration > 90)) {
@@ -488,13 +490,13 @@ export async function exportMp4(
   const context = canvas.getContext("2d", { alpha: false });
   if (!context) throw new Error("Could not create the video rendering canvas.");
 
-  onProgress({ progress: 0.02, message: "Preparing scene footage…" });
+  onProgress({ progress: 0.02, message: "Preparing in-house animated scenes…" });
   const images = new Map<string, HTMLImageElement>();
   const videos = new Map<string, HTMLVideoElement>();
   try {
     for (const scene of project.scenes) {
       if (scene.imageDataUrl) images.set(scene.id, await loadImage(scene.imageDataUrl));
-      videos.set(scene.id, await loadSceneVideo(scene));
+      if (getSceneVideoSrc(scene)) videos.set(scene.id, await loadSceneVideo(scene));
     }
   } catch (error) {
     videos.forEach((video) => { video.pause(); video.removeAttribute("src"); video.load(); });
@@ -534,13 +536,15 @@ export async function exportMp4(
       if (frame > 0) await waitUntil(renderStartedAt + time * 1000);
       const current = sceneAtTime(project.scenes, time);
       const nextVideo = videos.get(current.scene.id);
-      if (nextVideo && activeSceneId !== current.scene.id) {
+      if (activeSceneId !== current.scene.id) {
         activeVideo?.pause();
-        const clipStart = Math.max(0, current.scene.videoClipStart || 0);
-        await seekVideo(nextVideo, clipStart);
         activeVideo = nextVideo;
         activeSceneId = current.scene.id;
-        await activeVideo.play();
+        if (activeVideo) {
+          const clipStart = Math.max(0, current.scene.videoClipStart || 0);
+          await seekVideo(activeVideo, clipStart);
+          await activeVideo.play();
+        }
       }
       if (activeVideo && activeVideo.paused) await activeVideo.play();
       drawSceneFrame(
@@ -559,7 +563,7 @@ export async function exportMp4(
       if (frame % 12 === 0 || frame === totalFrames - 1) {
         onProgress({
           progress: 0.05 + 0.88 * ((frame + 1) / totalFrames),
-          message: "Rendering real footage · frame " + (frame + 1) + " of " + totalFrames + "…",
+          message: "Generating in-house motion video · frame " + (frame + 1) + " of " + totalFrames + "…",
         });
       }
     }
@@ -575,7 +579,7 @@ export async function exportMp4(
     await output.finalize();
     const buffer = output.target.buffer;
     if (!buffer) throw new Error("The MP4 renderer completed without producing a file.");
-    onProgress({ progress: 1, message: "Your video is ready." });
+    onProgress({ progress: 1, message: "Your in-house video is ready." });
     return new Blob([buffer], { type: "video/mp4" });
   } catch (error) {
     activeVideo?.pause();
