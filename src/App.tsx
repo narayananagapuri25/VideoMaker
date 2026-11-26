@@ -8,6 +8,7 @@ import { buildSceneImagePrompt } from "./lib/art-prompt";
 import { getSceneStartTime, getTimelineDuration } from "./lib/timeline";
 import PlaybackTimeline from "./components/PlaybackTimeline";
 import CreatorKit from "./components/CreatorKit";
+import StockVideoPanel from "./components/StockVideoPanel";
 import type { AspectRatio, Language, Scene, StudioProject } from "./types";
 import { getEmbeddedImageSize, getProjectMediaSize, isSupportedImageMimeType, MAX_NARRATION_AUDIO_BYTES, MAX_PROJECT_MEDIA_BYTES, MAX_SCENE_IMAGE_BYTES } from "./lib/media-data";
 import { MAX_PROJECT_BACKUP_BYTES, restoreProjectBackup } from "./lib/project-backup";
@@ -450,6 +451,15 @@ export default function App() {
       setNotice("For reliable browser rendering, keep exports to 80 scenes and 10 minutes or less. Split longer videos into parts.");
       return;
     }
+    const missingVideo = project.scenes.filter((scene) => !scene.videoDataUrl && !(scene.videoClipSource === "pixabay" && scene.videoClipId));
+    if (missingVideo.length) {
+      setNotice("Real video footage is required for every scene. Add a Pixabay or local MP4/WebM clip to: " + missingVideo.map((scene) => scene.title).join(", ") + ".");
+      return;
+    }
+    if (!project.voiceAudioDataUrl) {
+      setNotice("Add narration audio before exporting. Device voice preview is not embedded in an MP4.");
+      return;
+    }
     const unverified = project.scenes.filter((scene) => scene.imageDataUrl && !scene.imageCommercialUseConfirmed);
     if (unverified.length) {
       setNotice("Before export, review and confirm commercial-use rights for artwork in: " + unverified.map((scene) => scene.title).join(", ") + ".");
@@ -459,7 +469,7 @@ export default function App() {
     setIsRendering(true);
     setRenderProgress(0);
     setRenderMessage("Preparing renderer…");
-    setNotice("Rendering happens on this device. Keep this tab open until the MP4 is ready.");
+    setNotice("Rendering real footage and narration on this device. Keep this tab open; export runs at normal video playback speed.");
     try {
       const { exportMp4 } = await import("./lib/renderer");
       const blob = await exportMp4(project, ({ progress, message }) => {
@@ -470,7 +480,7 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       exportUrlRef.current = url;
       setExportUrl(url);
-      setNotice("MP4 export completed. Preview it, then download when ready.");
+      setNotice("MP4 export completed with moving footage and narration. Preview it, then download when ready.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Video export failed.");
     } finally {
@@ -722,10 +732,11 @@ export default function App() {
                   />
                   <div className="preview-caption"><span className="sound-icon">◖))</span><span>{selectedScene?.caption || selectedScene?.narration || "Scene narration preview"}</span></div>
                   <div className="export-controls">
-                    <button className="button button-primary export-button" onClick={handleExport} disabled={isRendering || !project.scenes.length || !storyboardInSync}>{isRendering ? <><span className="spinner" /> Rendering MP4…</> : "↓ Export finished MP4"}</button>
+                    <button className="button button-primary export-button" onClick={handleExport} disabled={isRendering || !project.scenes.length || !storyboardInSync || !project.voiceAudioDataUrl || !project.scenes.every((scene) => Boolean(scene.videoDataUrl || (scene.videoClipSource === "pixabay" && scene.videoClipId)))}>{isRendering ? <><span className="spinner" /> Rendering MP4…</> : "↓ Export real video MP4"}</button>
                     <span className="export-spec">{project.aspectRatio === "9:16" ? "720 × 1280" : "1280 × 720"} · H.264</span>
                     {!storyboardInSync && <small className="export-blocked-note">Rebuild the storyboard before exporting.</small>}
-                    {!project.voiceAudioDataUrl && <small className="export-blocked-note">No narration audio added — this MP4 will be silent. Device voice preview is not embedded.</small>}
+                    {!project.scenes.every((scene) => Boolean(scene.videoDataUrl || (scene.videoClipSource === "pixabay" && scene.videoClipId))) && <small className="export-blocked-note">Add real moving footage to every storyboard scene before exporting. The renderer will not substitute abstract graphics.</small>}
+                    {!project.voiceAudioDataUrl && <small className="export-blocked-note">Add narration audio before export. Device voice preview is not embedded.</small>}
                   </div>
                   {isRendering && <div className="render-progress"><div className="progress-track"><span style={{ width: (renderProgress * 100) + "%" }} /></div><small>{renderMessage} · {Math.round(renderProgress * 100)}%</small></div>}
                   {exportUrl && !isRendering && <div className="download-ready"><span>✓ MP4 ready</span><a className="button button-download" href={exportUrl} download={(project.title || "sochozara-video").toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".mp4"}>Download MP4 ↓</a></div>}
@@ -753,6 +764,7 @@ export default function App() {
                       <textarea rows={3} value={selectedScene.narration} onChange={(event) => updateScene(selectedScene.id, { narration: event.target.value })} />
                       <label className="field-label">VISUAL PROMPT / ART DIRECTION</label>
                       <textarea rows={2} value={selectedScene.visualPrompt} onChange={(event) => updateScene(selectedScene.id, { visualPrompt: event.target.value })} />
+                      <StockVideoPanel scene={selectedScene} onChange={(patch) => updateScene(selectedScene.id, patch)} />
                       <div className="artwork-workflow">
                         <div className="artwork-provider-row">
                           <label className="field-label" htmlFor="visual-provider">CREATE SCENE ARTWORK</label>
