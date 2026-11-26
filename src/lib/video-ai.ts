@@ -100,9 +100,16 @@ export async function generateMagicHourClip(
         model,
       });
     } catch (error) {
-      const details = error as Error & { code?: string; status?: number };
-      if (details.code === "INSUFFICIENT_FREE_CREDITS" || details.status === 402) throw error;
-      failures.push(model + ": " + (error instanceof Error ? error.message : "request failed"));
+      const details = error as Error & { code?: string; status?: number; details?: unknown };
+      const upstreamStatus = typeof details.details === "object" && details.details !== null && "status" in details.details
+        && typeof details.details.status === "number" ? details.details.status : details.status;
+      if (details.code === "INSUFFICIENT_FREE_CREDITS" || upstreamStatus === 402) throw error;
+      // Only a definite validation/model rejection is safe to retry. Network and
+      // server errors may have accepted the job, so never risk duplicate charges.
+      if (upstreamStatus !== 400 && upstreamStatus !== 404 && upstreamStatus !== 422) {
+        throw new Error("The video submission result is uncertain. Check Magic Hour's dashboard before retrying to avoid a duplicate charge. " + (error instanceof Error ? error.message : "Unknown provider error."));
+      }
+      failures.push(model + ": " + (error instanceof Error ? error.message : "request rejected"));
       continue;
     }
 
