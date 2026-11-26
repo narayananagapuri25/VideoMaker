@@ -171,7 +171,8 @@ function stockMarketStory(targetDuration: number): GeneratedStory {
 
 export function buildLocalStory(topic: string, language: Language, targetDuration: number): GeneratedStory {
   const cleanTopic = topic.trim() || "An amazing fact about our world";
-  if (isEarthStopTopic(cleanTopic)) return earthStopStory(language, targetDuration);\n  if (isStockMarketTopic(cleanTopic)) return stockMarketStory(targetDuration);
+  if (isEarthStopTopic(cleanTopic)) return earthStopStory(language, targetDuration);
+  if (isStockMarketTopic(cleanTopic)) return stockMarketStory(targetDuration);
   const sampleLightning = /lightning|thunder|bijli|garaj/i.test(cleanTopic);
 
   if (sampleLightning) {
