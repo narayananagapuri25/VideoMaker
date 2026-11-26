@@ -89,6 +89,7 @@ export default function App() {
             : saved.scenes;
           const restored: StudioProject = {
             ...saved,
+            language: "English",
             title: pasted ? topic : saved.title,
             topic,
             script: restoredScript,
@@ -97,7 +98,7 @@ export default function App() {
             storyboardSourceScript: pasted ? restoredScript : saved.storyboardSourceScript,
             storyboardSourceTargetDuration: pasted ? saved.targetDuration : saved.storyboardSourceTargetDuration,
             storyboardSourceAspectRatio: pasted ? saved.aspectRatio : saved.storyboardSourceAspectRatio,
-            storyboardSourceLanguage: pasted ? saved.language : (saved.storyboardSourceLanguage ?? saved.language),
+            storyboardSourceLanguage: "English",
             editorialNote: pasted ? pasted.editorialNote : saved.editorialNote,
           };
           setProject(restored);
@@ -105,7 +106,7 @@ export default function App() {
           if (pasted) setGenerationSource("provided-script");
           setNotice(pasted
             ? "Recovered your pasted narration, removed the unrelated filler, and rebuilt matching scenes."
-            : "Restored your latest local project.");
+            : "Restored your local project. Language is now English; regenerate the story to replace any older non-English script with an English version.");
         } else {
           setSelectedSceneId(project.scenes[0]?.id ?? "");
         }
@@ -659,7 +660,7 @@ export default function App() {
                     </div>
                   )}
                   <div className="field-grid">
-                    <div><label className="field-label" htmlFor="language">LANGUAGE</label><select id="language" value={project.language} onChange={(event) => updateProject({ language: event.target.value as Language })}><option>Hinglish</option><option>Hindi</option><option>English</option><option>Telugu</option></select></div>
+                    <div><label className="field-label" htmlFor="language">LANGUAGE</label><select id="language" value={project.language} onChange={(event) => updateProject({ language: event.target.value as Language })}><option>English</option><option>Hinglish</option><option>Hindi</option><option>Telugu</option></select></div>
                     <div><label className="field-label" htmlFor="ratio">FORMAT</label><select id="ratio" value={project.aspectRatio} onChange={(event) => updateProject({ aspectRatio: event.target.value as AspectRatio })}><option value="9:16">Vertical · 9:16</option><option value="16:9">Landscape · 16:9</option></select></div>
                     <div><label className="field-label" htmlFor="duration">TARGET LENGTH</label><select id="duration" value={project.targetDuration} onChange={(event) => updateProject({ targetDuration: Number(event.target.value) })}><option value={30}>30 seconds</option><option value={45}>45 seconds</option><option value={60}>60 seconds</option><option value={90}>90 seconds</option><option value={300}>5 minutes</option><option value={480}>8 minutes</option></select></div>
                   </div>
