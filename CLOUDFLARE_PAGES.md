@@ -8,6 +8,8 @@ SochoZara Studio is a Vite application deployed on Cloudflare Pages. Editing, pr
 - GitHub repository: `narayananagapuri25/VideoMaker`
 - Release branch: `main`
 
+The production secret must be configured on the exact Pages project serving the production hostname above. After every secret change, deploy a new production build from `main`, then verify `/api/ai/status` returns `configured: true`. A different Pages project connected to the same repository has an independent Functions environment and secret configuration.
+
 The Pages project is expected to deploy from `main`. Confirm the production branch and build configuration in **Cloudflare Dashboard → Workers & Pages → the Pages project serving this production URL → Settings → Builds**; this repository cannot read account-level Cloudflare settings.
 
 ## One-time Gemini API setup
