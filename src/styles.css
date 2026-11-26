@@ -441,3 +441,24 @@ select { appearance: auto; }
   .storyboard-header-actions { max-width: 58%; }
   .flow-shotlist-button { white-space: normal; }
 }
+
+
+/* Free in-house video generator */
+.inhouse-generator {
+  margin-top: 12px;
+  padding: 13px;
+  border: 1px solid rgba(43,213,231,.28);
+  border-radius: 10px;
+  background: linear-gradient(145deg,rgba(25,111,129,.15),rgba(4,14,25,.55));
+}
+.inhouse-generator-heading { display:flex; align-items:center; gap:9px; }
+.inhouse-generator-heading > div { min-width:0; display:flex; flex-direction:column; gap:4px; }
+.inhouse-generator-heading strong { color:#e8fbff; font-size:9px; letter-spacing:.12em; }
+.inhouse-generator-heading small { color:#8fa9bc; font-size:8px; line-height:1.45; }
+.inhouse-generator-mark { display:grid; place-items:center; flex:0 0 28px; height:28px; border-radius:8px; color:#061622; background:#43d9e5; font-size:15px; font-weight:900; }
+.inhouse-free-tag { margin-left:auto; padding:5px 7px; border:1px solid rgba(67,217,229,.3); border-radius:6px; color:#85eced; font-size:7px; font-weight:900; letter-spacing:.1em; }
+.inhouse-generator > p { margin:10px 0 0; color:#98aec2; font-size:8px; line-height:1.6; }
+.inhouse-generator .export-button { width:100%; margin-top:11px; min-height:42px; }
+.inhouse-generator .export-spec { display:block; margin-top:7px; text-align:center; }
+.inhouse-generator .export-blocked-note { display:block; margin-top:7px; }
+.inhouse-hint { display:block; margin-top:7px; color:#85bfc9; font-size:8px; line-height:1.5; }
