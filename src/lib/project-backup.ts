@@ -1,7 +1,7 @@
 import type { AspectRatio, Language, Scene, StudioProject, VisualProvider } from "../types";
-import { getEmbeddedAudioSize, getEmbeddedImageSize, MAX_NARRATION_AUDIO_BYTES, MAX_PROJECT_MEDIA_BYTES, MAX_SCENE_IMAGE_BYTES } from "./media-data";
+import { getEmbeddedAudioSize, getEmbeddedImageSize, getEmbeddedVideoSize, MAX_NARRATION_AUDIO_BYTES, MAX_PROJECT_MEDIA_BYTES, MAX_SCENE_IMAGE_BYTES, MAX_SCENE_VIDEO_BYTES } from "./media-data";
 
-export const MAX_PROJECT_BACKUP_BYTES = 80 * 1024 * 1024;
+export const MAX_PROJECT_BACKUP_BYTES = 100 * 1024 * 1024;
 export const MAX_PROJECT_SCENES = 80;
 
 const targetDurations = new Set([30, 45, 60, 90, 300, 480]);
@@ -79,6 +79,31 @@ export function restoreProjectBackup(value: unknown): StudioProject {
       imageDataUrl = entry.imageDataUrl as string;
     }
 
+    let videoDataUrl: string | undefined;
+    if (entry.videoDataUrl !== undefined && entry.videoDataUrl !== null && entry.videoDataUrl !== "") {
+      const size = getEmbeddedVideoSize(entry.videoDataUrl);
+      if (size === null || size > MAX_SCENE_VIDEO_BYTES) {
+        throw new Error("This backup contains an unsupported, external or oversized scene video. Use an embedded MP4 or WebM clip under 24 MB.");
+      }
+      mediaBytes += size;
+      videoDataUrl = entry.videoDataUrl as string;
+    }
+
+    const rawVideoId = Number(entry.videoClipId);
+    const videoClipId = Number.isSafeInteger(rawVideoId) && rawVideoId > 0 ? rawVideoId : undefined;
+    const videoClipSource = videoDataUrl
+      ? "local" as const
+      : entry.videoClipSource === "pixabay" && videoClipId
+        ? "pixabay" as const
+        : undefined;
+    let videoClipPageUrl: string | undefined;
+    if (entry.videoClipPageUrl !== undefined && entry.videoClipPageUrl !== null && entry.videoClipPageUrl !== "") {
+      try {
+        const page = new URL(String(entry.videoClipPageUrl));
+        if (page.protocol === "https:" && (page.hostname === "pixabay.com" || page.hostname === "www.pixabay.com")) videoClipPageUrl = page.toString();
+      } catch { /* Ignore untrusted source links in an imported project. */ }
+    }
+
     const id = importedId(entry.id, "scene-" + index + "-" + newId(), usedIds);
     const imageProvider = typeof entry.imageProvider === "string" && visualProviders.has(entry.imageProvider as VisualProvider)
       ? entry.imageProvider as VisualProvider
@@ -95,6 +120,14 @@ export function restoreProjectBackup(value: unknown): StudioProject {
       imageProvider,
       imageSourceNote: optionalText(entry.imageSourceNote, 1_000, "image source note"),
       imageCommercialUseConfirmed: false,
+      videoClipSource,
+      videoClipId: videoClipSource === "pixabay" ? videoClipId : undefined,
+      videoClipName: optionalText(entry.videoClipName, 200, "video clip name"),
+      videoClipAuthor: optionalText(entry.videoClipAuthor, 120, "video contributor"),
+      videoClipPageUrl,
+      videoClipDuration: entry.videoClipDuration === undefined ? undefined : finiteNumber(entry.videoClipDuration, 0, 0, 3600),
+      videoClipStart: entry.videoClipStart === undefined ? 0 : finiteNumber(entry.videoClipStart, 0, 0, 3600),
+      videoDataUrl,
     };
   });
 
@@ -108,7 +141,7 @@ export function restoreProjectBackup(value: unknown): StudioProject {
     voiceAudioDataUrl = value.voiceAudioDataUrl as string;
   }
   if (mediaBytes > MAX_PROJECT_MEDIA_BYTES) {
-    throw new Error("The combined images and audio in this backup exceed the 64 MB project media limit. Reduce media sizes and try again.");
+    throw new Error("The combined images, videos and audio in this backup exceed the 64 MB project media limit. Reduce media sizes and try again.");
   }
 
   const language = typeof value.language === "string" && languages.has(value.language as Language)
