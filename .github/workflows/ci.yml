@@ -25,6 +25,14 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install --no-audit --no-fund
+      - name: Upload resolved dependency lockfile for one-time repository lock-in
+        if: always() && hashFiles('package-lock.json') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: generated-npm-lock-${{ github.sha }}
+          path: package-lock.json
+          retention-days: 1
+          compression-level: 0
       - name: Review dependency advisories
         run: |
           npm audit --json > npm-audit.json || true
