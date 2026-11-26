@@ -223,3 +223,7 @@ select { appearance: auto; }
 .tts-button { min-height: 38px; }
 .tts-disclaimer { display: block; color: #71869c; font-size: 8px; line-height: 1.55; margin-top: 8px; }
 @media (max-width: 560px) { .tts-controls { grid-template-columns: 1fr; } .tts-button { width: 100%; } }
+
+.prompt-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 6px; }
+.prompt-actions a { color: #9bb0c7; text-decoration: none; font-size: 8px; }
+.prompt-actions a:hover { color: var(--cyan); text-decoration: underline; }
