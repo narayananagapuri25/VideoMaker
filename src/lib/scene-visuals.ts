@@ -8,7 +8,7 @@ export function getSceneTheme(scene: Pick<Scene, "title" | "caption" | "visualPr
   const subject = (scene.title + " " + scene.caption + " " + scene.visualPrompt).toLowerCase();
   if (/earth|planet|rotation|equator|globe|continent|world/.test(subject)) return "earth";
   if (/space|galaxy|black hole|nebula|moon|mars|orbit|cosmos|astronaut|star/.test(subject)) return "space";
-  if (/lightning|thunder|storm|rain|cloud|hurricane|cyclone|weather|wind/.test(subject)) return "weather";
+  if (/lightning|thunder|storm|rain|cloud|hurricane|cyclone|weather|wind|atmosphere|inertia|pressure/.test(subject)) return "weather";
   if (/ocean|sea|water|wave|tsunami|river|underwater|coral|iceberg/.test(subject)) return "ocean";
   if (/city|building|traffic|road|bridge|architecture|skyline|metro|urban/.test(subject)) return "city";
   if (/ai|robot|technology|computer|digital|circuit|internet|data|chip|quantum|future/.test(subject)) return "technology";
@@ -254,7 +254,7 @@ function drawWeather(ctx: CanvasRenderingContext2D, x: number, y: number, unit: 
     ctx.fill();
   });
   ctx.shadowBlur = 0;
-  ctx.strokeStyle = "rgba(133,211,244,.62)";
+  ctx.strokeStyle = palette.accent;
   ctx.lineWidth = Math.max(2, unit * 0.014);
   for (let i = 0; i < 16; i += 1) {
     const rx = x - unit * 0.55 + i * unit * 0.073;
@@ -310,7 +310,7 @@ function drawOcean(ctx: CanvasRenderingContext2D, x: number, y: number, unit: nu
     ctx.fill();
   }
   ctx.globalAlpha = 1;
-  ctx.strokeStyle = "rgba(128,231,243,.82)";
+  ctx.strokeStyle = palette.accent;
   ctx.lineWidth = Math.max(2, unit * 0.012);
   for (let i = 0; i < 9; i += 1) {
     const yy = horizon + unit * (0.09 + i * 0.075);
@@ -489,7 +489,7 @@ function drawNature(ctx: CanvasRenderingContext2D, x: number, y: number, unit: n
     ctx.closePath();
     ctx.fill();
   });
-  ctx.strokeStyle = "#9AD98A";
+  ctx.strokeStyle = palette.accent;
   ctx.lineWidth = unit * 0.035;
   for (let i = 0; i < 7; i += 1) {
     const sway = Math.sin(time * 0.7 + i) * unit * 0.025;
@@ -515,7 +515,7 @@ function drawScience(ctx: CanvasRenderingContext2D, x: number, y: number, unit: 
   ctx.fillStyle = glow;
   ctx.fillRect(x - unit, y - unit, unit * 2, unit * 2);
   for (let i = 0; i < 3; i += 1) {
-    ctx.strokeStyle = i === 1 ? "#9C8CF2" : "#61DDE9";
+    ctx.strokeStyle = i === 1 ? palette.secondary : palette.accent;
     ctx.lineWidth = Math.max(2, unit * 0.018);
     ctx.beginPath();
     ctx.ellipse(x, y, unit * 0.67, unit * (0.22 + i * 0.06), time * (i % 2 ? -0.25 : 0.22), 0, Math.PI * 2);
