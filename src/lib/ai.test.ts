@@ -8,8 +8,8 @@ const storyResponse = {
   script: "A complete short narration.",
   editorialNote: "Verify the cited measurement before publishing.",
   scenes: [
-    { title: "Opening", narration: "Start here.", caption: "Start", visualPrompt: "A cinematic opening.", duration: 6 },
-    { title: "Reveal", narration: "Explain the point.", caption: "The point", visualPrompt: "A clear infographic.", duration: 8 },
+    { title: "Opening", narration: "Start here.", caption: "Start", visualPrompt: "A cinematic opening.", visualPlan: { layout: "hero", subject: "The main concept", headline: "Opening", labels: ["One idea"], steps: [], values: [], trend: "flat", note: "" }, duration: 6 },
+    { title: "Reveal", narration: "Explain the point.", caption: "The point", visualPrompt: "A clear infographic.", visualPlan: { layout: "process", subject: "The process", headline: "How it works", labels: ["Input", "Output"], steps: ["Step one", "Step two"], values: [], trend: "flat", note: "" }, duration: 8 },
   ],
 };
 
@@ -91,7 +91,7 @@ describe("AI story generation", () => {
     expect(result.source).toBe("gemini");
     expect(result.story.title).toBe("A test story");
     expect(result.story.editorialNote).toContain("Verify");
-    expect(result.story.scenes).toHaveLength(2);
+    expect(result.story.scenes).toHaveLength(2);\n    expect(result.story.scenes[0].visualPlan?.layout).toBe("hero");\n    expect(result.story.scenes[1].visualPlan?.steps).toEqual(["Step one", "Step two"]);
     expect(fetchMock).toHaveBeenCalledOnce();
 
     const [url, init] = fetchMock.mock.calls[0];
@@ -103,7 +103,7 @@ describe("AI story generation", () => {
     expect(request.store).toBe(false);
     expect(request.input).toContain("A test topic");
     expect(request.response_format).toMatchObject({ type: "text", mime_type: "application/json" });
-    expect(request.response_format.schema.required).toEqual(["title", "script", "editorialNote", "scenes"]);
+    expect(request.response_format.schema.required).toEqual(["title", "script", "editorialNote", "scenes"]);\n    expect(request.response_format.schema.properties.scenes.items.required).toContain("visualPlan");
   });
 
   it("supports multiple text blocks in the model output", async () => {
