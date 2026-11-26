@@ -1,39 +1,64 @@
 # SochoZara Studio
 
-A zero-cost-first, browser-based AI-assisted video creator for YouTube Shorts, Instagram Reels and longer documentaries.
+A zero-cost-first, browser-based creator studio for original YouTube Shorts, Instagram Reels and longer documentary videos.
 
-## First release
+The first milestone is designed for a single creator: enter a topic, build a Hinglish story and storyboard, add your own scene artwork and narration, preview the motion treatment, then render an MP4 locally in the browser.
 
-- Topic-to-script workspace with editable Hinglish defaults.
-- Scene storyboard with per-scene narration, on-screen text and visual prompts.
-- Local image/audio uploads; no server upload required.
-- Animated preview rendered in the browser.
-- Subtitle generation from the script.
-- Browser-side video export with no paid rendering API.
-- Project persistence in browser storage.
-- Clear notices for AI provider quotas and commercial-use licensing.
+## Current MVP capabilities
+
+- Responsive React + TypeScript video studio.
+- Hinglish, Hindi, English and Telugu project settings.
+- Offline starter scripts and scene plans.
+- Optional Gemini 3.8 Flash story/storyboard generation using a user-provided API key.
+- Scene-by-scene editing for titles, narration, captions, prompts and durations.
+- Upload a local image for each scene.
+- Upload narration audio or record a voice track from the microphone.
+- Device speech synthesis for listening to a draft; this preview is not captured in the exported video.
+- Animated SochoZara preview with motion graphics and captions.
+- Browser-side H.264 MP4 rendering using WebCodecs and Mediabunny.
+- Local project saving with IndexedDB.
+- Export progress and MP4 download.
+- CI workflow for unit tests and production builds.
+
+## Important current limitations
+
+- AI image/video generation is not called automatically. Create visuals in a separately licensed tool and import them into scenes.
+- AI narration is not generated automatically by this MVP. Upload a commercially permitted voice file or record narration; device speech is only a preview.
+- The Gemini API key is held in memory only. The app selects the Gemini 3.8 Flash model, but it cannot inspect the Google account's billing settings. Use a key with billing disabled and check current free-tier limits before each use. Free-tier prompt data may be used by Google to improve its products.
+- MP4 export depends on the browser exposing compatible WebCodecs H.264 and AAC encoders. The app does not upload media to a server.
+- The first renderer uses a 720p canvas output to reduce device memory pressure. Longer exports are best performed on a desktop or recent high-performance device.
+- Generated scripts are drafts, not verified research. Check factual claims and add credible sources before publishing.
 
 ## Cost and privacy principles
 
-- Core editor must work without API keys or subscriptions.
-- Do not silently call paid APIs or trigger billable usage.
-- User media stays in the browser unless an explicitly chosen external provider requires upload.
-- AI-generated media and imported stock assets must have their licence checked by the creator.
-- The application must not promise unlimited free AI generation.
+- The editor, preview and local MP4 rendering do not require subscriptions or paid rendering APIs.
+- No paid provider is silently invoked.
+- User images, audio and project data stay in the browser's IndexedDB.
+- The optional Gemini API request sends the topic and prompt to Google. Do not submit private or sensitive information.
+- Imported or generated media must be checked for commercial-use rights by the creator.
+- The app does not promise unlimited free AI generation.
 
 ## Development
 
-```bash
+\`\`\`bash
 npm install
 npm run dev
-npm run build
 npm run test
-```
+npm run build
+\`\`\`
 
 ## Architecture
 
-React + TypeScript + Vite. The first version uses browser-native Canvas and MediaRecorder for a dependable local export path. Browser support and output format are detected at runtime; an MP4-capable export adapter can be added without changing the editing workflow.
+- React 19 + TypeScript + Vite.
+- IndexedDB for local project persistence.
+- Canvas rendering for motion graphics.
+- Mediabunny for MP4 muxing and browser-native WebCodecs encoders.
+- Optional direct Gemini API call from the browser; no API key is bundled or committed.
+
+## Licensing
+
+The application source is MIT licensed. Mediabunny is a separately licensed MPL-2.0 dependency. See [ATTRIBUTIONS.md](./ATTRIBUTIONS.md).
 
 ## Status
 
-Initial repository bootstrap. See the project issues/README updates for the staged roadmap.
+MVP development branch: \`feat/sochozara-studio-mvp\`.
