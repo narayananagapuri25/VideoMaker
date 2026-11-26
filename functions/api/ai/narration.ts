@@ -8,7 +8,7 @@ const voices = ["Kore", "Aoede", "Puck", "Charon", "Fenrir", "Zephyr"];
 export async function onRequestPost({ request, env }: PagesContext): Promise<Response> {
   const originError = checkSameOrigin(request);
   if (originError) return originError;
-  const apiKey = requireGeminiKey(env);
+  const apiKey = requireGeminiKey(request, env);
   if (apiKey instanceof Response) return apiKey;
   const body = await parseJsonBody(request, 40_000);
   if (body instanceof Response) return body;
