@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { generateStory, generateStoryWithApiKey, testGeminiConnection, testGeminiConnectionWithApiKey } from "./ai";
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 const storyResponse = {
   title: "A test story",
@@ -56,6 +56,32 @@ describe("Gemini connection diagnostics", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/ai/connection");
     expect(new Headers(init?.headers).get("x-goog-api-key")).toBeNull();
+  });
+
+  it("sends the saved tab-session key only to the same-origin story and connection routes", async () => {
+    vi.stubGlobal("sessionStorage", {
+      getItem: () => "tab-session-test-key",
+      setItem: () => undefined,
+      removeItem: () => undefined,
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      message: "Gemini connection successful.",
+      story: storyResponse,
+      source: "gemini",
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+
+    await testGeminiConnection();
+    await generateStory({
+      topic: "A test topic",
+      language: "English",
+      targetDuration: 30,
+      aspectRatio: "9:16",
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(new Headers(init?.headers).get("x-sochozara-gemini-key")).toBe("tab-session-test-key");
+    }
   });
 
   it("requires a key without making a network request", async () => {
