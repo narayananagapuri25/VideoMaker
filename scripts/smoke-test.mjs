@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 const port = Number(process.env.SMOKE_PORT || 4173);
-const origin = \`http://127.0.0.1:\${port}\`;
+const origin = "http://127.0.0.1:" + port;
 const viteBin = fileURLToPath(new URL("../node_modules/vite/bin/vite.js", import.meta.url));
 const preview = spawn(process.execPath, [
   viteBin,
