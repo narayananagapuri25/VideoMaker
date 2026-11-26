@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { generateStory, testGeminiConnection } from "./lib/ai";
 import AIProviderConnections from "./components/AIProviderConnections";
-import { hasAnySecondaryAIKey } from "./lib/ai-provider-session";
+import VideoProviderConnections from "./components/VideoProviderConnections";
+import { hasAnySecondaryAIKey, hasMagicHourApiKey, hasMagicHourFreeCreditsOnlyConfirmation } from "./lib/ai-provider-session";
+import { checkMagicHourConnection, generateMagicHourClip } from "./lib/video-ai";
 import { deriveTopicFromScript, makeProject, parsePastedNarration, scenesFromScript } from "./lib/story";
 import { loadLatestProject, saveProject } from "./lib/storage";
 import { generateNarration } from "./lib/tts";
@@ -103,7 +105,7 @@ export default function App() {
         if (active) setAiConfigured(hasGeminiSessionKey() || hasAnySecondaryAIKey() || Boolean(payload.configured));
       })
       .catch(() => {
-        if (active) setAiConfigured(false);
+        if (active) setAiConfigured(hasAnySecondaryAIKey() || hasGeminiSessionKey());
       });
     return () => { active = false; };
   }, []);
@@ -238,10 +240,10 @@ export default function App() {
       .then((response) => response.json())
       .then((payload: unknown) => {
         if (typeof payload === "object" && payload !== null && "configured" in payload) {
-          setAiConfigured(Boolean(payload.configured));
+          setAiConfigured(hasAnySecondaryAIKey() || hasGeminiSessionKey() || Boolean(payload.configured));
         }
       })
-      .catch(() => setAiConfigured(false));
+      .catch(() => setAiConfigured(hasAnySecondaryAIKey() || hasGeminiSessionKey()));
   }
 
   async function handleTestGemini() {
@@ -577,50 +579,134 @@ export default function App() {
     }
     if (isGeneratingFullVideo || isRendering) return;
     setIsGeneratingFullVideo(true);
-    setNotice("Step 1/4 · Gemini is writing the story and directing every scene…");
+
     try {
+      setNotice("Step 1/4 · Choosing the best connected story AI and directing every scene…");
       const result = await generateStory({
         topic,
-        language: "English",
+        language: project.language,
         targetDuration: project.targetDuration,
         aspectRatio: project.aspectRatio,
       });
       setAiConfigured(true);
-      const scenes: Scene[] = result.story.scenes.map((scene, index) => ({
+
+      let scenes: Scene[] = result.story.scenes.map((scene, index) => ({
         ...scene,
         id: globalThis.crypto?.randomUUID?.() ?? ("scene-" + Date.now() + "-" + index),
       }));
-      setNotice("Step 2/4 · Gemini has directed " + scenes.length + " scenes. Preparing English documentary narration…");
-      const audio = await generateNarration(result.story.script, ttsVoice, "English");
-      if (audio.size > MAX_NARRATION_AUDIO_BYTES) {
-        throw new Error("Generated narration is larger than 30 MB. Shorten the video and try again.");
+      let generatedVideoCount = 0;
+      let generatedMediaBytes = 0;
+      let videoNote = "";
+
+      // Only the verified free Magic Hour tier is allowed. The user must opt in
+      // to free/reward credits and personal non-commercial use in the provider panel.
+      if (hasMagicHourApiKey() && hasMagicHourFreeCreditsOnlyConfirmation()) {
+        try {
+          const account = await checkMagicHourConnection();
+          if (!account.freeTier) {
+            videoNote = "Magic Hour is connected, but its account is not on the Free tier. No external video was generated; local motion graphics will be used.";
+          } else if (account.credits < account.creditsPerSecond) {
+            videoNote = "Magic Hour has no usable free video credits remaining. Local motion graphics will cover every scene.";
+          } else {
+            let remainingCredits = account.credits;
+            const scenesWithVideo = [...scenes];
+            for (let index = 0; index < scenesWithVideo.length; index += 1) {
+              const scene = scenesWithVideo[index];
+              const availableSeconds = Math.floor(remainingCredits / account.creditsPerSecond);
+              const clipSeconds = Math.min(3, availableSeconds, Math.max(1, Math.floor(scene.duration)));
+              if (clipSeconds < 1) break;
+
+              setNotice("Step 2/4 · AI video " + (generatedVideoCount + 1) + " · " + scene.title + " · checking free credits and generating a " + clipSeconds + " second 480p clip…");
+              const clip = await generateMagicHourClip({
+                prompt: [
+                  scene.visualPrompt || scene.title,
+                  "Scene context: " + scene.narration.slice(0, 500),
+                  "Create a polished documentary insert shot with coherent physical motion, purposeful camera movement and cinematic lighting.",
+                  "No titles, captions, subtitles, logos or fabricated labels. This footage will be edited with a separate narration track.",
+                ].join(" "),
+                seconds: clipSeconds,
+                aspectRatio: project.aspectRatio,
+                onProgress: (message) => setNotice("Step 2/4 · " + message),
+              });
+              const videoDataUrl = await fileToDataUrl(clip.blob);
+              const clipBytes = getEmbeddedVideoSize(videoDataUrl) ?? clip.blob.size;
+              if (generatedMediaBytes + clipBytes > MAX_PROJECT_MEDIA_BYTES) {
+                videoNote = "The local project storage limit was reached. Remaining scenes will use the built-in motion graphics.";
+                break;
+              }
+              generatedMediaBytes += clipBytes;
+              remainingCredits = Math.max(0, remainingCredits - clip.creditsCharged);
+              scenesWithVideo[index] = {
+                ...scene,
+                videoDataUrl,
+                videoClipSource: "local",
+                videoClipName: "Magic Hour · " + clip.model + " · 480p",
+                videoClipDuration: clip.seconds,
+                videoClipStart: 0,
+                videoSourceNote: "Magic Hour Free Tier · " + clip.model + " · 480p · personal, non-commercial use only · watermark may apply",
+                videoCommercialUseConfirmed: true,
+              };
+              generatedVideoCount += 1;
+            }
+            scenes = scenesWithVideo;
+            if (generatedVideoCount > 0) {
+              videoNote = generatedVideoCount + " free-tier AI video clip(s) generated at 480p; remaining scenes will use local motion graphics.";
+            } else if (!videoNote) {
+              videoNote = "No free Magic Hour credits were available for a clip. Local motion graphics will be used.";
+            }
+          }
+        } catch (error) {
+          // A video provider outage must not discard a perfectly good AI storyboard.
+          videoNote = "Free AI video generation was unavailable: " + (error instanceof Error ? error.message : "provider error") + ". Local motion graphics will be used for scenes without clips.";
+        }
+      } else if (hasMagicHourApiKey()) {
+        videoNote = "Magic Hour is connected but paused. Confirm that its balance contains only free credits and that you will use the clips for personal, non-commercial projects.";
+      } else {
+        videoNote = "No AI video API is connected. The built-in local motion-graphics renderer will create the remaining footage.";
       }
-      if (wouldExceedMediaLimit(audio.size, undefined, true)) return;
-      setNotice("Step 3/4 · Voice-over ready. Preparing the motion-graphics timeline and original soundtrack…");
-      const voiceAudioDataUrl = await fileToDataUrl(audio);
+
+      setNotice("Step 3/4 · Story created by " + result.source + ". Preparing narration; video clips: " + generatedVideoCount + "/" + scenes.length + "…");
+      let voiceAudioDataUrl: string | undefined;
+      let voiceAudioName: string | undefined;
+      let narrationNote = "";
+      try {
+        const audio = await generateNarration(result.story.script, ttsVoice, project.language);
+        if (audio.size > MAX_NARRATION_AUDIO_BYTES) {
+          throw new Error("Generated narration is larger than 30 MB.");
+        }
+        if (generatedMediaBytes + audio.size > MAX_PROJECT_MEDIA_BYTES) {
+          throw new Error("The 64 MB local media limit leaves no room for the generated narration.");
+        }
+        voiceAudioDataUrl = await fileToDataUrl(audio);
+        voiceAudioName = "Gemini TTS · " + ttsVoice + ".wav";
+      } catch (error) {
+        narrationNote = "Narration provider unavailable: " + (error instanceof Error ? error.message : "TTS request failed") + ". The storyboard and any AI video clips will still be rendered; you can record or import voice later.";
+      }
+
       const generatedProject: StudioProject = {
         ...project,
         title: result.story.title,
         topic,
-        language: "English",
+        language: project.language,
         script: result.story.script,
         scenes,
         editorialNote: result.story.editorialNote,
         voiceAudioDataUrl,
-        voiceAudioName: "Gemini TTS · " + ttsVoice + ".wav",
+        voiceAudioName,
         storyboardSourceTopic: topic,
         storyboardSourceScript: result.story.script,
         storyboardSourceTargetDuration: project.targetDuration,
         storyboardSourceAspectRatio: project.aspectRatio,
-        storyboardSourceLanguage: "English",
+        storyboardSourceLanguage: project.language,
         updatedAt: Date.now(),
       };
       updateProject(generatedProject);
       setSelectedSceneId(scenes[0]?.id ?? "");
       setPlayhead(0);
       setIsPlaying(false);
-      setGenerationSource("gemini");
-      setNotice("Step 4/4 · Story, scenes and voice are ready. Rendering the MP4 on this device…");
+      setGenerationSource(result.source);
+      const fallbackMessage = result.fallbackNotice ? result.fallbackNotice + " " : "";
+      setNotice("Step 4/4 · " + fallbackMessage + videoNote + (narrationNote ? " " + narrationNote : voiceAudioDataUrl ? " Gemini narration is ready." : "") + " Rendering the video on this device…");
       await renderProject(generatedProject);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Full video generation failed.";
@@ -810,7 +896,7 @@ export default function App() {
                     />
                     <div className="gemini-test-row">
                       <span className={aiConfigured ? "clip-status ready" : "clip-status"}>
-                        {aiConfigured === null ? "CHECKING…" : geminiSessionKeySaved ? "TAB SESSION KEY SAVED" : aiConfigured ? "SERVER KEY CONFIGURED" : "KEY REQUIRED"}
+                        {aiConfigured === null ? "CHECKING…" : geminiSessionKeySaved ? "GEMINI TAB KEY SAVED" : aiConfigured ? "AI PROVIDER CONFIGURED" : "KEY REQUIRED"}
                       </span>
                       <button className="button button-primary" disabled={!geminiSessionKeyInput.trim()} onClick={handleSaveGeminiSessionKey}>Save key for this tab</button>
                       {geminiSessionKeySaved && <button className="text-button" onClick={handleClearGeminiSessionKey}>Remove saved key</button>}
@@ -836,9 +922,10 @@ export default function App() {
                     </small>
                   </div>
                   <AIProviderConnections onConnectionChange={() => setAiConfigured(hasGeminiSessionKey() || hasAnySecondaryAIKey())} />
+                  <VideoProviderConnections />
                   <div className="button-row">
                     <button className="button button-primary" disabled={isGenerating} onClick={handleGenerateStory}>{isGenerating ? <><span className="spinner" /> Creating…</> : "✦ Generate story & scenes"}</button>
-                    <span className="microcopy">{aiConfigured ? "AI provider ready · automatic fallback" : "Connect at least one AI provider"}</span>
+                    <span className="microcopy">{aiConfigured ? "Story AI ready · automatic fallback" : "Connect at least one story AI provider"}</span>
                   </div>
                 </article>
 
