@@ -46,6 +46,7 @@ export async function generateNarration(
     },
     body: JSON.stringify({
       model: "gemini-3.8-flash-tts",
+      store: false,
       input: [{
         type: "user_input",
         content: [{
