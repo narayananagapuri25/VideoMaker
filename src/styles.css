@@ -87,6 +87,11 @@ select { appearance: auto; }
 .ai-key-box .gemini-test-row .text-button { padding: 8px 3px; }
 .gemini-test-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 9px; }
 .gemini-test-row .button { padding: 8px 10px; }
+.gemini-test-result { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; padding: 10px 11px; border: 1px solid rgba(158,181,208,.18); border-radius: 8px; background: rgba(255,255,255,.035); color: #b8c8d9; font-size: 10px; line-height: 1.55; overflow-wrap: anywhere; }
+.gemini-test-result.testing { color: #b9e9f2; border-color: rgba(43,213,231,.28); background: rgba(43,213,231,.07); }
+.gemini-test-result.success { color: #a9efd5; border-color: rgba(99,214,188,.32); background: rgba(37,150,112,.09); }
+.gemini-test-result.error { color: #ffc2c2; border-color: rgba(238,111,111,.34); background: rgba(170,48,58,.10); }
+.gemini-test-icon { flex: 0 0 17px; width: 17px; height: 17px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 11px; font-weight: 850; background: rgba(255,255,255,.07); }
 .ai-key-box small { display: block; color: #7d92a8; font-size: 9px; line-height: 1.55; margin-top: 8px; }
 .ai-key-box a { color: var(--cyan); text-decoration: none; white-space: nowrap; }
 .ai-key-box a:hover { text-decoration: underline; }
