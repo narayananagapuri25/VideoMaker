@@ -1,5 +1,4 @@
 import type { AspectRatio, GeneratedStory, Language, SceneVisualLayout, SceneVisualPlan } from "../types";
-import { buildLocalStory } from "./story";
 
 interface GenerateOptions {
   topic: string;
