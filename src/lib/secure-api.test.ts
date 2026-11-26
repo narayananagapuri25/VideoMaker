@@ -6,14 +6,21 @@ import type { PagesContext } from "../../functions/api/ai/_shared";
 
 afterEach(() => vi.restoreAllMocks());
 
-function context(path: string, body?: unknown, key?: string, origin = "https://studio.example") : PagesContext {
+function context(
+  path: string,
+  body?: unknown,
+  key?: string,
+  origin = "https://studio.example",
+  sessionKey?: string,
+): PagesContext {
+  const headers = new Headers();
+  if (body !== undefined) headers.set("Content-Type", "application/json");
+  if (body !== undefined) headers.set("Origin", origin);
+  if (sessionKey) headers.set("X-SochoZara-Gemini-Key", sessionKey);
   return {
     request: new Request("https://studio.example" + path, {
       method: body === undefined ? "GET" : "POST",
-      headers: body === undefined ? undefined : {
-        "Content-Type": "application/json",
-        Origin: origin,
-      },
+      headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     }),
     env: key ? { GEMINI_API_KEY: key } : {},
@@ -33,6 +40,15 @@ describe("Cloudflare secure Gemini endpoints", () => {
     expect(JSON.stringify(configuredPayload)).not.toContain("server-only-test-secret");
   });
 
+  it("reports a key supplied in the current tab without returning the credential", async () => {
+    const response = await getStatus(context("/api/ai/status", undefined, undefined, "https://studio.example", "tab-only-test-secret"));
+    const payload = await response.json() as { configured: boolean; source: string; storage: string };
+    expect(payload.configured).toBe(true);
+    expect(payload.source).toBe("tab-session");
+    expect(payload.storage).toContain("tab session");
+    expect(JSON.stringify(payload)).not.toContain("tab-only-test-secret");
+  });
+
   it("returns an actionable setup error when the Gemini secret is absent", async () => {
     const response = await generateStory(context("/api/ai/story", {
       topic: "How does the stock market work?",
@@ -43,7 +59,8 @@ describe("Cloudflare secure Gemini endpoints", () => {
     expect(response.status).toBe(503);
     const payload = await response.json() as { error: string; code: string };
     expect(payload.code).toBe("GEMINI_NOT_CONFIGURED");
-    expect(payload.error).toContain("GEMINI_API_KEY");
+    expect(payload.error).toContain("Google AI Studio");
+    expect(payload.error).toContain("Cloudflare Pages secret");
   });
 
   it("rejects cross-origin browser requests", async () => {
@@ -83,6 +100,44 @@ describe("Cloudflare secure Gemini endpoints", () => {
     expect(JSON.stringify(payload)).not.toContain("server-only-test-secret");
     const [, init] = fetchMock.mock.calls[0];
     expect(new Headers(init?.headers).get("x-goog-api-key")).toBe("server-only-test-secret");
+  });
+
+  it("uses the per-tab key for story generation when no Cloudflare secret exists", async () => {
+    const story = {
+      title: "A tab-key story",
+      script: "A short explanation.",
+      scenes: [
+        { title: "One", narration: "One.", caption: "One", visualPrompt: "A scene", duration: 5 },
+        { title: "Two", narration: "Two.", caption: "Two", visualPrompt: "Another scene", duration: 5 },
+      ],
+    };
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      steps: [{ type: "model_output", content: [{ type: "text", text: JSON.stringify(story) }] }],
+      status: "completed",
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    const response = await generateStory(context("/api/ai/story", {
+      topic: "A test topic",
+      language: "English",
+      targetDuration: 30,
+      aspectRatio: "9:16",
+    }, undefined, "https://studio.example", "tab-only-test-secret"));
+    expect(response.status).toBe(200);
+    const [, init] = fetchMock.mock.calls[0];
+    expect(new Headers(init?.headers).get("x-goog-api-key")).toBe("tab-only-test-secret");
+  });
+
+  it("uses the per-tab key for narration when no Cloudflare secret exists", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      steps: [{ type: "model_output", content: [{ type: "audio", data: "AQID", mime_type: "audio/wav" }] }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    const response = await generateNarration(context("/api/ai/narration", {
+      script: "A short test narration.",
+      voice: "Kore",
+      language: "English",
+    }, undefined, "https://studio.example", "tab-only-test-secret"));
+    expect(response.status).toBe(200);
+    const [, init] = fetchMock.mock.calls[0];
+    expect(new Headers(init?.headers).get("x-goog-api-key")).toBe("tab-only-test-secret");
   });
 
   it("returns narration audio bytes while keeping the server key out of the response", async () => {

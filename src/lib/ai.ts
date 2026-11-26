@@ -1,4 +1,5 @@
 import type { AspectRatio, GeneratedStory, Language, SceneVisualLayout, SceneVisualPlan } from "../types";
+import { getGeminiSessionHeaders } from "./gemini-session";
 
 interface GenerateOptions {
   topic: string;
@@ -330,13 +331,13 @@ async function readApiError(response: Response): Promise<Error> {
   return new Error(detail);
 }
 
-/** Public browser entry point: the API key is held only by the Cloudflare Pages Function. */
+/** Public browser entry point: an optional per-tab key is passed only to the same-origin Pages Function. */
 export async function generateStory(
   options: Omit<GenerateOptions, "apiKey">,
 ): Promise<{ story: GeneratedStory; source: "gemini" }> {
   const response = await fetch("/api/ai/story", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    headers: { "Content-Type": "application/json", Accept: "application/json", ...getGeminiSessionHeaders() },
     body: JSON.stringify(options),
     cache: "no-store",
   });
@@ -353,11 +354,11 @@ export async function generateStory(
   return { story: payload.story as unknown as GeneratedStory, source: "gemini" };
 }
 
-/** Connection check uses the server-side key and never sends a credential from the browser. */
+/** Connection check uses the tab-session key when saved, otherwise the Cloudflare Pages secret. */
 export async function testGeminiConnection(): Promise<string> {
   const response = await fetch("/api/ai/connection", {
     method: "POST",
-    headers: { Accept: "application/json" },
+    headers: { Accept: "application/json", ...getGeminiSessionHeaders() },
     cache: "no-store",
   });
   if (!response.ok) throw await readApiError(response);

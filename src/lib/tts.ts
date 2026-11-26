@@ -1,5 +1,6 @@
 import type { Language } from "../types";
 import { MAX_NARRATION_AUDIO_BYTES } from "./media-data";
+import { getGeminiSessionHeaders } from "./gemini-session";
 
 interface TtsResponse {
   output_audio?: { data?: string; mime_type?: string };
@@ -121,7 +122,7 @@ export async function generateNarrationWithApiKey(
 }
 
 
-/** Requests audio from the same-origin Pages Function; the API key never reaches this browser module. */
+/** Requests audio from the same-origin Pages Function, using the optional tab-session key. */
 export async function generateNarration(
   script: string,
   voice: string,
@@ -134,7 +135,7 @@ export async function generateNarration(
   }
   const response = await fetch("/api/ai/narration", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "audio/wav, application/json" },
+    headers: { "Content-Type": "application/json", Accept: "audio/wav, application/json", ...getGeminiSessionHeaders() },
     body: JSON.stringify({ script: transcript, voice, language }),
     cache: "no-store",
   });

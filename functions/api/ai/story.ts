@@ -8,7 +8,7 @@ const ratios: AspectRatio[] = ["9:16", "16:9"];
 export async function onRequestPost({ request, env }: PagesContext): Promise<Response> {
   const originError = checkSameOrigin(request);
   if (originError) return originError;
-  const apiKey = requireGeminiKey(env);
+  const apiKey = requireGeminiKey(request, env);
   if (apiKey instanceof Response) return apiKey;
   const body = await parseJsonBody(request, 12_000);
   if (body instanceof Response) return body;

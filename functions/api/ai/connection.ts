@@ -4,11 +4,11 @@ import { checkSameOrigin, jsonNoStore, providerError, requireGeminiKey, type Pag
 export async function onRequestPost({ request, env }: PagesContext): Promise<Response> {
   const originError = checkSameOrigin(request);
   if (originError) return originError;
-  const apiKey = requireGeminiKey(env);
+  const apiKey = requireGeminiKey(request, env);
   if (apiKey instanceof Response) return apiKey;
   try {
     const message = await testGeminiConnectionWithApiKey(apiKey);
-    return jsonNoStore({ message: "Secure server connection successful. " + message });
+    return jsonNoStore({ message: "Gemini connection successful for this request. " + message });
   } catch (error) {
     return providerError(error);
   }
