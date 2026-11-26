@@ -6,11 +6,16 @@ import { checkSameOrigin, jsonNoStore, providerError, requireGeminiKey, resolveA
 export async function onRequestPost({ request, env }: PagesContext): Promise<Response> {
   const originError = checkSameOrigin(request);
   if (originError) return originError;
-  const apiKey = requireGeminiKey(request, env);
-  if (apiKey instanceof Response) return apiKey;
+  const provider = request.headers.get("X-SochoZara-AI-Provider")?.trim();
   try {
+    if (provider === "groq" || provider === "openrouter" || provider === "cloudflare") {
+      const message = await testSecondaryAIProvider(provider as SecondaryAIProvider, resolveAIRequestCredentials(request, env));
+      return jsonNoStore({ provider, message });
+    }
+    const apiKey = requireGeminiKey(request, env);
+    if (apiKey instanceof Response) return apiKey;
     const message = await testGeminiConnectionWithApiKey(apiKey);
-    return jsonNoStore({ message: "Gemini connection successful for this request. " + message });
+    return jsonNoStore({ provider: "gemini", message: "Gemini connection successful for this request. " + message });
   } catch (error) {
     return providerError(error);
   }
