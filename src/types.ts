@@ -20,6 +20,8 @@ export interface StudioProject {
   targetDuration: number;
   script: string;
   scenes: Scene[];
+  voiceAudioDataUrl?: string;
+  voiceAudioName?: string;
   updatedAt: number;
 }
 
