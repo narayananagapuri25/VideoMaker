@@ -19,6 +19,7 @@ const STORAGE = {
 
 const MAX_KEY_LENGTH = 2_048;
 const MAX_ACCOUNT_ID_LENGTH = 128;
+const MAGIC_HOUR_FREE_CREDITS_CONFIRMATION = "sochozara.video.magichour-free-credits-confirmed";
 
 function read(name: string): string {
   try {
