@@ -441,9 +441,16 @@ export default function App() {
 
         {activeSection === "guide" ? (
           <CreatorKit onUseTopic={(topic) => {
-            updateProject({ topic });
+            const next = makeProject(topic, project.language, project.aspectRatio, project.targetDuration);
+            setProject(next);
+            setSelectedSceneId(next.scenes[0]?.id ?? "");
+            setPlayhead(0);
+            setIsPlaying(false);
+            if (exportUrlRef.current) URL.revokeObjectURL(exportUrlRef.current);
+            exportUrlRef.current = "";
+            setExportUrl("");
             setActiveSection("studio");
-            setNotice("Topic selected. Generate your story and storyboard when ready.");
+            setNotice("A fresh starter storyboard is ready for this topic. Edit it or generate an AI version.");
           }} />
         ) : (
           <div className="studio-page">
