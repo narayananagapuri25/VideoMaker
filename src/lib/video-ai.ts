@@ -17,7 +17,7 @@ export interface MagicHourConnection {
 
 export interface MagicHourClipResult {
   blob: Blob;
-  model: "ltx-2.5" | "minimax-h3";
+  model: "default" | "minimax-h3";
   seconds: number;
   creditsCharged: number;
 }
@@ -56,7 +56,7 @@ export async function checkMagicHourConnection(): Promise<MagicHourConnection> {
 
 interface SubmitResponse {
   id: string;
-  model: "ltx-2.5" | "minimax-h3";
+  model: "default" | "minimax-h3";
   creditsCharged: number;
 }
 
@@ -86,11 +86,11 @@ export async function generateMagicHourClip(
     onProgress?: (message: string) => void;
   },
 ): Promise<MagicHourClipResult> {
-  const models: Array<"ltx-2.5" | "minimax-h3"> = ["ltx-2.5", "minimax-h3"];
+  const models: Array<"default" | "minimax-h3"> = ["default", "minimax-h3"];
   const failures: string[] = [];
 
   for (const model of models) {
-    options.onProgress?.("Submitting " + model + " at 480p…");
+    options.onProgress?.("Submitting " + (model === "default" ? "Magic Hour automatic Free-tier model (LTX-2.5)" : "MiniMax H3 fallback") + " at 480p…");
     let submitted: SubmitResponse;
     try {
       submitted = await apiJson<SubmitResponse>("/api/video/magic-hour/generate", "POST", {
@@ -106,7 +106,7 @@ export async function generateMagicHourClip(
       continue;
     }
 
-    options.onProgress?.(model + " accepted the job. Waiting for the render…");
+    options.onProgress?.((model === "default" ? "Automatic Free-tier model" : "MiniMax H3") + " accepted the job. Waiting for the render…");
     let job: StatusResponse | null = null;
     let terminalError = "";
     for (let attempt = 0; attempt < 60; attempt += 1) {
@@ -126,7 +126,7 @@ export async function generateMagicHourClip(
     }
 
     if (job?.status === "complete" && job.downloadReady) {
-      options.onProgress?.("Downloading the completed " + model + " clip…");
+      options.onProgress?.("Downloading the completed " + (model === "default" ? "automatic LTX-2.5" : "MiniMax H3") + " clip…");
       const response = await fetch("/api/video/magic-hour/download", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "video/mp4", ...getMagicHourHeaders() },
