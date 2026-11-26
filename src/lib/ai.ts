@@ -1,4 +1,4 @@
-import type { AspectRatio, GeneratedStory, Language } from "../types";
+import type { AspectRatio, GeneratedStory, Language, SceneVisualLayout, SceneVisualPlan } from "../types";
 import { buildLocalStory } from "./story";
 
 interface GenerateOptions {
@@ -32,9 +32,23 @@ const STORY_JSON_SCHEMA = {
           narration: { type: "string" },
           caption: { type: "string" },
           visualPrompt: { type: "string" },
+          visualPlan: {
+            type: "object",
+            properties: {
+              layout: { type: "string", enum: ["hero", "illustration", "chart", "candlestick", "dashboard", "process", "comparison", "timeline", "diagram", "infographic"] },
+              subject: { type: "string" },
+              headline: { type: "string" },
+              labels: { type: "array", items: { type: "string" } },
+              steps: { type: "array", items: { type: "string" } },
+              values: { type: "array", items: { type: "number" } },
+              trend: { type: "string", enum: ["up", "down", "volatile", "flat"] },
+              note: { type: "string" },
+            },
+            required: ["layout", "subject", "headline", "labels", "steps", "values", "trend", "note"],
+          },
           duration: { type: "number" },
         },
-        required: ["title", "narration", "caption", "visualPrompt", "duration"],
+        required: ["title", "narration", "caption", "visualPrompt", "visualPlan", "duration"],
       },
     },
   },
@@ -51,6 +65,43 @@ function boundedText(value: unknown, maxLength: number, label: string, allowEmpt
   if (text.length > maxLength) throw new Error("The AI response " + label + " is too long.");
   if (!allowEmpty && !text) throw new Error("The AI response did not contain " + label + ".");
   return text;
+}
+
+const VISUAL_LAYOUTS: SceneVisualLayout[] = [
+  "hero", "illustration", "chart", "candlestick", "dashboard",
+  "process", "comparison", "timeline", "diagram", "infographic",
+];
+
+function boundedStringArray(value: unknown, maxItems: number, maxLength: number, label: string): string[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) throw new Error("The AI response contained invalid " + label + ".");
+  return value.slice(0, maxItems).map((item, index) =>
+    boundedText(item, maxLength, label + " item " + (index + 1), false),
+  );
+}
+
+function parseVisualPlan(value: unknown, visualPrompt: string, title: string): SceneVisualPlan {
+  if (!isRecord(value)) return { layout: "illustration", subject: visualPrompt || title, headline: title };
+  const rawLayout = boundedText(value.layout ?? "illustration", 32, "visual layout");
+  const layout = VISUAL_LAYOUTS.includes(rawLayout as SceneVisualLayout) ? rawLayout as SceneVisualLayout : "illustration";
+  const rawTrend = boundedText(value.trend ?? "flat", 16, "visual trend");
+  const trend = rawTrend === "up" || rawTrend === "down" || rawTrend === "volatile" ? rawTrend : "flat";
+  const values = Array.isArray(value.values)
+    ? value.values.slice(0, 8).map((item) => {
+        const number = Number(item);
+        return Number.isFinite(number) ? Math.max(0, Math.min(100, number)) : 50;
+      })
+    : [];
+  return {
+    layout,
+    subject: boundedText(value.subject ?? visualPrompt ?? title, 320, "visual subject", false),
+    headline: boundedText(value.headline ?? title, 120, "visual headline"),
+    labels: boundedStringArray(value.labels, 5, 64, "visual labels"),
+    steps: boundedStringArray(value.steps, 5, 80, "visual steps"),
+    values,
+    trend,
+    note: boundedText(value.note ?? "", 180, "visual note"),
+  };
 }
 
 function parseStory(text: string): GeneratedStory {
@@ -76,11 +127,14 @@ function parseStory(text: string): GeneratedStory {
     const caption = boundedText(entry.caption ?? narration, 3_000, "scene caption");
     const rawDuration = Number(entry.duration);
     const duration = Number.isFinite(rawDuration) ? Math.max(1, Math.min(90, rawDuration)) : 5;
+    const title = boundedText(entry.title ?? "Scene " + (index + 1), 200, "scene title", false);
+    const visualPrompt = boundedText(entry.visualPrompt ?? "", 6_000, "visual prompt");
     return {
-      title: boundedText(entry.title ?? "Scene " + (index + 1), 200, "scene title", false),
+      title,
       narration,
       caption: caption || narration,
-      visualPrompt: boundedText(entry.visualPrompt ?? "", 6_000, "visual prompt"),
+      visualPrompt,
+      visualPlan: parseVisualPlan(entry.visualPlan, visualPrompt, title),
       duration,
     };
   });
@@ -213,15 +267,21 @@ export async function generateStory(options: GenerateOptions): Promise<{ story: 
   }
 
   const prompt = [
-    "You are the documentary writer and storyboard artist for SochoZara, an original Hinglish-first educational channel.",
-    "Create an original, fact-conscious video package for this topic: " + trimmedTopic,
+    "You are the complete AI documentary production team for SochoZara: research-minded explainer, scriptwriter, storyboard director, information designer and motion-graphics art director.",
+    "Create a genuinely topic-specific video package for this question: " + trimmedTopic,
     "Language: " + language + ". Approximate video duration: " + targetDuration + " seconds. Aspect ratio: " + aspectRatio + ".",
-    "Write a strong hook, informative narrative, scene-specific narration and visual prompts for original motion graphics or licensed visuals.",
-    "Do not invent factual details, dates, statistics or quotations. Where a claim needs verification, mark it [VERIFY] in the narration and note it in editorialNote.",
-    "Create 4 to 8 scenes. The sum of scene durations should be close to the target duration. Scene narration must faithfully cover the complete script without adding unrelated filler.",
-    "The script must be complete and suitable for narration. Captions should be short, readable on mobile and faithful to each scene.",
+    "First determine the core concepts a viewer must understand, then create a compelling hook, a coherent beginning-middle-end explanation and a memorable takeaway.",
+    "Write a complete, fact-conscious narration and divide it into 4 to 8 scenes. Each scene must teach a distinct idea and collectively cover the whole script without unrelated filler.",
+    "For EVERY scene, act as a visual director. Do not write generic prompts such as 'cinematic background' or repeat the same visual. Choose the most useful layout from hero, illustration, chart, candlestick, dashboard, process, comparison, timeline, diagram or infographic. Vary adjacent scenes when appropriate.",
+    "The visualPlan must tell the local renderer exactly what to draw: layout, subject, short headline, 2 to 5 concise labels and up to 5 ordered steps. Include 4 to 8 normalised values from 0 to 100 only when a chart needs visual shape. Values are illustrative geometry, never factual prices, returns or measurements.",
+    "For finance topics, create recognisable stock-market teaching visuals: company ownership/share slices, primary-market IPO process, buyer/seller order matching, demand-versus-supply, candlestick anatomy, index dashboards and risk/diversification diagrams. Never invent current share prices, returns or financial statistics. Mark conceptual charts and candle patterns as illustrative, not live data.",
+    "For science, history, geography, business and other topics, choose matching bespoke visuals such as labelled diagrams, timelines, maps, process flows, scale comparisons, anatomy cutaways, dashboards or annotated illustrations. The visualPlan must describe the subject in this scene, not merely repeat the topic name.",
+    "The visualPrompt should add concrete art direction, camera composition, focal subject, depth and motion. Avoid words or numbers baked into artwork; labels are rendered separately.",
+    "Use strong editorial pacing: opening visual hook, one clear idea per scene, visual variety, readable mobile captions and a final takeaway.",
+    "Do not invent factual details, dates, statistics, prices, quotations or company data. If a factual claim requires verification, mark it [VERIFY] in narration and explain it in editorialNote. Distinguish illustrative examples from real-world data.",
+    "Keep scene durations positive and make their sum close to target duration. Script and narration must sound natural when read aloud.",
     "Return the requested JSON object only. Do not wrap it in Markdown fences or add commentary.",
-  ].join("\n");
+  ].join("\\n");
 
   const response = await fetchWithTimeout(GEMINI_INTERACTIONS_URL, {
     method: "POST",
