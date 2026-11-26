@@ -17,6 +17,7 @@ describe("cinematic scene visual themes", () => {
     ["An ancient temple", "history"],
     ["Life in a rainforest", "nature"],
     ["How atoms behave", "science"],
+    ["How the stock market works", "finance"],
     ["An unexpected mystery", "generic"],
   ] as const)("classifies %s as %s", (title, expected) => {
     expect(getSceneTheme(scene(title))).toBe(expected);

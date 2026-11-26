@@ -103,9 +103,76 @@ function earthStopStory(language: Language, targetDuration: number): GeneratedSt
   };
 }
 
+function isStockMarketTopic(topic: string): boolean {
+  return /stock market|share market|how (?:the )?stock market works|stock exchange|shares? and stocks|equity market|nifty|sensex/i.test(topic);
+}
+
+function stockMarketStory(targetDuration: number): GeneratedStory {
+  const scenes = [
+    {
+      title: "A market built on ownership",
+      narration: "A stock market is a place where investors can buy and sell shares of companies. One share represents a small unit of ownership in a company, although the rights attached to a share depend on its class.",
+      caption: "A share represents a small unit of company ownership.",
+      visualPrompt: "A modern public company represented as a glowing glass tower with ownership slices spreading to many investors, premium financial documentary style.",
+      visualPlan: { layout: "hero" as const, subject: "A company divided into small ownership shares held by many investors", headline: "OWN A PIECE OF A COMPANY", labels: ["Company", "Shares", "Investors"], steps: [], values: [], trend: "flat" as const, note: "" },
+    },
+    {
+      title: "How a company raises money",
+      narration: "When a company offers newly issued shares to the public for the first time, it may do so through an initial public offering, or IPO. Investors can apply to buy shares, and the company receives funds from the new issue, after applicable costs.",
+      caption: "An IPO can help a company raise capital from investors.",
+      visualPrompt: "A cinematic financial process diagram showing a company issuing new shares and investors funding the business, glowing gold and emerald paths.",
+      visualPlan: { layout: "process" as const, subject: "The primary market and a company issuing new shares to raise capital", headline: "THE IPO: COMPANY MEETS INVESTORS", labels: ["Company", "New shares", "Investors", "Capital"], steps: ["Company issues shares", "Public applies", "Shares are allotted", "Capital reaches company"], values: [], trend: "flat" as const, note: "Simplified educational IPO flow." },
+    },
+    {
+      title: "Investors trade with each other",
+      narration: "After listing, investors can usually trade those shares with other investors on a stock exchange. These trades happen in the secondary market. The company generally does not receive money every time one investor sells a share to another.",
+      caption: "Most everyday exchange trading happens between investors.",
+      visualPrompt: "Two investors on opposite sides of a digital exchange with share tokens transferring between them, clean financial explainer animation.",
+      visualPlan: { layout: "comparison" as const, subject: "Primary market compared with secondary market share trading", headline: "WHO IS TRADING WITH WHOM?", labels: ["Primary market", "Company issues shares", "Secondary market", "Investors trade"], steps: ["New issue: company to investor", "Resale: investor to investor"], values: [], trend: "flat" as const, note: "" },
+    },
+    {
+      title: "How a share price moves",
+      narration: "On an exchange, buyers place bids and sellers place offers. The exchange matches compatible orders. If buyers are willing to pay more and demand is stronger than the available supply at current prices, the price may move up. Stronger selling pressure can push it down. News, expectations and company performance can all affect those decisions.",
+      caption: "Prices move as buyers and sellers interact.",
+      visualPrompt: "A dramatic animated order book with buyer bids and seller asks flowing toward a central matching engine, green and red financial light.",
+      visualPlan: { layout: "dashboard" as const, subject: "An exchange order book matching buy bids with sell offers", headline: "THE PRICE IS DISCOVERED", labels: ["BUY ORDERS", "MATCH ENGINE", "SELL OFFERS"], steps: ["Buyers bid", "Sellers offer", "Compatible orders match"], values: [], trend: "volatile" as const, note: "Conceptual order-book illustration, not live market data." },
+    },
+    {
+      title: "Reading a candlestick chart",
+      narration: "A candlestick chart summarises price movement over a chosen time period. Each candle shows four key points: the opening price, closing price, highest price and lowest price. The candle body compares open and close, while the thin wicks show the high and low. Colours commonly distinguish rising and falling periods, but conventions can vary by platform.",
+      caption: "Each candle shows open, high, low and close.",
+      visualPrompt: "A crisp animated candlestick chart building candle by candle with a close-up on open, high, low and close anatomy, dark trading terminal.",
+      visualPlan: { layout: "candlestick" as const, subject: "Anatomy of a financial candlestick: open, high, low and close", headline: "ONE CANDLE. FOUR PRICE POINTS.", labels: ["HIGH", "OPEN", "CLOSE", "LOW"], steps: [], values: [32, 46, 40, 62, 56, 73, 64, 82], trend: "volatile" as const, note: "Illustrative candle sequence only — not live prices or investment advice." },
+    },
+    {
+      title: "What market indices tell us",
+      narration: "An index such as the NIFTY 50 or SENSEX tracks a selected group of companies using a defined calculation method. It gives investors a snapshot of how that group is performing. An index is useful, but it does not represent every listed company or the entire economy.",
+      caption: "Indices track selected groups of companies.",
+      visualPrompt: "A premium index dashboard with a basket of company tiles feeding into a single market indicator, animated mini charts.",
+      visualPlan: { layout: "dashboard" as const, subject: "A market index summarising the performance of a selected basket of companies", headline: "A MARKET INDEX IS A BASKET", labels: ["NIFTY 50", "SENSEX", "Selected companies"], steps: ["Select constituents", "Weight and calculate", "Track group movement"], values: [42, 58, 54, 68, 64, 76], trend: "up" as const, note: "Illustrative dashboard only — no current index values are shown." },
+    },
+    {
+      title: "Risk is part of investing",
+      narration: "Share prices can rise or fall, and investors can lose money. Diversification means spreading exposure rather than depending on one company or asset. Before investing, people should understand the risks, their time horizon and whether the investment suits their financial situation.",
+      caption: "Returns are never guaranteed. Understand risk and diversify.",
+      visualPrompt: "A balanced portfolio represented by several illuminated asset pillars, risk shield and diversified streams, reassuring documentary finish.",
+      visualPlan: { layout: "diagram" as const, subject: "Diversification as a way to avoid relying on a single investment", headline: "RISK DOES NOT DISAPPEAR", labels: ["Diversify", "Time horizon", "Research", "Risk"], steps: ["Understand the asset", "Spread exposure", "Review your goals"], values: [], trend: "flat" as const, note: "Educational overview, not personalised investment advice." },
+    },
+  ];
+  const duration = Math.max(1, targetDuration) / scenes.length;
+  const script = scenes.map((scene) => scene.narration).join("\n\n");
+  return {
+    title: "How the Stock Market Works",
+    script,
+    editorialNote: "Educational overview only. The candlestick sequence and dashboard are illustrative, not live market data or investment advice. Verify current exchange rules, listing details and index methodology before publication.",
+    scenes: scenes.map((scene) => ({ ...scene, duration })),
+  };
+}
+
 export function buildLocalStory(topic: string, language: Language, targetDuration: number): GeneratedStory {
   const cleanTopic = topic.trim() || "An amazing fact about our world";
   if (isEarthStopTopic(cleanTopic)) return earthStopStory(language, targetDuration);
+  if (isStockMarketTopic(cleanTopic)) return stockMarketStory(targetDuration);
   const sampleLightning = /lightning|thunder|bijli|garaj/i.test(cleanTopic);
 
   if (sampleLightning) {

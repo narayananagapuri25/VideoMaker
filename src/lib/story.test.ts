@@ -34,6 +34,19 @@ describe("local story helpers", () => {
     expect(story.editorialNote).toContain("thought experiment");
   });
 
+  it("creates a stock-market explainer with finance-specific scene plans offline", () => {
+    const story = buildLocalStory("How stock market works?", "English", 60);
+    expect(story.title).toBe("How the Stock Market Works");
+    expect(story.scenes).toHaveLength(7);
+    expect(story.script).toContain("initial public offering");
+    expect(story.script).toContain("buyers place bids");
+    expect(story.scenes.some((scene) => scene.visualPlan?.layout === "candlestick")).toBe(true);
+    expect(story.scenes.some((scene) => scene.visualPlan?.layout === "dashboard")).toBe(true);
+    expect(story.scenes.every((scene) => Boolean(scene.visualPlan?.subject))).toBe(true);
+    expect(story.editorialNote).toContain("not live market data");
+    expect(story.scenes.reduce((total, scene) => total + scene.duration, 0)).toBeCloseTo(60, 4);
+  });
+
   it("detects pasted narration and extracts the scientific note separately", () => {
     const parsed = parsePastedNarration(earthScript);
     expect(parsed).not.toBeNull();
