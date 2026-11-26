@@ -74,13 +74,13 @@ export function getEmbeddedVideoSize(value: unknown): number | null {
   }
 }
 
-export function getProjectMediaSize(scenes: Scene[], voiceAudioDataUrl?: string, replacingSceneId?: string, replacingAudio = false): number {
+export function getProjectMediaSize(scenes: Scene[], voiceAudioDataUrl?: string, replacingSceneId?: string, replacingAudio = false, replacingVideoSceneId?: string): number {
   const imageBytes = scenes.reduce((total, scene) => {
     if (replacingSceneId && scene.id === replacingSceneId) return total;
     return total + (getEmbeddedImageSize(scene.imageDataUrl) ?? 0);
   }, 0);
   const videoBytes = scenes.reduce((total, scene) => {
-    if (replacingSceneId && scene.id === replacingSceneId) return total;
+    if (replacingVideoSceneId && scene.id === replacingVideoSceneId) return total;
     return total + (getEmbeddedVideoSize(scene.videoDataUrl) ?? 0);
   }, 0);
   const audioBytes = replacingAudio ? 0 : (getEmbeddedAudioSize(voiceAudioDataUrl) ?? 0);
