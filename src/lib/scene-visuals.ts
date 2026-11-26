@@ -11,7 +11,7 @@ export function getSceneTheme(scene: Pick<Scene, "title" | "caption" | "visualPr
   if (/lightning|thunder|storm|rain(?!forest)|cloud|hurricane|cyclone|weather|wind|atmosphere|inertia|pressure/.test(subject)) return "weather";
   if (/ocean|sea|water|wave|tsunami|river|underwater|coral|iceberg/.test(subject)) return "ocean";
   if (/city|building|traffic|road|bridge|architecture|skyline|metro|urban/.test(subject)) return "city";
-  if (/ai|robot|technology|computer|digital|circuit|internet|data|chip|quantum|future/.test(subject)) return "technology";
+  if (/\bai\b|artificial intelligence|robot|technology|computer|digital|circuit|internet|data|chip|quantum|future/.test(subject)) return "technology";
   if (/temple|ancient|history|historical|empire|kingdom|fort|monument|civilization|archaeolog/.test(subject)) return "history";
   if (/forest|tree|nature|mountain|wildlife|animal|jungle|desert|volcano|plant|flower/.test(subject)) return "nature";
   if (/science|atom|molecule|physics|energy|gravity|magnet|chemical|experiment|cell|dna/.test(subject)) return "science";
