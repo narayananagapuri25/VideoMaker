@@ -415,3 +415,8 @@ select { appearance: auto; }
   .stock-video-search-row { grid-template-columns: 1fr; }
   .stock-video-search-row .button { width: 100%; }
 }
+
+.video-rights-box { margin-top: 9px; padding: 9px; border: 1px solid rgba(245,155,72,.2); border-radius: 8px; background: rgba(245,155,72,.045); }
+.video-rights-box .field-label { display: block; margin: 0 0 6px; }
+.video-rights-box input:not([type="checkbox"]) { font-size: 8px; padding: 7px 8px; }
+.video-rights-box .rights-confirm { margin-top: 8px; }
