@@ -17,7 +17,7 @@ The Pages project is expected to deploy from `main`. Confirm the production bran
 | Framework preset | Vite |
 | Production branch | `main` |
 | Root directory | `/` |
-| Build command | `npm install && npm run build` |
+| Build command | `npm ci --no-audit --no-fund && npm run build` |
 | Build output directory | `dist` |
 | Node.js version | `22` |
 
@@ -33,7 +33,7 @@ Cloudflare Pages Git integration can deploy automatically on commits to the conf
 6. Test microphone permission on HTTPS, narration upload, and an actual short MP4 export with audio.
 7. Play the resulting MP4 in a separate player and verify sound, duration, aspect ratio and scene transitions.
 
-A green GitHub CI run validates unit tests, dependency advisories and a production build. It does **not** validate microphone permissions, media codec support, MP4 encoding on real devices, or Cloudflare deployment completion.
+A green GitHub CI run validates unit tests, dependency advisories, the production build and an HTTP smoke test of the built app shell, bundled assets, PWA metadata and static Pages headers. It does **not** validate microphone permissions, device codec support, MP4 encoding on real devices, or Cloudflare deployment completion.
 
 ## Runtime and privacy notes
 

@@ -9,7 +9,7 @@ import { getSceneStartTime, getTimelineDuration } from "./lib/timeline";
 import PlaybackTimeline from "./components/PlaybackTimeline";
 import CreatorKit from "./components/CreatorKit";
 import type { AspectRatio, Language, Scene, StudioProject } from "./types";
-import { getProjectMediaSize, isSupportedImageMimeType, MAX_NARRATION_AUDIO_BYTES, MAX_PROJECT_MEDIA_BYTES, MAX_SCENE_IMAGE_BYTES } from "./lib/media-data";
+import { getEmbeddedImageSize, getProjectMediaSize, isSupportedImageMimeType, MAX_NARRATION_AUDIO_BYTES, MAX_PROJECT_MEDIA_BYTES, MAX_SCENE_IMAGE_BYTES } from "./lib/media-data";
 import { MAX_PROJECT_BACKUP_BYTES, restoreProjectBackup } from "./lib/project-backup";
 
 const initialProject = () => makeProject("Why do we see lightning before thunder?", "Hinglish", "9:16", 45);
@@ -281,6 +281,9 @@ export default function App() {
     }
     try {
       const imageDataUrl = await fileToDataUrl(file);
+      if (getEmbeddedImageSize(imageDataUrl) === null) {
+        throw new Error("The selected file content does not match a supported image format. Choose a valid PNG, JPEG, WebP, GIF, AVIF or BMP image.");
+      }
       updateScene(sceneId, { imageDataUrl, imageProvider: visualProvider, imageCommercialUseConfirmed: false, imageSourceNote: visualProvider === "adobe-firefly" ? "Adobe Firefly · confirm selected Adobe model and non-beta feature" : visualProvider === "pexels" ? "Pexels · record asset URL/creator and verify licence" : "Other source · record model/provider and licence" });
       setNotice("Scene artwork added. Review its commercial-use terms and confirm the asset rights in the scene editor.");
     } catch (error) {
@@ -750,7 +753,7 @@ export default function App() {
                       </div>
                       <div className="scene-editor-bottom">
                         <div><label className="field-label">DURATION (SECONDS)</label><input type="number" min="1" max="90" value={selectedScene.duration} onChange={(event) => updateScene(selectedScene.id, { duration: Math.max(1, Math.min(90, Number(event.target.value) || 1)) })} /></div>
-                        <label className="button button-secondary file-button">{selectedScene.imageDataUrl ? "↻ Replace artwork" : "＋ Import generated artwork"}<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => handleSceneImage(selectedScene.id, event)} /></label>
+                        <label className="button button-secondary file-button">{selectedScene.imageDataUrl ? "↻ Replace artwork" : "＋ Import generated artwork"}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/avif,image/bmp" onChange={(event) => handleSceneImage(selectedScene.id, event)} /></label>
                       </div>
                       {selectedScene.imageDataUrl && (
                         <div className="asset-rights-box">
