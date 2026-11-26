@@ -79,7 +79,10 @@ export function getProjectMediaSize(scenes: Scene[], voiceAudioDataUrl?: string,
     if (replacingSceneId && scene.id === replacingSceneId) return total;
     return total + (getEmbeddedImageSize(scene.imageDataUrl) ?? 0);
   }, 0);
-  const videoBytes = scenes.reduce((total, scene) => total + (getEmbeddedVideoSize(scene.videoDataUrl) ?? 0), 0);
+  const videoBytes = scenes.reduce((total, scene) => {
+    if (replacingSceneId && scene.id === replacingSceneId) return total;
+    return total + (getEmbeddedVideoSize(scene.videoDataUrl) ?? 0);
+  }, 0);
   const audioBytes = replacingAudio ? 0 : (getEmbeddedAudioSize(voiceAudioDataUrl) ?? 0);
   return imageBytes + videoBytes + audioBytes;
 }
