@@ -1,5 +1,5 @@
-import { generateStoryWithApiKey } from "../../../src/lib/ai";
-import { checkSameOrigin, jsonNoStore, parseJsonBody, providerError, requireGeminiKey, type PagesContext } from "./_shared";
+import { generateStoryWithAvailableProviders } from "../../../src/lib/multi-ai";
+import { checkSameOrigin, jsonNoStore, parseJsonBody, providerError, resolveAIRequestCredentials, type PagesContext } from "./_shared";
 import type { AspectRatio, Language } from "../../../src/types";
 
 const languages: Language[] = ["English", "Hinglish", "Hindi", "Telugu"];
@@ -31,7 +31,7 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
   }
 
   try {
-    const result = await generateStoryWithApiKey({
+    const result = await generateStoryWithAvailableProviders({
       topic,
       language: language as Language,
       aspectRatio: aspectRatio as AspectRatio,
