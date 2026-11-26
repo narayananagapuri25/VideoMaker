@@ -1,0 +1,19 @@
+{
+  "name": "SochoZara Studio",
+  "short_name": "SochoZara",
+  "description": "Create original motion-led videos for YouTube and Instagram.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#08111f",
+  "theme_color": "#08111f",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
