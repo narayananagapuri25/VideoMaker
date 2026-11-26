@@ -551,3 +551,7 @@ select { appearance: auto; }
 .manual-video-links a small { color: #8195aa; font-size: 7px; line-height: 1.5; }
 .manual-video-links a:hover { border-color: rgba(43,213,231,.35); background: rgba(43,213,231,.04); }
 @media (max-width: 540px) { .manual-video-links { grid-template-columns: minmax(0,1fr); } }
+
+.manual-video-links { grid-template-columns: repeat(2, minmax(0,1fr)); }
+.manual-video-excluded { padding-top: 7px; border-top: 1px solid rgba(149,173,204,.10); color: #74879c !important; font-size: 7px !important; }
+@media (max-width: 540px) { .manual-video-links { grid-template-columns: minmax(0,1fr); } }
