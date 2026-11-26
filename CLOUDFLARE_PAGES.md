@@ -8,14 +8,14 @@ SochoZara Studio is a Vite application deployed on Cloudflare Pages. Editing, pr
 - GitHub repository: `narayananagapuri25/VideoMaker`
 - Release branch: `main`
 
-The Pages project is expected to deploy from `main`. Confirm the production branch and build configuration in **Cloudflare Dashboard → Workers & Pages → sochozara-studio → Settings → Builds**; this repository cannot read account-level Cloudflare settings.
+The Pages project is expected to deploy from `main`. Confirm the production branch and build configuration in **Cloudflare Dashboard → Workers & Pages → the Pages project serving this production URL → Settings → Builds**; this repository cannot read account-level Cloudflare settings.
 
 ## One-time Gemini API setup
 
 The Studio no longer asks creators to paste a Gemini key into the browser. Configure it once as an encrypted Cloudflare Pages secret:
 
 1. Create or select a Gemini API key in [Google AI Studio](https://aistudio.google.com/apikey).
-2. Open **Cloudflare Dashboard → Workers & Pages → videomaker-1mz → Settings → Variables and Secrets**.
+2. Open **Cloudflare Dashboard → Workers & Pages → the Pages project serving `https://videomaker-1mz.pages.dev` → Settings → Variables and Secrets**.
 3. In the **Production** environment, choose **Add** and select **Secret** (not a plain-text variable).
 4. Set the name to `GEMINI_API_KEY` and paste the key into the secret value field.
 5. Save the secret, then trigger a new production deployment of `main`.
