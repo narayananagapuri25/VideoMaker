@@ -183,6 +183,24 @@ async function mixWithOriginalAmbientBed(
     const voiceChannels = narration
       ? Array.from({ length: narration.numberOfChannels }, (_, channel) => narration.getChannelData(channel))
       : [];
+    let voiceRms = 0;
+    if (voiceChannels.length) {
+      let squaredTotal = 0;
+      let sampleCount = 0;
+      for (const channel of voiceChannels) {
+        for (let index = 0; index < channel.length; index += 1) {
+          squaredTotal += channel[index] * channel[index];
+          sampleCount += 1;
+        }
+      }
+      voiceRms = Math.sqrt(squaredTotal / Math.max(1, sampleCount));
+      if (!Number.isFinite(voiceRms) || voiceRms < 0.003) {
+        throw new Error("The generated narration is silent or too quiet to use. Generate the voice-over again before exporting.");
+      }
+    }
+    // Bring provider-dependent voice levels to a consistent speech target,
+    // while keeping the ambient bed clearly underneath the narration.
+    const voiceGain = voiceChannels.length ? Math.max(0.35, Math.min(8, 0.18 / voiceRms)) : 1;
     const roots = [110, 130.81, 98, 146.83];
 
     for (let channel = 0; channel < channelCount; channel += 1) {
@@ -198,7 +216,7 @@ async function mixWithOriginalAmbientBed(
           + 0.12 * Math.sin(2 * Math.PI * root * 2.5 * time + 0.2);
         const fadeIn = Math.min(1, time / 1.6);
         const fadeOut = Math.min(1, Math.max(0, (duration - time) / 2.5));
-        const music = pad * slow * fadeIn * fadeOut * (voice ? 0.026 : 0.052);
+        const music = pad * slow * fadeIn * fadeOut * (voice ? 0.012 : 0.052);
 
         let spoken = 0;
         if (voice && narration) {
@@ -206,9 +224,11 @@ async function mixWithOriginalAmbientBed(
           const lower = Math.min(voice.length - 1, Math.floor(sourcePosition));
           const upper = Math.min(voice.length - 1, lower + 1);
           const fraction = sourcePosition - lower;
-          spoken = (voice[lower] * (1 - fraction) + voice[upper] * fraction) * 0.92;
+          spoken = (voice[lower] * (1 - fraction) + voice[upper] * fraction) * voiceGain * 0.88;
         }
-        output[frame] = Math.max(-0.98, Math.min(0.98, spoken + music));
+        const combined = spoken + music;
+        // Soft limiting prevents peaks from clipping after normalisation.
+        output[frame] = Math.tanh(combined * 1.15) / 1.15;
       }
     }
     return mixed;
