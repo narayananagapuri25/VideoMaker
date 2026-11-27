@@ -1128,7 +1128,7 @@ export default function App() {
                   <div className="inhouse-generator">
                     <div className="inhouse-generator-heading">
                       <span className="inhouse-generator-mark">✦</span>
-                      <div><strong>IN-HOUSE VIDEO GENERATOR</strong><small>Free · runs on this device · no Flow or paid video API</small></div>
+                      <div><strong>IN-HOUSE VIDEO GENERATOR</strong><small>Free · runs on this device · no external video API required</small></div>
                       <span className="inhouse-free-tag">FREE</span>
                     </div>
                     <p>Enter a question and let the AI director write the story, plan a different visual for every scene, generate English narration and assemble the MP4. Rendering and graphics run free on this device.</p>
