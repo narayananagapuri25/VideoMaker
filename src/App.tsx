@@ -17,7 +17,8 @@ import {
   type SelectedAIProvider,
 } from "./lib/ai-selection";
 import PlaybackTimeline from "./components/PlaybackTimeline";
-import type { AspectRatio, Language, Scene, StudioProject } from "./types";
+import TrendingTopics from "./components/TrendingTopics";
+import type { AspectRatio, Language, Scene, StudioProject, TrendEditorialContext, TrendingTopic, VideoGenre } from "./types";
 
 const initialProject = () => makeProject("What is happening today?", "English", "9:16", 45);
 
@@ -39,6 +40,8 @@ const providerLabels: Record<SelectedAIProvider, string> = {
 
 export default function App() {
   const [project, setProject] = useState<StudioProject>(initialProject);
+  const [videoGenre, setVideoGenre] = useState<VideoGenre>("auto");
+  const [trendContext, setTrendContext] = useState<TrendEditorialContext | undefined>();
   const [selectedProvider, setSelectedProvider] = useState<SelectedAIProvider>(() => {
     // Cloudflare is the default production path. Preserve its existing Free-only consent.
     try { selectAIProvider("cloudflare"); } catch { /* The selection state remains safe in memory when storage is unavailable. */ }
@@ -97,6 +100,19 @@ export default function App() {
     exportUrlRef.current = "";
     setExportUrl("");
     setExportType("mp4");
+  }
+
+  function handleTrendChoose(topic: TrendingTopic, region: string) {
+    clearExport();
+    setProject((current) => ({ ...current, topic: topic.title, updatedAt: Date.now() }));
+    setTrendContext({
+      source: "Google Trends",
+      region,
+      traffic: topic.traffic,
+      publishedAt: topic.publishedAt,
+      relatedNews: topic.relatedNews.slice(0, 3).map((item) => ({ title: item.title, source: item.source })),
+    });
+    setNotice("Selected a Google Trends topic. Headlines are research leads, not verified facts; the storyboard will flag claims that need checking.");
   }
 
   function handleProviderChange(value: string) {
@@ -204,6 +220,8 @@ export default function App() {
         language: project.language,
         targetDuration: project.targetDuration,
         aspectRatio: project.aspectRatio,
+        genre: videoGenre,
+        trendContext,
       });
       let scenes: Scene[] = result.story.scenes.map((scene, index) => ({
         ...scene,
@@ -326,6 +344,8 @@ export default function App() {
     clearExport();
     const fresh = makeProject("What is happening today?", project.language, project.aspectRatio, project.targetDuration);
     setProject(fresh);
+    setTrendContext(undefined);
+    setVideoGenre("auto");
     setSelectedSceneId(fresh.scenes[0]?.id ?? "");
     setPlayhead(0);
     setIsPlaying(false);
@@ -358,13 +378,14 @@ export default function App() {
 
         <div className="simple-layout">
           <section className="panel simple-controls">
+            <TrendingTopics onChoose={handleTrendChoose} />
             <label className="field-label" htmlFor="simple-topic">WHAT SHOULD THE VIDEO BE ABOUT?</label>
             <textarea
               id="simple-topic"
               className="topic-input"
               rows={3}
               value={project.topic}
-              onChange={(event) => { clearExport(); setProject((current) => ({ ...current, topic: event.target.value, updatedAt: Date.now() })); }}
+              onChange={(event) => { clearExport(); setTrendContext(undefined); setProject((current) => ({ ...current, topic: event.target.value, updatedAt: Date.now() })); }}
               placeholder="Example: How does the stock market work?"
               disabled={isGenerating || isRendering}
             />
@@ -388,6 +409,31 @@ export default function App() {
                   <option value={30}>30 seconds</option><option value={45}>45 seconds</option><option value={60}>60 seconds</option><option value={90}>90 seconds</option><option value={300}>5 minutes</option>
                 </select>
               </div>
+            </div>
+
+            <div className="simple-genre">
+              <label className="field-label" htmlFor="simple-genre">VIDEO GENRE</label>
+              <select id="simple-genre" value={videoGenre} onChange={(event) => { clearExport(); setVideoGenre(event.target.value as VideoGenre); }}>
+                <option value="auto">Auto-detect best style</option>
+                <option value="documentary">Documentary</option>
+                <option value="explainer">Educational explainer</option>
+                <option value="news">Current affairs / news</option>
+                <option value="technology">Technology & AI</option>
+                <option value="business">Business & startups</option>
+                <option value="finance">Finance & markets</option>
+                <option value="sports">Sports</option>
+                <option value="entertainment">Entertainment & culture</option>
+                <option value="history">History</option>
+                <option value="science">Science</option>
+                <option value="travel">Travel</option>
+                <option value="food">Food</option>
+                <option value="health">Health & fitness education</option>
+                <option value="education">Education</option>
+                <option value="mystery">Mystery & investigations</option>
+                <option value="biography">Biography</option>
+                <option value="nature">Nature & wildlife</option>
+                <option value="storytelling">Storytelling</option>
+              </select>
             </div>
 
             <div className="simple-provider">
