@@ -37,7 +37,7 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
       encoding: "mp3",
       container: "none",
       bit_rate: 128_000,
-    }, { returnRawResponse: true });
+    }, { returnRawResponse: true, rejectIfBusy: true });
     if (!(result instanceof Response)) {
       throw new Error("Cloudflare Aura returned an unexpected audio response. Check the Workers AI model binding and retry.");
     }
