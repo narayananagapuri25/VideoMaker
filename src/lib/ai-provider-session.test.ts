@@ -103,6 +103,20 @@ describe("Cloudflare Workers AI free-allocation consent", () => {
     });
   });
 
+  it("can authorise the server-side AI binding without storing a browser API token", () => {
+    useSessionStorage();
+    confirmCloudflareFreeUseOnly(true);
+
+    expect(hasSecondaryAIKey("cloudflare")).toBe(true);
+    expect(getSecondaryAIHeaders()).toEqual({
+      "X-SochoZara-Cloudflare-Free-Use": "true",
+    });
+    expect(getSecondaryAIProviderHeaders("cloudflare")).toEqual({
+      "X-SochoZara-AI-Provider": "cloudflare",
+      "X-SochoZara-Cloudflare-Free-Use": "true",
+    });
+  });
+
   it("resets the free-allocation confirmation when credentials are replaced or removed", () => {
     useSessionStorage();
     saveCloudflareAIConnection(ACCOUNT_ID, "first-token");
