@@ -13,22 +13,22 @@ export async function onRequestPost({ request }: { request: Request }): Promise<
   const account = await getMagicHourAccount(key);
   if (account instanceof Response) return account;
 
-  const freeTier = account.tier === "free";
+  const freeTier = account.tier === "free" && account.subscription === null;
   const creditsPerSecond = 24;
   return jsonNoStore({
     connected: true,
     tier: account.tier,
     credits: account.credits,
     freeTier,
-    freeModelAccess: ["default (LTX-2.5 on Free)", "minimax-h3"],
-    preferredModel: "default",
+    freeModelAccess: ["ltx-2.5", "minimax-h3"],
+    preferredModel: "ltx-2.5",
     resolution: "480p",
     creditsPerSecond,
     affordableSecondsAt480p: Math.floor(account.credits / creditsPerSecond),
     estimatedFiveSecondClipCredits: creditsPerSecond * 5,
     commercialUse: freeTier ? "personal-non-commercial-only" : "check-current-plan-terms",
     message: freeTier
-      ? "Magic Hour API connected on the Free tier. The API selects LTX-2.5 automatically at 480p; MiniMax H3 is tried only as a fallback. The live credit balance is checked before every clip."
-      : "Magic Hour API connected. The account is not on the Free tier; VideoMaker will still use only the free-plan models at 480p.",
+      ? "Magic Hour API connected on the Free tier. LTX-2.5 at 480p is tried first; MiniMax H3 is the free-model fallback after a safe model rejection or refunded failed job. The live credit balance is checked before every clip."
+      : "Magic Hour API connected. The account does not have a verified Free plan without an active subscription; no API video generation will be submitted.",
   });
 }
