@@ -397,6 +397,21 @@ export async function generateCloudflareSceneImage(prompt: string): Promise<stri
   return payload.imageDataUrl;
 }
 
+/** Generates English voice-over with Cloudflare Workers AI Aura-1 on the same selected free-tier account. */
+export async function generateCloudflareNarration(script: string, language: Language): Promise<Blob> {
+  const response = await fetch("/api/ai/narration-cloudflare", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "audio/mpeg", ...getSelectedAIHeaders() },
+    body: JSON.stringify({ script, language }),
+    cache: "no-store",
+  });
+  if (!response.ok) throw await readApiError(response);
+  const audio = await response.blob();
+  if (!audio.size || !audio.type.includes("audio")) {
+    throw new Error("Cloudflare Aura did not return a usable narration audio file.");
+  }
+  return audio;
+}
 /** Connection check uses the tab-session key when saved, otherwise the Cloudflare Pages secret. */
 export async function testGeminiConnection(): Promise<string> {
   const response = await fetch("/api/ai/connection", {
