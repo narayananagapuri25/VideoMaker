@@ -10,7 +10,7 @@ beforeEach(() => {
   });
   selectAIProvider("gemini");
 });
-import { generateStory, generateStoryWithApiKey, testGeminiConnection, testGeminiConnectionWithApiKey } from "./ai";
+import { buildStoryPrompt, generateStory, generateStoryWithApiKey, testGeminiConnection, testGeminiConnectionWithApiKey } from "./ai";
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
@@ -109,6 +109,31 @@ describe("Gemini connection diagnostics", () => {
       error: { code: 429, message: "Quota exceeded." },
     }), { status: 429 }));
     await expect(testGeminiConnectionWithApiKey("sample-api-key")).rejects.toThrow(/quota or rate limit reached.*429/i);
+  });
+});
+
+describe("genre-aware editorial prompting", () => {
+  it("directs different genres and treats trend headlines as unverified research leads", () => {
+    const prompt = buildStoryPrompt({
+      topic: "India's latest football story",
+      language: "English",
+      targetDuration: 45,
+      aspectRatio: "9:16",
+      genre: "sports",
+      trendContext: {
+        source: "Google Trends",
+        region: "IN",
+        traffic: "20K+",
+        publishedAt: "Fri, 27 Nov 2026 08:00:00 GMT",
+        relatedNews: [{ title: "Championship update", source: "Example News" }],
+      },
+    });
+    expect(prompt).toContain("Genre: sports");
+    expect(prompt).toContain("action, tactics, training");
+    expect(prompt).toContain("Google Trends IN");
+    expect(prompt).toContain("Championship update");
+    expect(prompt).toContain("research leads only");
+    expect(prompt).toContain("[VERIFY]");
   });
 });
 
