@@ -102,5 +102,11 @@ export function getSelectedAIHeaders(): Record<string, string> {
   if (provider === "gemini") {
     return { "X-SochoZara-AI-Provider": provider, ...getGeminiSessionHeaders() };
   }
+  if (provider === "cloudflare") {
+    return {
+      "X-SochoZara-AI-Provider": provider,
+      ...(hasSecondaryAIKey("cloudflare") ? { "X-SochoZara-Cloudflare-Free-Use": "true" } : {}),
+    };
+  }
   return getSecondaryAIProviderHeaders(provider);
 }
