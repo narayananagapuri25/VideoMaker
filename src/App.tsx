@@ -636,7 +636,7 @@ export default function App() {
               }
               generatedMediaBytes += clipBytes;
               remainingCredits = Math.max(0, remainingCredits - clip.creditsCharged);
-              const videoModelName = clip.model === "default" ? "LTX-2.5 (automatic Free-tier selection)" : "MiniMax H3";
+              const videoModelName = clip.model === "ltx-2.5" ? "LTX-2.5 (Free tier)" : "MiniMax H3 (Free tier)";
               scenesWithVideo[index] = {
                 ...scene,
                 videoDataUrl,
