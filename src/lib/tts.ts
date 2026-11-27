@@ -118,9 +118,7 @@ export async function generateNarrationWithApiKey(
         generationConfig: {
           responseModalities: ["AUDIO"],
           speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: voice },
-            },
+            voiceConfig: { voice },
           },
         },
       }),
