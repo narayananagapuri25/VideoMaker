@@ -4,6 +4,7 @@ import { generateNarration } from "./lib/tts";
 import { loadLatestProject, saveProject } from "./lib/storage";
 import { makeProject } from "./lib/story";
 import { getTimelineDuration } from "./lib/timeline";
+import { attachFreeNasaFootage } from "./lib/nasa-video";
 import { getUnverifiedSceneMedia } from "./lib/video-generation";
 import { getVideoFileExtension } from "./lib/export-format";
 import {
@@ -239,6 +240,18 @@ export default function App() {
         scenes = illustrated;
       }
 
+      let footageNote = "";
+      try {
+        const footage = await attachFreeNasaFootage(scenes, setNotice);
+        scenes = footage.scenes;
+        if (footage.attachedTitles.length) {
+          footageNote = " Free NASA moving footage added to " + footage.attachedTitles.join(", ") + ". NASA source credit is embedded; clips are muted. Other scenes keep their AI artwork and local animation.";
+        }
+      } catch {
+        // NASA is an optional, no-key public archive; a temporary outage must not block video creation.
+        footageNote = " The free NASA footage archive was unavailable, so all scenes will use their generated artwork and local animation.";
+      }
+
       let voiceAudioDataUrl: string | undefined;
       let voiceAudioName: string | undefined;
       let voiceNote = "";
@@ -299,8 +312,8 @@ export default function App() {
       setPlayhead(0);
       setIsPlaying(false);
       setNotice(result.fallbackNotice
-        ? result.fallbackNotice + voiceNote + visualNote + " Rendering your video…"
-        : "Story and scenes are ready." + voiceNote + visualNote + " Rendering your video…");
+        ? result.fallbackNotice + voiceNote + visualNote + footageNote + " Rendering your video…"
+        : "Story and scenes are ready." + voiceNote + visualNote + footageNote + " Rendering your video…");
       await renderProject(generatedProject);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Video generation failed.");
@@ -389,7 +402,7 @@ export default function App() {
                 <div className="simple-security-note">
                   <strong>Daily free AI allowance</strong>
                   <p>Gemma creates the story, FLUX.1 schnell creates distinct scene artwork, and Aura-1 adds English voice-over. All three use the same 10,000-Neuron daily pool, resetting at 00:00 UTC.</p>
-                  <p>Images are animated with varied camera moves and cross-fades, then rendered as 1080p/30fps video. These are AI-generated stills with in-house motion, not text-to-video clips. Aura-1 voice is English-only in this setup.</p>
+                  <p>FLUX artwork, varied camera moves, subtitles and cross-fades are included. Matching NASA archive footage can add real moving scenes automatically at no API charge or key. The NASA clips are muted and credited; topics without relevant archive footage keep the animated AI artwork. No paid text-to-video provider is called.</p>
                 </div>
               ) : (
                 <>

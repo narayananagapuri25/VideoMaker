@@ -40,12 +40,21 @@ The binding is accessed server-side as `env.AI`. No Cloudflare API token or acco
 - AI still images use different camera moves (push-in, pull-back, horizontal/vertical drift and restrained rotation) rather than the same fixed zoom on every scene.
 - Consecutive scenes cross-fade over the final 0.65 seconds of the outgoing scene; the live preview uses the same transition path as export.
 - Browser-side rendering and encoding remain local to the device. Longer high-resolution exports use more phone memory; shorter projects are safer on lower-memory phones.
+### Free real moving footage (no key, no payment)
+### Free real moving footage (no key, no payment)
+
+- The app can search the NASA Image and Video Library through its public API. This API route requires no API key, paid plan, provider credit or card.
+- During generation, up to three scenes that match NASA archive topics can receive real MP4 footage. Clips are muted, streamed through a same-origin Pages Function, and credited as `FOOTAGE: NASA` in the rendered scene.
+- NASA footage is optional. If the archive has no relevant clip, the scene keeps its FLUX artwork and local camera animation. If a selected NASA clip fails to load, export falls back to the generated artwork rather than failing the whole video.
+- The route screens out results that explicitly flag third-party copyright and descriptions that identify astronauts/people. NASA's own media guidelines still apply: NASA content is generally available for educational/informational use, but third-party content and identifiable-person rights may require separate permission. Do not use NASA material to imply endorsement or in promotional content.
+- The NASA archive provides real camera footage, mission recordings and science visualisations; it is not generated footage. The app does not call Hailuo, Runway, Kling, Pika, Replicate, Magic Hour or any other paid text-to-video API.
+
 ### What this provider generates
 
 - Gemma creates the script and storyboard.
 - FLUX.1 schnell generates one topic-specific still image per scene, sequentially, while the selected provider remains Cloudflare.
-- The browser animates those stills with local camera motion and renders the final MP4.
-- This is AI-generated scene artwork, not text-to-video clips. It uses the daily Workers AI allocation shared with other Workers AI usage in the same account.
+- Matching NASA archive clips can supply real moving footage for up to three relevant scenes at no API charge; otherwise the browser animates FLUX stills with local camera motion.
+- The final MP4 combines any selected NASA footage, generated still artwork, subtitles, transitions and local narration. This is not an AI text-to-video model. The NASA API is separate from Workers AI and does not consume Neurons.
 
 Cloudflare Pages requires the Workers AI binding to be configured in the dashboard for Pages Functions. See the official [Pages bindings guide](https://developers.cloudflare.com/pages/functions/bindings/) and [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/).
 ## Gemini API setup

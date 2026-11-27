@@ -18,6 +18,9 @@ interface SearchResponse {
 
 export function getSceneVideoSrc(scene: Scene, quality: "small" | "medium" = "medium"): string | undefined {
   if (scene.videoDataUrl) return scene.videoDataUrl;
+  if (scene.videoClipSource === "nasa" && scene.videoClipRef) {
+    return "/api/stock/nasa-videos/" + encodeURIComponent(scene.videoClipRef);
+  }
   if (scene.videoClipSource === "pixabay" && scene.videoClipId) {
     return `/api/stock/videos/${scene.videoClipId}?quality=${quality}`;
   }

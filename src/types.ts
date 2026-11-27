@@ -41,14 +41,18 @@ export interface Scene {
   imageProvider?: VisualProvider;
   imageSourceNote?: string;
   imageCommercialUseConfirmed?: boolean;
-  videoClipSource?: "pixabay" | "local";
+  videoClipSource?: "pixabay" | "nasa" | "local";
   videoClipId?: number;
+  /** NASA archive identifier, used with the same-origin free video proxy. */
+  videoClipRef?: string;
   videoClipName?: string;
   videoClipAuthor?: string;
   videoClipPageUrl?: string;
   videoClipDuration?: number;
   videoClipStart?: number;
   videoDataUrl?: string;
+  /** A known public-source reuse basis; does not represent user-uploaded media consent. */
+  videoRightsBasis?: "nasa-educational";
   videoSourceNote?: string;
   videoCommercialUseConfirmed?: boolean;
 }

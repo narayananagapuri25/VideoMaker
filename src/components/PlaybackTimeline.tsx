@@ -133,7 +133,7 @@ export default function PlaybackTimeline({
       video.preload = "auto";
       video.onloadeddata = () => setImageVersion((version) => version + 1);
       video.onseeked = () => setImageVersion((version) => version + 1);
-      video.onerror = () => onPlaybackError?.("The video clip for “" + scene.title + "” could not be loaded. Check the Pixabay service or replace the clip.");
+      video.onerror = () => onPlaybackError?.("The video clip for “" + scene.title + "” could not be loaded. The generated artwork remains available for this scene.");
       video.src = source;
       video.load();
       next.set(scene.id, video);
