@@ -408,7 +408,7 @@ export async function generateStoryWithAvailableProviders(
   const health: AIProviderHealthMap = { ...(options.providerHealth || {}) };
   const providers = configuredProviders(credentials);
   if (!providers.length) {
-    const error = new Error("Connect at least one confirmed free AI provider. Paid routes are disabled.");
+    const error = new Error("Connect at least one AI provider that is confirmed for free-tier use. Paid routes are disabled.");
     (error as Error & { providerHealth?: AIProviderHealthMap }).providerHealth = health;
     throw error;
   }
@@ -471,7 +471,7 @@ export async function generateStoryWithAvailableProviders(
       } else if (provider === "groq" || provider === "openrouter") {
         const result = await generateOpenAICompatible(provider, credentials[provider] || "", prompt);
         story = result.story;
-        mergeHealth(health, provider, result.health || healthEntry("available", "Last request succeeded; exact free quota is available only when the provider reports it.", "last-response"));
+        mergeHealth(health, provider, result.health || health[provider] || healthEntry("available", "Last request succeeded; exact free quota is available only when the provider reports it.", "last-response"));
       } else {
         story = await generateCloudflare(credentials.cloudflareApiToken || "", credentials.cloudflareAccountId || "", prompt);
         health.cloudflare = healthEntry("available", "Last Workers AI request succeeded. Daily Neuron balance is not exposed by this API.", "last-response");
