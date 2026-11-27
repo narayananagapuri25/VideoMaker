@@ -1,5 +1,6 @@
 import type { Scene } from "../types";
 import { drawSceneVisualPlan } from "./visual-plan-renderer";
+import { drawSportsScene } from "./sports-visuals";
 import { buildSubtitleCues, getActiveSubtitleCue } from "./subtitle-layout";
 
 export interface SceneTransition {
@@ -997,12 +998,15 @@ export function drawSceneFrame(
       case "science": drawScience(ctx, x, y, unit, time, palette); break;
       case "finance": drawFinanceHero(ctx, x, y, unit, time, palette); break;
       case "energy": drawEnergyHero(ctx, x, y, unit, time, palette); break;
+      case "sports": drawSportsScene(ctx, width, height, scene, time, sceneIndex); break;
       default: drawGeneric(ctx, x, y, unit, time, palette);
     }
     drawFrameAccents(ctx, width, height, palette, time, sceneIndex);
   }
 
-  if (scene.visualPlan && scene.visualPlan.layout !== "hero" && scene.visualPlan.layout !== "illustration") {
+  // Sports scenes use dedicated full-frame action art; generic chart/process templates
+  // made cricket stories look like finance presentations.
+  if (theme !== "sports" && scene.visualPlan && scene.visualPlan.layout !== "hero" && scene.visualPlan.layout !== "illustration") {
     drawSceneVisualPlan(ctx, width, height, scene.visualPlan, time, theme === "finance");
   }
 
