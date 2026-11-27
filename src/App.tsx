@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { generateCloudflareNarration, generateCloudflareSceneImage, generateStory } from "./lib/ai";
-import { generateNarration } from "./lib/tts";
+import { generateCloudflareSceneImage, generateStory } from "./lib/ai";
 import { loadLatestProject, saveProject } from "./lib/storage";
 import { makeProject } from "./lib/story";
 import { getTimelineDuration } from "./lib/timeline";
