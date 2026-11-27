@@ -274,3 +274,27 @@ describe("AI story generation", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+
+describe("generation request watchdog", () => {
+  it("aborts a stalled storyboard request and returns a useful timeout error", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((_input, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), { once: true });
+      }),
+    );
+
+    const pending = generateStory({
+      topic: "A test topic",
+      language: "English",
+      targetDuration: 30,
+      aspectRatio: "9:16",
+    });
+
+    await vi.advanceTimersByTimeAsync(150_000);
+    await expect(pending).rejects.toThrow(/story generation timed out after 150 seconds/i);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    vi.useRealTimers();
+  });
+});
