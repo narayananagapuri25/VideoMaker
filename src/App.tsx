@@ -670,8 +670,8 @@ export default function App() {
       // Agnes has a separate, limited-time $0 Angel User Trial price at 720p.
       // The creator must confirm that the account is on Default / Angel Trial,
       // not Agent Plan, and that the current dashboard still shows $0/second.
-      // The published Default-user video RPM is about one create request/minute,
-      // so deliberately create at most one Agnes clip per completed project.
+      // Agnes trial eligibility and request limits can vary by account; deliberately
+      // create at most one Agnes clip per completed project as a conservative cap.
       if (hasAgnesApiKey() && hasAgnesFreeTrialOnlyConfirmation() && generatedVideoCount < scenes.length) {
         try {
           const agnesAccess = await checkAgnesConnection();
