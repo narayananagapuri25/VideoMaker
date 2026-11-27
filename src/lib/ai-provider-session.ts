@@ -87,6 +87,11 @@ export function hasAgnesFreeTrialOnlyConfirmation(): boolean {
 }
 
 /** Agnes keys are sent only after an explicit current $0 Angel User Trial confirmation. */
+export function getAgnesConnectionHeaders(): Record<string, string> {
+  const key = getAgnesApiKey();
+  return key ? { "X-SochoZara-Agnes-Key": key } : {};
+}
+
 export function getAgnesHeaders(): Record<string, string> {
   const key = getAgnesApiKey();
   if (!key || !hasAgnesFreeTrialOnlyConfirmation()) return {};
