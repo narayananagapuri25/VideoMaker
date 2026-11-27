@@ -330,7 +330,14 @@ export async function generateStoryWithApiKey(options: GenerateOptions): Promise
   }
   if (!apiKey.trim()) throw new Error("Gemini API key is not configured on the server.");
 
-  const prompt = buildStoryPrompt({ topic: trimmedTopic, language, targetDuration, aspectRatio });
+  const prompt = buildStoryPrompt({
+    topic: trimmedTopic,
+    language,
+    targetDuration,
+    aspectRatio,
+    genre: options.genre,
+    trendContext: options.trendContext,
+  });
 
   const response = await fetchWithTimeout(GEMINI_INTERACTIONS_URL, {
     method: "POST",
