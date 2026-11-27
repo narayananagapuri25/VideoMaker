@@ -11,7 +11,7 @@ describe("browser video export format selection", () => {
     expect(shouldUseWebmFallback(false, true, false)).toBe(true);
   });
 
-  it("falls back when narration is required but MP4 audio encoding is unavailable", () => {
+  it("falls back when the local soundtrack is required but MP4 audio encoding is unavailable", () => {
     expect(shouldUseWebmFallback(true, false, true)).toBe(true);
   });
 

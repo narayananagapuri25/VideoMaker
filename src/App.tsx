@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { generateCloudflareNarration, generateCloudflareSceneImage, generateStory } from "./lib/ai";
-import { generateNarration } from "./lib/tts";
+import { generateCloudflareSceneImage, generateStory } from "./lib/ai";
 import { loadLatestProject, saveProject } from "./lib/storage";
 import { makeProject } from "./lib/story";
 import { getTimelineDuration } from "./lib/timeline";
@@ -225,58 +224,10 @@ export default function App() {
         genre: videoGenre,
         trendContext,
       });
-      let voiceAudioDataUrl: string | undefined;
-      let voiceAudioName: string | undefined;
-      let voiceNote = "";
-      setNotice("Creating the voice-over first so optional scene artwork cannot consume the remaining free AI allowance…");
-
-      const readAudioAsDataUrl = (audio: Blob): Promise<string> => new Promise((resolve, reject) => {
-        if (!audio.size || !audio.type.startsWith("audio/")) {
-          reject(new Error("The selected voice provider returned an empty or unsupported audio file."));
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = () => {
-          const value = String(reader.result || "");
-          if (!value.startsWith("data:audio/")) reject(new Error("The narration audio could not be prepared for export."));
-          else resolve(value);
-        };
-        reader.onerror = () => reject(new Error("Could not prepare the generated narration audio."));
-        reader.readAsDataURL(audio);
-      });
-
-      if (selectedProvider === "cloudflare") {
-        if (project.language !== "English") {
-          throw new Error("No video was exported: Cloudflare Aura-1 in this Studio currently supports English narration only. Select Gemini with its confirmed Free Tier for Hindi, Telugu or Hinglish. No paid voice provider was used.");
-        }
-        try {
-          setNotice("Generating English narration with Cloudflare Aura-1 before scene artwork…");
-          const audio = await generateCloudflareNarration(result.story.script, project.language);
-          voiceAudioDataUrl = await readAudioAsDataUrl(audio);
-          voiceAudioName = "Cloudflare Workers AI · Aura-1 · Luna";
-        } catch (error) {
-          const detail = error instanceof Error ? error.message : "Aura-1 did not return a valid narration track.";
-          throw new Error("No video was exported because the voice-over failed. " + detail + " The Cloudflare Free daily AI allowance is shared by storyboard, artwork and narration; narration now runs before artwork to protect the remaining allowance. Retry after the daily reset or select Gemini Free Tier. No paid fallback was called.");
-        }
-      } else if (selectedProvider === "gemini") {
-        try {
-          setNotice("Generating multilingual narration with Gemini Free Tier before scene artwork…");
-          const narration = await generateNarration(result.story.script, "Kore", project.language);
-          voiceAudioDataUrl = await readAudioAsDataUrl(narration.blob);
-          voiceAudioName = narration.provider + " · Kore";
-        } catch (error) {
-          const detail = error instanceof Error ? error.message : "Gemini did not return a valid narration track.";
-          throw new Error("No video was exported because Gemini narration failed. " + detail + " Check the Gemini Free Tier quota and key configuration. This Studio will not switch to a paid voice provider or another account automatically.");
-        }
-      } else {
-        throw new Error(providerLabels[selectedProvider] + " can create the script but does not provide a supported narration track in this Studio. Select Cloudflare for English or Gemini Free Tier for multilingual narration. No video was exported without voice-over.");
-      }
-
-      if (!voiceAudioDataUrl) {
-        throw new Error("No spoken narration was produced, so the Studio stopped before rendering rather than exporting a silent video.");
-      }
-      voiceNote = " Voice-over generated with " + (voiceAudioName || "the selected free-tier provider") + ".";
-      setNotice("Voice-over ready. Creating distinct visuals and matching free footage…");
+      // The Studio owns its soundtrack: generate original instrumental audio locally
+      // in the browser during export. No voice/TTS provider is needed for a complete video.
+      const audioNote = " Original instrumental soundtrack will be generated locally by SochoZara; the spoken script is presented as on-screen captions. No AI audio request is made.";
+      setNotice("Story ready. Creating distinct visuals and preparing the in-app soundtrack…");
 
       let scenes: Scene[] = result.story.scenes.map((scene, index) => ({
         ...scene,
@@ -348,8 +299,8 @@ export default function App() {
         script: result.story.script,
         scenes,
         editorialNote: result.story.editorialNote,
-        voiceAudioDataUrl,
-        voiceAudioName,
+        voiceAudioDataUrl: undefined,
+        voiceAudioName: undefined,
         storyboardSourceTopic: project.topic.trim(),
         storyboardSourceScript: result.story.script,
         storyboardSourceTargetDuration: project.targetDuration,
@@ -362,8 +313,8 @@ export default function App() {
       setPlayhead(0);
       setIsPlaying(false);
       setNotice(result.fallbackNotice
-        ? result.fallbackNotice + voiceNote + visualNote + footageNote + " Rendering your video…"
-        : "Story and scenes are ready." + voiceNote + visualNote + footageNote + " Rendering your video…");
+        ? result.fallbackNotice + audioNote + visualNote + footageNote + " Rendering your video…"
+        : "Story and scenes are ready." + audioNote + visualNote + footageNote + " Rendering your video…");
       await renderProject(generatedProject);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Video generation failed.");
@@ -405,7 +356,7 @@ export default function App() {
         <section className="simple-heading">
           <div className="eyebrow">AI VIDEO CREATOR</div>
           <h1>Turn an idea into a video.</h1>
-          <p>One idea in. AI-directed scenes, voice-over, centered safe-area subtitles, cinematic transitions and a downloadable 1080p video.</p>
+          <p>One idea in. AI-directed scenes, original in-app instrumental audio, readable script captions, cinematic transitions and a downloadable 1080p video.</p>
         </section>
 
         <div className="simple-layout">
@@ -471,16 +422,16 @@ export default function App() {
             <div className="simple-provider">
               <label className="field-label" htmlFor="simple-provider-select">CHOOSE YOUR AI</label>
               <select id="simple-provider-select" value={selectedProvider} onChange={(event) => handleProviderChange(event.target.value)}>
-                <option value="cloudflare">Cloudflare Workers AI · Story + FLUX art + English voice</option>
-                <option value="gemini">Google Gemini · Story + narration</option>
+                <option value="cloudflare">Cloudflare Workers AI · Story + optional FLUX artwork</option>
+                <option value="gemini">Google Gemini · Story generation</option>
                 <option value="groq">Groq · Story generation</option>
-                <option value="openrouter">OpenRouter · Free models · 50 requests/day</option>
+                <option value="openrouter">OpenRouter · Free models</option>
               </select>
               {selectedProvider === "cloudflare" ? (
                 <div className="simple-security-note">
                   <strong>Daily free AI allowance</strong>
-                  <p>Gemma creates the story, FLUX.1 schnell creates distinct scene artwork, and Aura-1 adds English voice-over. All three use the same 10,000-Neuron daily pool, resetting at 00:00 UTC.</p>
-                  <p>FLUX artwork, varied camera moves, subtitles and cross-fades are included. When a free Pixabay key is configured, matching stock footage can cover many genres; NASA adds relevant space, Earth and science clips. The app uses no more than three external clips, credits every source and keeps AI artwork motion wherever footage does not fit. No paid text-to-video provider is called.</p>
+                  <p>Gemma creates the story and FLUX.1 schnell creates optional scene artwork. These AI tasks use the Cloudflare Workers AI daily Neuron allowance. The original instrumental soundtrack is synthesised locally by SochoZara during export, uses no AI provider and consumes no AI quota.</p>
+                  <p>FLUX artwork, varied camera moves, on-screen script captions, local instrumental music and cross-fades are included. When a free Pixabay key is configured, matching stock footage can cover many genres; NASA adds relevant space, Earth and science clips. The app uses no more than three external clips, credits every source and keeps AI artwork motion wherever footage does not fit. No paid text-to-video provider is called.</p>
                 </div>
               ) : (
                 <>

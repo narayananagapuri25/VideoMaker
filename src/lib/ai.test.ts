@@ -144,6 +144,8 @@ describe("genre-aware editorial prompting", () => {
       },
     });
     expect(prompt).toContain("Genre: sports");
+    expect(prompt).toContain("Keep the full scene narration visible as on-screen captions");
+    expect(prompt).toContain("instrumental soundtrack generated locally by SochoZara");
     expect(prompt).toContain("action, tactics, training");
     expect(prompt).toContain("Google Trends IN");
     expect(prompt).toContain("Championship update");
