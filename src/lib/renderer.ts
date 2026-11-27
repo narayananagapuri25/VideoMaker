@@ -226,7 +226,7 @@ export async function exportMp4(
   const unverifiedImages = project.scenes.filter((scene) => scene.imageDataUrl && !scene.imageCommercialUseConfirmed && !scene.imageGeneratedByAI);
   if (unverifiedImages.length) throw new Error("Confirm image usage rights before exporting: " + unverifiedImages.map((scene) => scene.title).join(", ") + ".");
   const unverifiedVideo = project.scenes.filter((scene) =>
-    (scene.videoDataUrl || (scene.videoClipSource === "pixabay" && scene.videoClipId)) && !scene.videoCommercialUseConfirmed,
+    (scene.videoDataUrl || (scene.videoClipSource === "pixabay" && scene.videoClipId)) && !scene.videoGeneratedByAI && !scene.videoCommercialUseConfirmed,
   );
   if (unverifiedVideo.length) throw new Error("Confirm imported footage usage rights before exporting: " + unverifiedVideo.map((scene) => scene.title).join(", ") + ".");
   if (project.scenes.length > 80) throw new Error("A project can contain up to 80 scenes. Split this video into smaller parts.");
