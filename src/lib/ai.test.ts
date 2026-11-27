@@ -147,6 +147,9 @@ describe("genre-aware editorial prompting", () => {
     expect(prompt).toContain("Keep the full scene narration visible as on-screen captions");
     expect(prompt).toContain("instrumental soundtrack generated locally by SochoZara");
     expect(prompt).toContain("action, tactics, training");
+    expect(prompt).toContain("SPORTS-SPECIFIC EDITORIAL RULES");
+    expect(prompt).toContain("Do not use planets, orbit rings, unrelated abstract spheres");
+    expect(prompt).toContain("Narration length: aim for roughly 92 words");
     expect(prompt).toContain("Google Trends IN");
     expect(prompt).toContain("Championship update");
     expect(prompt).toContain("research leads only");
