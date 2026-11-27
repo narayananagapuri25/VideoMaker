@@ -231,6 +231,7 @@ export default function App() {
 
       let scenes: Scene[] = result.story.scenes.map((scene, index) => ({
         ...scene,
+        topicContext: project.topic.trim(),
         id: globalThis.crypto?.randomUUID?.() ?? ("scene-" + Date.now() + "-" + index),
       }));
       let visualNote = "";
