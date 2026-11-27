@@ -113,6 +113,21 @@ describe("Gemini connection diagnostics", () => {
 });
 
 describe("genre-aware editorial prompting", () => {
+  it("gives fuel-price stories a grounded supply-chain structure without invented live figures", () => {
+    const prompt = buildStoryPrompt({
+      topic: "Why petrol prices change in India",
+      language: "English",
+      targetDuration: 45,
+      aspectRatio: "9:16",
+      genre: "explainer",
+    });
+    expect(prompt).toContain("oilfield and extraction");
+    expect(prompt).toContain("benchmark crude and global shipping");
+    expect(prompt).toContain("taxes and local retail delivery");
+    expect(prompt).toContain("Never invent current petrol prices");
+    expect(prompt).toContain("pumpjacks, tankers, refinery units");
+  });
+
   it("directs different genres and treats trend headlines as unverified research leads", () => {
     const prompt = buildStoryPrompt({
       topic: "India's latest football story",
