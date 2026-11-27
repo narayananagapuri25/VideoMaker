@@ -18,6 +18,10 @@ export type SceneTheme =
   | "mystery" | "biography" | "energy" | "generic";
 
 export function getSceneTheme(scene: Pick<Scene, "title" | "caption" | "visualPrompt"> & Partial<Pick<Scene, "visualPlan" | "narration" | "topicContext">>): SceneTheme {
+  const topicContext = (scene.topicContext ?? "").toLowerCase();
+  // The explicit whole-video topic must outrank a misleading scene-level art prompt.
+  // A generic AI prompt mentioning a planet must not turn a cricket story into an Earth scene.
+  if (/football|soccer|cricket|basketball|tennis|formula 1|grand prix|athlete|stadium|match|tournament|olympic|race|mumbai indians|rohit sharma|wankhede|\\bipl\\b|captaincy/.test(topicContext)) return "sports";
   const subject = ((scene.topicContext ?? "") + " " + (scene.narration ?? "") + " " + scene.title + " " + scene.caption + " " + scene.visualPrompt + " " + (scene.visualPlan?.subject ?? "")).toLowerCase();
   if (/\b(petrol|gasoline|diesel|fuel|petroleum|refinery|oilfield|pipeline|opec|brent|wti|barrel|fuel pump)\b|crude[- ]oil|oil tanker|fuel price|oil price/.test(subject)) return "energy";
   if (/stock market|share market|stock exchange|trading floor|investor|investment portfolio|initial public offering|\\bipo\\b|\\bnifty\\b|\\bsensex\\b|candlestick|order book|equity market|bull market|bear market|dividend/.test(subject)) return "finance";
