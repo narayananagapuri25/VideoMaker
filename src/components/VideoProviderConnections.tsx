@@ -128,7 +128,7 @@ export default function VideoProviderConnections() {
         {account && (
           <div className={account.freeTier ? "video-credit-note" : "video-credit-note warning"}>
             {account.freeTier
-              ? "Free account detected. Automatic model selection chooses LTX-2.5 at 480p. MiniMax H3 is the fallback if the first model fails and the credits are refunded. A 5-second clip is estimated at 120 credits."
+              ? "Verified Free account. LTX-2.5 is tried first at 480p; MiniMax H3 is tried only after a definite model rejection or a failed job. Both are listed as Free-plan models and cost 24 credits/second, including audio. A five-second clip costs 120 credits."
               : "This account is not currently on the Free tier. VideoMaker will not submit free-tier generation jobs for this account."}
           </div>
         )}
@@ -143,7 +143,7 @@ export default function VideoProviderConnections() {
         </label>
         {message && <div className={"gemini-test-result " + (messageType || (testing ? "testing" : "success"))} role={messageType === "error" ? "alert" : "status"}>{message}</div>}
         <p className="video-provider-help">
-          Create a developer key at <a href="https://magichour.ai/developer?tab=api-keys" target="_blank" rel="noreferrer">Magic Hour Developer Hub ↗</a>. The Free account currently advertises 300 signup credits and up to seven 100-credit daily claims. Its API balance combines subscription credits and purchased credit packs, so VideoMaker asks you to confirm the balance is free before using it. Free-plan outputs are 480p; free outputs are for personal, non-commercial use only and may include a watermark.
+          Create a developer key at <a href="https://magichour.ai/developer?tab=api-keys" target="_blank" rel="noreferrer">Magic Hour Developer Hub ↗</a>. Magic Hour currently advertises 300 signup credits and up to seven 100-credit daily claims for Basic accounts. Your live API balance is authoritative. The API balance can include purchased credit packs, and Magic Hour does not expose a separate free-credit balance, so generation requires your explicit confirmation that no purchased credits are present. Free-plan video is 480p, for personal, non-commercial use only; watermarks may apply.
         </p>
       </div>
       <p className="video-provider-security">The key is stored only in this browser tab's session storage, never in your video project or GitHub. It is sent only to the same-origin HTTPS Cloudflare Function. Each request checks credits before submitting; generation stops when the free balance is insufficient.</p>
@@ -152,34 +152,38 @@ export default function VideoProviderConnections() {
           <strong>More free video generators · manual fallback</strong>
           <span>WEB APP CREDITS</span>
         </div>
-        <p>These sites provide free daily or trial credits in their own web apps, but they do not expose a supported free API for VideoMaker to call. Open a site, generate and download an MP4, then import it in the scene footage panel. Each site controls its own limits and queue.</p>
+        <p>These are manual web-app fallbacks, not automatic API integrations. Open the site, create a clip with its free allowance, download the MP4 and import it in the scene footage panel. VideoMaker will not sign in for you or spend credits on these sites.</p>
         <div className="manual-video-links">
+          <a href="https://magichour.ai/products/ai-video-generator" target="_blank" rel="noreferrer">
+            <strong>Magic Hour Web · no-signup fallback</strong>
+            <small>Three shared video generations per day without signup, up to 3 seconds at 480p with a watermark. This is separate from your API account balance.</small>
+          </a>
           <a href="https://labs.google/fx/tools/flow" target="_blank" rel="noreferrer">
             <strong>Google Flow · Veo</strong>
-            <small>50 credits daily. Non-subscriber video access can pause at peak hours; available models and regional access vary.</small>
+            <small>50 Flow credits per day for non-subscribers. Video generation can be unavailable at peak hours; model costs and regional access vary.</small>
           </a>
           <a href="https://app.pixverse.ai/" target="_blank" rel="noreferrer">
             <strong>PixVerse</strong>
-            <small>Free Basic allowance: 60 initial credits plus 30 daily credits. Daily credits expire at UTC midnight; Basic output is capped at 540p.</small>
+            <small>Free Basic allowance: 60 initial credits plus 30 daily credits. Unused daily credits expire at UTC midnight. Free-plan API access is not offered; API access is currently enterprise-only.</small>
           </a>
           <a href="https://firefly.adobe.com/" target="_blank" rel="noreferrer">
             <strong>Adobe Firefly Video</strong>
-            <small>Limited free daily generations across video, image and audio. Adobe varies the available models and daily limits.</small>
+            <small>Limited free daily generations for video, image and audio. Adobe does not promise a fixed free-video count for every account; check the current in-app allowance.</small>
           </a>
           <a href="https://app.runwayml.com/" target="_blank" rel="noreferrer">
             <strong>Runway</strong>
-            <small>125 one-time credits. They do not renew; free model access changes over time and exports may carry a watermark.</small>
+            <small>125 one-time credits that do not renew. Free-plan model access changes; check the current account and model limits before generating.</small>
           </a>
           <a href="https://hailuoai.video/" target="_blank" rel="noreferrer">
             <strong>Hailuo AI · MiniMax</strong>
-            <small>Free daily or promotional credits may be available on the website. The allowance varies; its API is pay-per-generation, not a free API tier.</small>
+            <small>Check the live website account for any free daily or promotional allowance. Do not use its API in the automatic free-only path; API generations are billed.</small>
           </a>
           <a href="https://klingai.com/" target="_blank" rel="noreferrer">
             <strong>Kling AI</strong>
-            <small>Check the live account credit panel for any free or promotional allowance. No fixed free amount is assumed by VideoMaker.</small>
+            <small>Check the live website account for any free or promotional allowance. VideoMaker does not assume a free API quota or automate paid API calls.</small>
           </a>
         </div>
-        <p className="manual-video-excluded">Not counted as a free generation source: Pika Free currently includes 0 monthly credits; video creation requires a credit pack or paid plan.</p>
+        <p className="manual-video-excluded">Not counted as an automatic source: Pika's current Free plan has 0 monthly generation credits; it requires a credit pack or paid plan to generate.</p>
       </div>
     </section>
   );
