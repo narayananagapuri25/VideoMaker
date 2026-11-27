@@ -296,7 +296,7 @@ export default function PlaybackTimeline({
           );
         })}
       </div>
-      <div className="timeline-footnote">{activeScene ? "Now previewing: " + activeScene.title : "Add a scene to start previewing"} · Editing a scene updates the preview automatically.</div>
+      <div className="timeline-footnote">{activeScene ? "Now previewing: " + activeScene.title : "Add a scene to start previewing"} · Editing a scene updates the preview automatically.{!voiceAudioDataUrl ? " The exported video includes an original instrumental soundtrack generated locally by SochoZara." : ""}</div>
     </div>
   );
 }
