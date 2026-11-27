@@ -40,7 +40,16 @@ The binding is accessed server-side as `env.AI`. No Cloudflare API token or acco
 - AI still images use different camera moves (push-in, pull-back, horizontal/vertical drift and restrained rotation) rather than the same fixed zoom on every scene.
 - Consecutive scenes cross-fade over the final 0.65 seconds of the outgoing scene; the live preview uses the same transition path as export.
 - Browser-side rendering and encoding remain local to the device. Longer high-resolution exports use more phone memory; shorter projects are safer on lower-memory phones.
-### Free real moving footage (no key, no payment)\n\n- The app can search the NASA Image and Video Library through its public API. This API route requires no API key, paid plan, provider credit or card.\n- During generation, up to three scenes that match NASA archive topics can receive real MP4 footage. Clips are muted, streamed through a same-origin Pages Function, and credited as `FOOTAGE: NASA` in the rendered scene.\n- NASA footage is optional. If the archive has no relevant clip, the scene keeps its FLUX artwork and local camera animation. If a selected NASA clip fails to load, export falls back to the generated artwork rather than failing the whole video.\n- The route screens out results that explicitly flag third-party copyright and descriptions that identify astronauts/people. NASA's own media guidelines still apply: NASA content is generally available for educational/informational use, but third-party content and identifiable-person rights may require separate permission. Do not use NASA material to imply endorsement or in promotional content.\n- The NASA archive provides real camera footage, mission recordings and science visualisations; it is not generated footage. The app does not call Hailuo, Runway, Kling, Pika, Replicate, Magic Hour or any other paid text-to-video API.\n### What this provider generates
+### Free real moving footage (no key, no payment)
+### Free real moving footage (no key, no payment)
+
+- The app can search the NASA Image and Video Library through its public API. This API route requires no API key, paid plan, provider credit or card.
+- During generation, up to three scenes that match NASA archive topics can receive real MP4 footage. Clips are muted, streamed through a same-origin Pages Function, and credited as `FOOTAGE: NASA` in the rendered scene.
+- NASA footage is optional. If the archive has no relevant clip, the scene keeps its FLUX artwork and local camera animation. If a selected NASA clip fails to load, export falls back to the generated artwork rather than failing the whole video.
+- The route screens out results that explicitly flag third-party copyright and descriptions that identify astronauts/people. NASA's own media guidelines still apply: NASA content is generally available for educational/informational use, but third-party content and identifiable-person rights may require separate permission. Do not use NASA material to imply endorsement or in promotional content.
+- The NASA archive provides real camera footage, mission recordings and science visualisations; it is not generated footage. The app does not call Hailuo, Runway, Kling, Pika, Replicate, Magic Hour or any other paid text-to-video API.
+
+### What this provider generates
 
 - Gemma creates the script and storyboard.
 - FLUX.1 schnell generates one topic-specific still image per scene, sequentially, while the selected provider remains Cloudflare.
