@@ -201,6 +201,71 @@ function drawBall(ctx: CanvasRenderingContext2D, x: number, y: number, radius: n
   ctx.restore();
 }
 
+function drawWalkoutTunnel(ctx: CanvasRenderingContext2D, width: number, height: number, time: number) {
+  const wall = ctx.createLinearGradient(0, 0, width, height);
+  wall.addColorStop(0, "#050C18"); wall.addColorStop(0.5, "#1D3140"); wall.addColorStop(1, "#050B15");
+  ctx.fillStyle = wall; ctx.fillRect(0, 0, width, height);
+  // Converging tunnel ribs and floor strips create a walk-out camera perspective.
+  for (let i = 0; i < 5; i += 1) {
+    const inset = i * width * 0.105;
+    ctx.strokeStyle = "rgba(143,184,205," + (0.24 - i * 0.028) + ")";
+    ctx.lineWidth = Math.max(2, width * 0.003);
+    ctx.beginPath();
+    ctx.moveTo(inset, 0); ctx.lineTo(width * 0.5, height * 0.52); ctx.lineTo(width - inset, 0);
+    ctx.stroke();
+  }
+  const door = ctx.createRadialGradient(width * 0.5, height * 0.42, 0, width * 0.5, height * 0.42, width * 0.42);
+  door.addColorStop(0, "rgba(246,190,98,.45)"); door.addColorStop(1, "rgba(246,190,98,0)");
+  ctx.fillStyle = door; ctx.fillRect(0, height * 0.08, width, height * 0.65);
+  ctx.strokeStyle = "rgba(246,190,98,.55)"; ctx.lineWidth = width * 0.004;
+  ctx.beginPath(); ctx.moveTo(width * 0.12, height * 0.92); ctx.lineTo(width * 0.5, height * 0.52); ctx.lineTo(width * 0.88, height * 0.92); ctx.stroke();
+  for (let i = 0; i < 3; i += 1) {
+    const pulse = 0.65 + 0.25 * Math.sin(time * 1.6 + i);
+    ctx.fillStyle = "rgba(238,249,255," + pulse + ")";
+    ctx.fillRect(width * (0.28 + i * 0.22), height * 0.13, width * 0.11, height * 0.012);
+  }
+}
+
+function drawTrophyStage(ctx: CanvasRenderingContext2D, width: number, height: number, time: number) {
+  const backdrop = ctx.createLinearGradient(0, 0, 0, height);
+  backdrop.addColorStop(0, "#100E18"); backdrop.addColorStop(0.55, "#312113"); backdrop.addColorStop(1, "#090D16");
+  ctx.fillStyle = backdrop; ctx.fillRect(0, 0, width, height);
+  const glow = ctx.createRadialGradient(width * 0.5, height * 0.42, 0, width * 0.5, height * 0.42, width * 0.62);
+  glow.addColorStop(0, "rgba(255,205,116,.28)"); glow.addColorStop(1, "rgba(255,205,116,0)");
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, width, height);
+  for (let i = 0; i < 7; i += 1) {
+    const x = width * (0.12 + i * 0.127);
+    const beam = ctx.createLinearGradient(x, 0, x + width * 0.04, height * 0.82);
+    beam.addColorStop(0, "rgba(255,231,169,.22)"); beam.addColorStop(1, "rgba(255,231,169,0)");
+    ctx.fillStyle = beam;
+    ctx.beginPath(); ctx.moveTo(x - width * 0.012, 0); ctx.lineTo(x + width * 0.012, 0); ctx.lineTo(x + width * 0.13, height * 0.82); ctx.lineTo(x - width * 0.13, height * 0.82); ctx.closePath(); ctx.fill();
+  }
+  const stage = ctx.createLinearGradient(0, height * 0.72, 0, height);
+  stage.addColorStop(0, "#4D3420"); stage.addColorStop(1, "#0A101A");
+  ctx.fillStyle = stage; ctx.fillRect(0, height * 0.72, width, height * 0.28);
+  ctx.strokeStyle = "rgba(247,202,128,.45)"; ctx.lineWidth = width * 0.003;
+  ctx.beginPath(); ctx.moveTo(width * 0.08, height * 0.74); ctx.lineTo(width * 0.92, height * 0.74); ctx.stroke();
+}
+
+function drawTransferBackdrop(ctx: CanvasRenderingContext2D, width: number, height: number, time: number) {
+  const bg = ctx.createLinearGradient(0, 0, width, height);
+  bg.addColorStop(0, "#071321"); bg.addColorStop(0.5, "#0B2935"); bg.addColorStop(1, "#111B2B");
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, width, height);
+  ctx.save();
+  ctx.strokeStyle = "rgba(93,224,192,.12)";
+  ctx.lineWidth = Math.max(1, width * 0.0015);
+  for (let x = 0; x <= width; x += width * 0.08) {
+    ctx.beginPath(); ctx.moveTo(x + Math.sin(time * 0.2 + x) * width * 0.004, 0); ctx.lineTo(x, height); ctx.stroke();
+  }
+  for (let y = height * 0.12; y < height; y += height * 0.12) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+  }
+  ctx.restore();
+  const centre = ctx.createRadialGradient(width * 0.5, height * 0.48, 0, width * 0.5, height * 0.48, width * 0.6);
+  centre.addColorStop(0, "rgba(93,224,192,.15)"); centre.addColorStop(1, "rgba(93,224,192,0)");
+  ctx.fillStyle = centre; ctx.fillRect(0, 0, width, height);
+}
+
 function drawCaptain(ctx: CanvasRenderingContext2D, width: number, height: number, time: number, scene: Scene) {
   const x = width * 0.51, y = height * 0.69;
   const scale = width * 0.15;
@@ -367,8 +432,11 @@ function drawAction(ctx: CanvasRenderingContext2D, width: number, height: number
 }
 
 export function drawSportsScene(ctx: CanvasRenderingContext2D, width: number, height: number, scene: Scene, elapsed: number, sceneIndex: number): void {
-  stadium(ctx, width, height, elapsed);
   const kind = getSportsVisualKind(scene, sceneIndex);
+  if (kind === "captain-return") drawWalkoutTunnel(ctx, width, height, elapsed);
+  else if (kind === "trophy-legacy") drawTrophyStage(ctx, width, height, elapsed);
+  else if (kind === "squad-moves") drawTransferBackdrop(ctx, width, height, elapsed);
+  else stadium(ctx, width, height, elapsed);
   switch (kind) {
     case "captain-return": drawCaptain(ctx, width, height, elapsed, scene); break;
     case "trophy-legacy": drawTrophies(ctx, width, height, scene, elapsed); break;
