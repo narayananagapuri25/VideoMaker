@@ -24,6 +24,7 @@ export default function StockVideoPanel({ scene, onChange }: StockVideoPanelProp
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState("");
   const selectedSrc = getSceneVideoSrc(scene, "small");
+  const isMagicHourFreeTierVideo = Boolean(scene.videoSourceNote?.includes("Magic Hour Free Tier"));
 
   async function search() {
     setIsSearching(true);
@@ -98,6 +99,7 @@ export default function StockVideoPanel({ scene, onChange }: StockVideoPanelProp
           <video key={selectedSrc} src={selectedSrc} controls muted playsInline preload="metadata" />
           <div className="selected-video-meta">
             <span>{scene.videoClipName || "Selected video"}</span>
+            {isMagicHourFreeTierVideo && <small className="free-video-rights-warning">Magic Hour Free Tier: personal, non-commercial use only. A watermark may be present. Do not use this clip in monetised or commercial work.</small>}
             {scene.videoClipAuthor && <small>Footage by {scene.videoClipAuthor} · Pixabay</small>}
             {scene.videoClipPageUrl && <a href={scene.videoClipPageUrl} target="_blank" rel="noreferrer">View original clip ↗</a>}
           </div>
@@ -124,7 +126,7 @@ export default function StockVideoPanel({ scene, onChange }: StockVideoPanelProp
           <input value={scene.videoSourceNote || ""} onChange={(event) => onChange({ videoSourceNote: event.target.value })} placeholder="Record source, creator and licence" />
           <label className="rights-confirm">
             <input type="checkbox" checked={Boolean(scene.videoCommercialUseConfirmed)} onChange={(event) => onChange({ videoCommercialUseConfirmed: event.target.checked })} />
-            <span>I checked the source and confirm I have the rights and any required permissions to use this footage.</span>
+            <span>{isMagicHourFreeTierVideo ? "I confirm that I will use this Magic Hour Free Tier clip only for personal, non-commercial projects." : "I checked the source and confirm I have the rights and any required permissions to use this footage."}</span>
           </label>
         </div>
       )}

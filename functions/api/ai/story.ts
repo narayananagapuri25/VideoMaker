@@ -1,5 +1,5 @@
-import { generateStoryWithApiKey } from "../../../src/lib/ai";
-import { checkSameOrigin, jsonNoStore, parseJsonBody, providerError, requireGeminiKey, type PagesContext } from "./_shared";
+import { generateStoryWithAvailableProviders } from "../../../src/lib/multi-ai";
+import { checkSameOrigin, jsonNoStore, parseJsonBody, providerError, resolveAIRequestCredentials, type PagesContext } from "./_shared";
 import type { AspectRatio, Language } from "../../../src/types";
 
 const languages: Language[] = ["English", "Hinglish", "Hindi", "Telugu"];
@@ -8,8 +8,6 @@ const ratios: AspectRatio[] = ["9:16", "16:9"];
 export async function onRequestPost({ request, env }: PagesContext): Promise<Response> {
   const originError = checkSameOrigin(request);
   if (originError) return originError;
-  const apiKey = requireGeminiKey(request, env);
-  if (apiKey instanceof Response) return apiKey;
   const body = await parseJsonBody(request, 12_000);
   if (body instanceof Response) return body;
 
@@ -30,15 +28,31 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
     return jsonNoStore({ error: "Choose a video duration between 10 seconds and 10 minutes." }, 400);
   }
 
+  const credentials = resolveAIRequestCredentials(request, env);
+  if (request.headers.get("X-SochoZara-Cloudflare-Free-Use") !== "true") {
+    credentials.cloudflareApiToken = undefined;
+    credentials.cloudflareAccountId = undefined;
+  }
+  const hasProvider = Boolean(
+    credentials.gemini || credentials.groq || credentials.openrouter ||
+    (credentials.cloudflareApiToken && credentials.cloudflareAccountId)
+  );
+  if (!hasProvider) {
+    return jsonNoStore({
+      error: "Connect at least one AI provider in the Studio: Gemini, Groq, OpenRouter or Cloudflare Workers AI.",
+      code: "AI_PROVIDERS_NOT_CONFIGURED",
+    }, 503);
+  }
+
   try {
-    const result = await generateStoryWithApiKey({
+    const result = await generateStoryWithAvailableProviders({
       topic,
       language: language as Language,
       aspectRatio: aspectRatio as AspectRatio,
       targetDuration,
-      apiKey,
+      credentials,
     });
-    return jsonNoStore({ story: result.story, source: "gemini" });
+    return jsonNoStore({ story: result.story, source: result.source, attempted: result.attempted, fallbackNotice: result.fallbackNotice });
   } catch (error) {
     return providerError(error);
   }

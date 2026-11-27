@@ -2,6 +2,14 @@ export interface GeminiEnv {
   GEMINI_API_KEY?: string;
 }
 
+export interface AIRequestCredentials {
+  gemini?: string;
+  groq?: string;
+  openrouter?: string;
+  cloudflareApiToken?: string;
+  cloudflareAccountId?: string;
+}
+
 export interface PagesContext {
   request: Request;
   env: GeminiEnv;
@@ -40,6 +48,20 @@ export function resolveGeminiKey(request: Request, env: GeminiEnv): string | und
   if (sessionKey && sessionKey.length <= MAX_SESSION_KEY_LENGTH) return sessionKey;
   const serverKey = env.GEMINI_API_KEY?.trim();
   return serverKey || undefined;
+}
+
+export function resolveAIRequestCredentials(request: Request, env: GeminiEnv): AIRequestCredentials {
+  const header = (name: string, max: number): string | undefined => {
+    const value = request.headers.get(name)?.trim();
+    return value && value.length <= max ? value : undefined;
+  };
+  return {
+    gemini: resolveGeminiKey(request, env),
+    groq: header("X-SochoZara-Groq-Key", 2_048),
+    openrouter: header("X-SochoZara-OpenRouter-Key", 2_048),
+    cloudflareApiToken: header("X-SochoZara-Cloudflare-Token", 2_048),
+    cloudflareAccountId: header("X-SochoZara-Cloudflare-Account", 128),
+  };
 }
 
 export function requireGeminiKey(request: Request, env: GeminiEnv): string | Response {

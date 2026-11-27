@@ -49,7 +49,7 @@ describe("Cloudflare secure Gemini endpoints", () => {
     expect(JSON.stringify(payload)).not.toContain("tab-only-test-secret");
   });
 
-  it("returns an actionable setup error when the Gemini secret is absent", async () => {
+  it("returns an actionable setup error when no AI provider is configured", async () => {
     const response = await generateStory(context("/api/ai/story", {
       topic: "How does the stock market work?",
       language: "English",
@@ -58,9 +58,9 @@ describe("Cloudflare secure Gemini endpoints", () => {
     }));
     expect(response.status).toBe(503);
     const payload = await response.json() as { error: string; code: string };
-    expect(payload.code).toBe("GEMINI_NOT_CONFIGURED");
-    expect(payload.error).toContain("Google AI Studio");
-    expect(payload.error).toContain("Cloudflare Pages secret");
+    expect(payload.code).toBe("AI_PROVIDERS_NOT_CONFIGURED");
+    expect(payload.error).toContain("Gemini");
+    expect(payload.error).toContain("Groq");
   });
 
   it("rejects cross-origin browser requests", async () => {
