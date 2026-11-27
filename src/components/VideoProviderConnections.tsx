@@ -237,7 +237,7 @@ export default function VideoProviderConnections() {
           <strong>Agnes AI · Video 2.5 Flash</strong>
           <span className="video-provider-badge">720P · LIMITED-TIME $0 TRIAL</span>
         </div>
-        <p className="video-provider-help">Agnes currently lists its 720p Flash video model at $0/second during the Angel User Trial promotion. It is intended for Default users; Agent Plan requests are billed at list price ($0.025/second). The offer can end without notice, so recheck Agnes Billing before each session. Free / Default video access has a published limit of about one generation request per minute.</p>
+        <p className="video-provider-help">Agnes currently lists its 720p Flash video model at $0/second during the Angel User Trial promotion. It is intended for Default users; Agent Plan requests are billed at list price ($0.025/second). The offer can end without notice, so recheck Agnes Billing before each session. VideoMaker deliberately limits Agnes to one 720p clip per project; actual trial eligibility and available quota can vary by account and promotion.</p>
         <label className="field-label" htmlFor="agnes-api-key">AGNES AI API KEY</label>
         <input
           id="agnes-api-key"
