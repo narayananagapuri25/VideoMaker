@@ -8,6 +8,7 @@ export interface GeminiEnv {
 }
 
 export interface AIRequestCredentials {
+  cloudflareAI?: WorkersAIBinding;
   gemini?: string;
   groq?: string;
   openrouter?: string;
