@@ -1,7 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { selectAIProvider } from "./ai-selection";
 
-beforeEach(() => selectAIProvider("gemini"));
+beforeEach(() => {
+  const values = new Map<string, string>();
+  vi.stubGlobal("sessionStorage", {
+    getItem: (name: string) => values.get(name) ?? null,
+    setItem: (name: string, value: string) => { values.set(name, value); },
+    removeItem: (name: string) => { values.delete(name); },
+  });
+  selectAIProvider("gemini");
+});
 import { generateNarration, generateNarrationWithApiKey } from "./tts";
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
