@@ -16,6 +16,7 @@ const STORAGE = {
   cloudflareAccountId: "sochozara.ai.cloudflare-account",
   magicHour: "sochozara.video.magichour-key",
   agnes: "sochozara.video.agnes-key",
+  replicate: "sochozara.video.replicate-key",
 } as const;
 
 const MAX_KEY_LENGTH = 2_048;
@@ -23,6 +24,7 @@ const MAX_ACCOUNT_ID_LENGTH = 128;
 const MAGIC_HOUR_FREE_CREDITS_CONFIRMATION = "sochozara.video.magichour-free-credits-confirmed";
 const CLOUDFLARE_FREE_ONLY_CONFIRMATION = "sochozara.ai.cloudflare-free-only-confirmed";
 const AGNES_FREE_TRIAL_CONFIRMATION = "sochozara.video.agnes-free-trial-confirmed";
+const REPLICATE_TRY_FOR_FREE_CONFIRMATION = "sochozara.video.replicate-try-free-confirmed";
 
 function read(name: string): string {
   try {
@@ -98,6 +100,56 @@ export function getAgnesHeaders(): Record<string, string> {
   return {
     "X-SochoZara-Agnes-Key": key,
     "X-SochoZara-Agnes-Free-Trial": "true",
+  };
+}
+
+export function saveReplicateApiToken(value: string): void {
+  save(STORAGE.replicate, value, MAX_KEY_LENGTH, "Replicate API token");
+  remove(REPLICATE_TRY_FOR_FREE_CONFIRMATION);
+}
+
+export function getReplicateApiToken(): string {
+  return read(STORAGE.replicate);
+}
+
+export function hasReplicateApiToken(): boolean {
+  return Boolean(getReplicateApiToken());
+}
+
+export function clearReplicateApiToken(): void {
+  remove(STORAGE.replicate);
+  remove(REPLICATE_TRY_FOR_FREE_CONFIRMATION);
+}
+
+export function confirmReplicateTryForFreeOnly(confirmed: boolean): void {
+  try {
+    if (confirmed) globalThis.sessionStorage.setItem(REPLICATE_TRY_FOR_FREE_CONFIRMATION, "true");
+    else globalThis.sessionStorage.removeItem(REPLICATE_TRY_FOR_FREE_CONFIRMATION);
+  } catch {
+    throw new Error("This browser could not save the Replicate free-run confirmation for this tab.");
+  }
+}
+
+export function hasReplicateTryForFreeConfirmation(): boolean {
+  try {
+    return globalThis.sessionStorage.getItem(REPLICATE_TRY_FOR_FREE_CONFIRMATION) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function getReplicateConnectionHeaders(): Record<string, string> {
+  const key = getReplicateApiToken();
+  return key ? { "X-SochoZara-Replicate-Key": key } : {};
+}
+
+/** Replicate's limited free-run credential is never sent until the user opts in to Try-for-Free only. */
+export function getReplicateHeaders(): Record<string, string> {
+  const key = getReplicateApiToken();
+  if (!key || !hasReplicateTryForFreeConfirmation()) return {};
+  return {
+    "X-SochoZara-Replicate-Key": key,
+    "X-SochoZara-Replicate-Try-Free": "true",
   };
 }
 
