@@ -433,9 +433,6 @@ select { appearance: auto; }
 
 .storyboard-header-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 7px; }
 @media (max-width: 560px) {
-  .google-flow-actions { align-items: stretch; }
-  .google-flow-actions .button { flex: 1 1 calc(50% - 7px); }
-  .google-flow-actions .text-button { flex: 1 1 100%; margin: 0; text-align: left; }
   .storyboard-header-actions { max-width: 58%; }
 }
 
