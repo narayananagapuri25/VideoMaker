@@ -37,7 +37,7 @@ describe("Cloudflare secure Gemini endpoints", () => {
     expect(missingPayload.configured).toBe(false);
 
     const configured = await getStatus(context("/api/ai/status", undefined, "server-only-test-secret"));
-    const configuredPayload = await configured.json() as { configured: boolean; storage: string };
+    const configuredPayload = await configured.json() as { configured: boolean; storage: string; serverSecretConfigured: boolean };
     expect(configuredPayload.configured).toBe(true);
     expect(configuredPayload.storage).toContain("Cloudflare");
     expect(configuredPayload.serverSecretConfigured).toBe(true);
