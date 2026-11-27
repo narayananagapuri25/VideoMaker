@@ -226,7 +226,7 @@ export default function App() {
       });
       // The Studio owns its soundtrack: generate original instrumental audio locally
       // in the browser during export. No voice/TTS provider is needed for a complete video.
-      const voiceNote = " Original instrumental soundtrack will be generated locally by SochoZara; the spoken script is presented as on-screen captions. No AI audio request is made.";
+      const audioNote = " Original instrumental soundtrack will be generated locally by SochoZara; the spoken script is presented as on-screen captions. No AI audio request is made.";
       setNotice("Story ready. Creating distinct visuals and preparing the in-app soundtrack…");
 
       let scenes: Scene[] = result.story.scenes.map((scene, index) => ({
@@ -313,8 +313,8 @@ export default function App() {
       setPlayhead(0);
       setIsPlaying(false);
       setNotice(result.fallbackNotice
-        ? result.fallbackNotice + voiceNote + visualNote + footageNote + " Rendering your video…"
-        : "Story and scenes are ready." + voiceNote + visualNote + footageNote + " Rendering your video…");
+        ? result.fallbackNotice + audioNote + visualNote + footageNote + " Rendering your video…"
+        : "Story and scenes are ready." + audioNote + visualNote + footageNote + " Rendering your video…");
       await renderProject(generatedProject);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Video generation failed.");
