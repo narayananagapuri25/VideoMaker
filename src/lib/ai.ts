@@ -1,4 +1,4 @@
-import type { AspectRatio, GeneratedStory, Language, SceneVisualLayout, SceneVisualPlan } from "../types";
+import type { AspectRatio, GeneratedStory, Language, SceneVisualLayout, SceneVisualPlan, TrendEditorialContext, VideoGenre } from "../types";
 import { getSelectedAIHeaders } from "./ai-selection";
 import { getGeminiSessionHeaders } from "./gemini-session";
 import type { AIProvider } from "./ai-provider-session";
@@ -10,6 +10,8 @@ interface GenerateOptions {
   targetDuration: number;
   aspectRatio: AspectRatio;
   apiKey: string;
+  genre?: VideoGenre;
+  trendContext?: TrendEditorialContext;
 }
 
 const GEMINI_INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
@@ -262,20 +264,53 @@ export interface StoryPromptOptions {
   language: Language;
   targetDuration: number;
   aspectRatio: AspectRatio;
+  genre?: VideoGenre;
+  trendContext?: TrendEditorialContext;
 }
 
+const GENRE_GUIDANCE: Record<VideoGenre, string> = {
+  auto: "Infer the best genre from the subject and use the most natural editorial form.",
+  documentary: "Use an evidence-led documentary arc, strong atmosphere, context and a meaningful conclusion.",
+  explainer: "Teach one concept at a time with clear analogies, process diagrams and accessible language.",
+  news: "Use a careful current-affairs explainer structure. Separate confirmed facts, context and uncertainty; do not present allegations as facts.",
+  technology: "Show real-world use cases, systems, interfaces, engineering details and consequences rather than generic glowing circuits.",
+  business: "Explain the market, customers, operations, competition and business model with grounded examples.",
+  finance: "Use accurate financial education visuals such as cash flows, market structure and risk. Never invent live prices or returns.",
+  sports: "Build an energetic match or athlete-performance story with action, tactics, training and context. Do not invent scores or statistics.",
+  entertainment: "Use cinematic scene variety, culture, release context and audience impact without inventing celebrity quotes or private facts.",
+  history: "Use a chronological arc, maps, period-specific environments and clearly labelled artistic reconstructions.",
+  science: "Explain mechanisms and evidence with accurate scale, experiment, diagram and observation visuals.",
+  travel: "Use a destination-led journey with geography, transport, landscape, local culture and practical context.",
+  food: "Use appetising close-ups, ingredients, preparation stages, textures and regional context.",
+  health: "Use cautious evidence-led education, anatomy/process visuals and clear limits; do not diagnose or promise outcomes.",
+  education: "Use a progressive lesson structure, worked examples, diagrams and recap.",
+  mystery: "Build curiosity through clues, timeline and competing explanations; distinguish documented evidence from speculation.",
+  biography: "Use a respectful life timeline, formative events, work and legacy; do not invent private scenes or quotations.",
+  nature: "Use species, habitats, behaviour, ecosystems and environmental context with natural-history imagery.",
+  storytelling: "Use a clear narrative arc, vivid settings, emotional pacing and a memorable resolution."
+};
+
 export function buildStoryPrompt(options: StoryPromptOptions): string {
-  const { topic, language, targetDuration, aspectRatio } = options;
+  const { topic, language, targetDuration, aspectRatio, genre = "auto", trendContext } = options;
+  const trendLines = trendContext ? [
+    "Trend discovery context: Google Trends " + trendContext.region + " · approximate search traffic " + trendContext.traffic + " · feed date " + trendContext.publishedAt + ".",
+    "Related headline leads (not independently verified facts):",
+    ...trendContext.relatedNews.slice(0, 3).map((item) => "- " + item.title + (item.source ? " · " + item.source : "")),
+    "Treat these headlines as research leads only. Do not copy headline claims as facts. If a current claim is not supported by the supplied material or reliable stable knowledge, mark it [VERIFY] and explain in editorialNote. Do not imply that this model browsed or independently confirmed the latest event."
+  ] : [];
   return [
     "You are the complete AI documentary production team for SochoZara: research-minded explainer, scriptwriter, storyboard director, information designer and motion-graphics art director.",
     "Create a genuinely topic-specific video package for this question: " + topic,
     "Language: " + language + ". Approximate video duration: " + targetDuration + " seconds. Aspect ratio: " + aspectRatio + ".",
+    "Genre: " + genre + ". Genre direction: " + GENRE_GUIDANCE[genre] + ".",
+    ...trendLines,
     "First determine the core concepts a viewer must understand, then create a compelling hook, a coherent beginning-middle-end explanation and a memorable takeaway.",
     "Write a complete, fact-conscious narration and divide it into 4 to 8 scenes. Each scene must teach a distinct idea and collectively cover the whole script without unrelated filler.",
     "For EVERY scene, act as a visual director. Do not write generic prompts such as 'cinematic background' or repeat the same visual. Choose the most useful layout from hero, illustration, chart, candlestick, dashboard, process, comparison, timeline, diagram or infographic. Vary adjacent scenes when appropriate.",
     "The visualPlan must tell the local renderer exactly what to draw: layout, subject, short headline, 2 to 5 concise labels and up to 5 ordered steps. Include 4 to 8 normalised values from 0 to 100 only when a chart needs visual shape. Values are illustrative geometry, never factual prices, returns or measurements.",
     "For finance topics, create recognisable stock-market teaching visuals: company ownership/share slices, primary-market IPO process, buyer/seller order matching, demand-versus-supply, candlestick anatomy, index dashboards and risk/diversification diagrams. Never invent current share prices, returns or financial statistics. Mark conceptual charts and candle patterns as illustrative, not live data.",
-    "For science, history, geography, business and other topics, choose matching bespoke visuals such as labelled diagrams, timelines, maps, process flows, scale comparisons, anatomy cutaways, dashboards or annotated illustrations. The visualPlan must describe the subject in this scene, not merely repeat the topic name.",
+    "For science, history, geography, business, sport, entertainment, travel, food, biographies, health, nature and other topics, choose matching bespoke visuals. Use action framing for sport, authentic locations for travel, macro food details, archival-style timelines for history, product/process close-ups for business and technology, and natural behaviour for wildlife. The visualPlan must describe the subject in this scene, not merely repeat the topic name.",
+    "Avoid repetitive generic visuals. Each scene needs a visibly different shot type, subject framing or information design. Do not put unverified text, logos, real-time scores, prices or statistics into visuals.",
     "The visualPrompt should add concrete art direction, camera composition, focal subject, depth and motion. Avoid words or numbers baked into artwork; labels are rendered separately.",
     "Use strong editorial pacing: opening visual hook, one clear idea per scene, visual variety, readable mobile captions and a final takeaway.",
     "Do not invent factual details, dates, statistics, prices, quotations or company data. If a factual claim requires verification, mark it [VERIFY] in narration and explain it in editorialNote. Distinguish illustrative examples from real-world data.",
