@@ -11,8 +11,10 @@ export interface SceneTransition {
 }
 
 export type SceneTheme =
-  | "space" | "earth" | "weather" | "ocean" | "city"
-  | "technology" | "history" | "nature" | "science" | "finance" | "generic";
+  | "space" | "earth" | "weather" | "ocean" | "city" | "sports"
+  | "technology" | "history" | "nature" | "science" | "finance"
+  | "entertainment" | "travel" | "food" | "health" | "education"
+  | "mystery" | "biography" | "generic";
 
 export function getSceneTheme(scene: Pick<Scene, "title" | "caption" | "visualPrompt" | "visualPlan">): SceneTheme {
   const subject = (scene.title + " " + scene.caption + " " + scene.visualPrompt + " " + (scene.visualPlan?.subject ?? "")).toLowerCase();
@@ -21,6 +23,14 @@ export function getSceneTheme(scene: Pick<Scene, "title" | "caption" | "visualPr
   if (/space|galaxy|black hole|nebula|moon|mars|orbit|cosmos|astronaut|star/.test(subject)) return "space";
   if (/lightning|thunder|storm|rain(?!forest)|cloud|hurricane|cyclone|weather|wind|atmosphere|inertia|pressure/.test(subject)) return "weather";
   if (/ocean|sea|water|wave|tsunami|river|underwater|coral|iceberg/.test(subject)) return "ocean";
+  if (/football|soccer|cricket|basketball|tennis|formula 1|grand prix|athlete|stadium|match|tournament|olympic|race/.test(subject)) return "sports";
+  if (/travel|tourism|destination|holiday|journey|sightseeing|landmark|itinerary|airport|hotel/.test(subject)) return "travel";
+  if (/food|recipe|cooking|cuisine|dish|restaurant|ingredient|kitchen|baking|street food/.test(subject)) return "food";
+  if (/health|fitness|workout|exercise|nutrition|medical|hospital|anatomy|wellness|medicine/.test(subject)) return "health";
+  if (/classroom|education|learning|lesson|school|university|student|teacher|study guide/.test(subject)) return "education";
+  if (/mystery|investigation|unsolved|detective|clue|disappearance|case file|whodunit/.test(subject)) return "mystery";
+  if (/biography|life story|early life|born in|founder|inventor|career timeline|legacy/.test(subject)) return "biography";
+  if (/film|movie|cinema|concert|music|album|streaming|television|anime|entertainment|pop culture/.test(subject)) return "entertainment";
   if (/city|building|traffic|road|bridge|architecture|skyline|metro|urban/.test(subject)) return "city";
   if (/\bai\b|artificial intelligence|robot|technology|computer|digital|circuit|internet|data|chip|quantum|future/.test(subject)) return "technology";
   if (/temple|ancient|history|historical|empire|kingdom|fort|monument|civilization|archaeolog/.test(subject)) return "history";
@@ -40,6 +50,14 @@ const PALETTES: Record<SceneTheme, { accent: string; secondary: string; glow: st
   nature: { accent: "#9BD68C", secondary: "#F5C36C", glow: "111,183,110", deep: "#102C29" },
   science: { accent: "#70DDF2", secondary: "#C29AFF", glow: "87,196,226", deep: "#0B2036" },
   finance: { accent: "#45E2B3", secondary: "#F2B86C", glow: "49,208,165", deep: "#092A2A" },
+  sports: { accent: "#F6A84E", secondary: "#5DE0B2", glow: "235,150,62", deep: "#2B1B17" },
+  entertainment: { accent: "#F08BC7", secondary: "#A68BFF", glow: "213,115,188", deep: "#2B1731" },
+  travel: { accent: "#63D6C5", secondary: "#E7C078", glow: "67,194,171", deep: "#0B2C38" },
+  food: { accent: "#F2A55B", secondary: "#9EDB87", glow: "220,135,67", deep: "#321D1B" },
+  health: { accent: "#6BD9B4", secondary: "#84BFF6", glow: "78,193,157", deep: "#102A31" },
+  education: { accent: "#73C8F3", secondary: "#EBC678", glow: "83,170,220", deep: "#11283B" },
+  mystery: { accent: "#A78BFA", secondary: "#6CD5DE", glow: "138,110,216", deep: "#17162F" },
+  biography: { accent: "#E3B87B", secondary: "#D7A1B5", glow: "207,158,99", deep: "#2C2028" },
   generic: { accent: "#55DCE8", secondary: "#F5B36A", glow: "63,183,205", deep: "#0B1E32" },
 };
 
@@ -822,12 +840,15 @@ function drawTextOverlay(
   ctx.fillStyle = "#F4F8FD";
   ctx.font = "700 " + Math.round(Math.min(width * 0.017, height * 0.013)) + "px Arial";
   ctx.textAlign = "right";
-  if (scene.videoClipSource === "nasa") {
+  if (scene.videoClipSource === "nasa" || scene.videoClipSource === "pixabay") {
     ctx.save();
-    ctx.fillStyle = "rgba(240,248,255,.76)";
+    ctx.fillStyle = "rgba(240,248,255,.82)";
     ctx.font = "700 " + Math.round(Math.min(width * 0.014, height * 0.011)) + "px Arial";
     ctx.textAlign = "left";
-    ctx.fillText("FOOTAGE: NASA", left, height * 0.948);
+    const sourceCredit = scene.videoClipSource === "nasa"
+      ? "FOOTAGE: NASA"
+      : "FOOTAGE: PIXABAY · " + (scene.videoClipAuthor || "CREATOR").toUpperCase().slice(0, 22);
+    ctx.fillText(sourceCredit, left, height * 0.948);
     ctx.restore();
   }
   ctx.fillText(String(sceneIndex + 1).padStart(2, "0") + " / " + String(sceneCount).padStart(2, "0"), right, height * 0.948);

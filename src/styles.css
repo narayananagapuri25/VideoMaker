@@ -625,3 +625,34 @@ select { appearance: auto; }
   .simple-download { align-items:stretch; flex-direction:column; }
   .simple-download .button { width:100%; }
 }
+
+
+/* Multi-genre trend discovery */
+.simple-genre { margin-top: 12px; }
+.simple-genre .field-label { display: block; margin: 0 0 7px; }
+.simple-genre select { width: 100%; }
+.trending-panel { margin-bottom: 16px; border: 1px solid rgba(43,213,231,.19); border-radius: 11px; background: linear-gradient(135deg,rgba(24,135,160,.09),rgba(19,34,54,.48)); overflow: hidden; }
+.trending-toolbar { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 8px; padding: 11px; }
+.trending-heading strong { display: block; color: #e8f7fc; font-size: 11px; letter-spacing: .01em; }
+.trending-heading small { display: block; margin-top: 4px; color: #8299ad; font-size: 8px; }
+.trending-toolbar select { width: auto; min-width: 100px; max-width: 130px; padding: 8px 25px 8px 8px; font-size: 9px; }
+.trending-refresh { padding: 8px 10px; font-size: 9px; white-space: nowrap; }
+.trending-results { max-height: 315px; overflow-y: auto; border-top: 1px solid rgba(154,177,207,.12); padding: 5px 9px 8px; }
+.trend-topic { width: 100%; display: flex; align-items: center; gap: 9px; min-width: 0; padding: 9px 4px; border: 0; border-bottom: 1px solid rgba(154,177,207,.09); background: transparent; color: #dce9f4; text-align: left; }
+.trend-topic:last-of-type { border-bottom: 0; }
+.trend-topic:hover { background: rgba(43,213,231,.055); }
+.trend-rank { flex: 0 0 24px; color: #50d6e5; font-size: 9px; font-weight: 800; }
+.trend-copy { flex: 1; min-width: 0; }
+.trend-copy strong { display: block; color: #e5eef7; font-size: 10px; line-height: 1.35; overflow-wrap: anywhere; }
+.trend-copy small { display: block; margin-top: 3px; color: #8298ad; font-size: 8px; }
+.trend-use { flex: 0 0 auto; color: #55d6e5; font-size: 8px; font-weight: 750; white-space: nowrap; }
+.trending-message { color: #9aafc2; font-size: 9px; line-height: 1.5; padding: 7px 3px; }
+.trending-error { color: #f0b4a3; }
+.trending-footnote { margin: 7px 3px 2px; color: #73889d; font-size: 8px; line-height: 1.5; }
+@media (max-width: 560px) {
+  .trending-toolbar { grid-template-columns: minmax(0,1fr) auto; }
+  .trending-heading { grid-column: 1 / -1; }
+  .trending-toolbar select { width: 100%; max-width: none; }
+  .trending-refresh { min-height: 34px; }
+  .trend-use { font-size: 7px; }
+}

@@ -8,6 +8,7 @@ export interface StockVideoResult {
   thumbnailUrl: string;
   width: number;
   height: number;
+  tags?: string[];
 }
 
 interface SearchResponse {
@@ -33,6 +34,7 @@ export async function searchStockVideos(query: string, signal?: AbortSignal): Pr
   const response = await fetch(`/api/stock/videos?q=${encodeURIComponent(clean)}`, {
     headers: { Accept: "application/json" },
     signal,
+    cache: "force-cache",
   });
   let payload: SearchResponse;
   try {

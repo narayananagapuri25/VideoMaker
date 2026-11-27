@@ -1,4 +1,4 @@
-import type { AspectRatio, GeneratedStory, Language } from "../types";
+import type { AspectRatio, GeneratedStory, Language, TrendEditorialContext, VideoGenre } from "../types";
 import { buildStoryPrompt, generateStoryWithApiKey, parseStory } from "./ai";
 import type { AIProvider } from "./ai-provider-session";
 import {
@@ -26,6 +26,8 @@ export interface MultiAIStoryOptions {
   language: Language;
   targetDuration: number;
   aspectRatio: AspectRatio;
+  genre?: VideoGenre;
+  trendContext?: TrendEditorialContext;
   credentials: AIProviderCredentials;
   providerHealth?: AIProviderHealthMap;
 }
@@ -483,6 +485,8 @@ export async function generateStoryWithAvailableProviders(
     language: options.language,
     targetDuration: options.targetDuration,
     aspectRatio: options.aspectRatio,
+    genre: options.genre,
+    trendContext: options.trendContext,
   });
   const attempted: AIProvider[] = [];
   const failures: string[] = [];
@@ -499,6 +503,8 @@ export async function generateStoryWithAvailableProviders(
           targetDuration: options.targetDuration,
           aspectRatio: options.aspectRatio,
           apiKey: credentials.gemini || "",
+          genre: options.genre,
+          trendContext: options.trendContext,
         });
         story = result.story;
         health.gemini = healthEntry("available", "Last Gemini request succeeded. Exact remaining quota is not exposed by this API.", "last-response");

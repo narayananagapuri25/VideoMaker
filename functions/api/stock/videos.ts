@@ -42,15 +42,23 @@ export async function onRequestGet({ request, env }: Context): Promise<Response>
         pageURL: string;
         duration: number;
         user: string;
+        tags?: string;
         videos?: { small?: { thumbnail?: string; width?: number; height?: number }; medium?: { thumbnail?: string; width?: number; height?: number } };
       }>;
     };
 
     const results = (payload.hits ?? []).flatMap((hit) => {
-      if (!Number.isInteger(hit.id) || !hit.videos?.small?.thumbnail) return [];
+      if (!Number.isSafeInteger(hit.id) || hit.id <= 0 || !hit.videos?.small?.thumbnail) return [];
+      let pageUrl = "";
+      try {
+        const parsed = new URL(hit.pageURL);
+        if (parsed.protocol === "https:" && parsed.hostname === "pixabay.com") pageUrl = parsed.toString();
+      } catch { /* Ignore malformed contributor-page metadata. */ }
+      if (!pageUrl) return [];
       return [{
         id: hit.id,
-        pageUrl: hit.pageURL,
+        pageUrl,
+        tags: String(hit.tags ?? "").split(",").map((tag) => tag.trim().toLowerCase()).filter(Boolean).slice(0, 30),
         duration: Math.max(0, Number(hit.duration) || 0),
         author: String(hit.user ?? "Pixabay contributor").slice(0, 80),
         thumbnailUrl: hit.videos.medium?.thumbnail || hit.videos.small.thumbnail,
@@ -61,7 +69,7 @@ export async function onRequestGet({ request, env }: Context): Promise<Response>
 
     return Response.json(
       { totalHits: Number(payload.totalHits) || results.length, results },
-      { headers: { "Cache-Control": "public, max-age=86400, s-maxage=86400" } },
+      { headers: { "Cache-Control": "public, max-age=86400, s-maxage=86400", "X-Content-Type-Options": "nosniff" } },
     );
   } catch {
     return Response.json({ error: "Could not reach Pixabay. Check your connection and try again." }, { status: 502 });

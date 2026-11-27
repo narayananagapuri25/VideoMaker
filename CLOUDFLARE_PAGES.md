@@ -40,21 +40,30 @@ The binding is accessed server-side as `env.AI`. No Cloudflare API token or acco
 - AI still images use different camera moves (push-in, pull-back, horizontal/vertical drift and restrained rotation) rather than the same fixed zoom on every scene.
 - Consecutive scenes cross-fade over the final 0.65 seconds of the outgoing scene; the live preview uses the same transition path as export.
 - Browser-side rendering and encoding remain local to the device. Longer high-resolution exports use more phone memory; shorter projects are safer on lower-memory phones.
-### Free real moving footage (no key, no payment)
-### Free real moving footage (no key, no payment)
+### Trending topics and genre direction
 
-- The app can search the NASA Image and Video Library through its public API. This API route requires no API key, paid plan, provider credit or card.
-- During generation, up to three scenes that match NASA archive topics can receive real MP4 footage. Clips are muted, streamed through a same-origin Pages Function, and credited as `FOOTAGE: NASA` in the rendered scene.
-- NASA footage is optional. If the archive has no relevant clip, the scene keeps its FLUX artwork and local camera animation. If a selected NASA clip fails to load, export falls back to the generated artwork rather than failing the whole video.
-- The route screens out results that explicitly flag third-party copyright and descriptions that identify astronauts/people. NASA's own media guidelines still apply: NASA content is generally available for educational/informational use, but third-party content and identifiable-person rights may require separate permission. Do not use NASA material to imply endorsement or in promotional content.
-- The NASA archive provides real camera footage, mission recordings and science visualisations; it is not generated footage. The app does not call Hailuo, Runway, Kling, Pika, Replicate, Magic Hour or any other paid text-to-video API.
+- The Studio can retrieve current Google Trends RSS topics for India, the United States, the United Kingdom, Canada, Australia, Germany, France, Japan, Brazil and Singapore.
+- The public Google Trends RSS feed requires no API key or paid plan. The Studio caches its response for 15 minutes to avoid repeatedly polling the feed.
+- A selected trend adds its approximate traffic bucket and up to three related headline titles to the storyboard prompt. These are discovery signals and research leads, not verified reporting. The story prompt tells the model to mark unsupported current claims `[VERIFY]`; the app does not claim that the model independently browsed or confirmed breaking news.
+- Select **Auto-detect best style** or choose documentary, explainer, news/current affairs, technology, business, finance, sports, entertainment, history, science, travel, food, health, education, mystery, biography, nature or storytelling. The genre shapes the script structure and scene direction; it does not lock the app to one kind of subject.
+
+### Free mixed-genre moving footage (no paid video provider)
+
+- Pixabay is the broad stock-footage source for sports, food, travel, business, technology, entertainment, people-free environments and other general subjects. The API is free to use with a Pixabay developer key and its own rate limit; it is not a paid text-to-video model or a Workers AI credit service.
+- To enable it, create a free API key at [Pixabay API](https://pixabay.com/api/docs/). In **Cloudflare Dashboard → Workers & Pages → the Pages project serving `https://videomaker-1mz.pages.dev` → Settings → Variables and Secrets → Production**, add an encrypted Secret named exactly `PIXABAY_API_KEY`, save it, then redeploy the production branch. Do not put the key in GitHub or the browser.
+- During generation the app searches three representative scenes across the full storyboard and attaches no more than three suitable clips in total. It requires a minimum keyword match, avoids reusing the same clip, and embeds a Pixabay/creator credit in the final video. Pixabay search responses are cached for 24 hours as required by its API policy.
+- If the Pixabay key is not configured, its search endpoint returns a setup message and the generator continues. NASA is additionally searched only for relevant space, Earth, weather, ocean and science subjects. NASA needs no key.
+- NASA videos are muted, streamed through a same-origin Pages Function and credited as `FOOTAGE: NASA`. The route screens out results explicitly flagged for third-party copyright and descriptions that identify people. NASA media guidelines still apply: third-party material and identifiable-person rights may require separate permission; do not imply NASA endorsement or use NASA material in promotional content.
+- If no relevant clip is found, a source cannot be reached, or a clip fails to load, the generated scene artwork and local camera animation remain as the fallback. Free footage is optional and never blocks the video export.
+- The app does not call Hailuo, Runway, Kling, Pika, Replicate, Magic Hour or any other paid text-to-video API. This feature selects existing footage; it does not generate arbitrary motion footage from text.
 
 ### What this provider generates
 
 - Gemma creates the script and storyboard.
 - FLUX.1 schnell generates one topic-specific still image per scene, sequentially, while the selected provider remains Cloudflare.
-- Matching NASA archive clips can supply real moving footage for up to three relevant scenes at no API charge; otherwise the browser animates FLUX stills with local camera motion.
-- The final MP4 combines any selected NASA footage, generated still artwork, subtitles, transitions and local narration. This is not an AI text-to-video model. The NASA API is separate from Workers AI and does not consume Neurons.
+- Matching Pixabay stock clips can supply moving footage across genres, with NASA archive clips used only where relevant. No more than three external clips are attached in total; if no suitable clip is available, the browser animates FLUX stills with local camera motion.
+- Google Trends discovery and both stock libraries are separate from Workers AI and do not consume Neurons. Pixabay requires its free API key; Google Trends RSS and NASA do not.
+- The final MP4 combines selected stock footage, generated still artwork, subtitles, transitions and local narration. This is not an AI text-to-video model.
 
 Cloudflare Pages requires the Workers AI binding to be configured in the dashboard for Pages Functions. See the official [Pages bindings guide](https://developers.cloudflare.com/pages/functions/bindings/) and [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/).
 ## Gemini API setup

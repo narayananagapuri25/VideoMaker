@@ -14,7 +14,9 @@ export function getUnverifiedSceneMedia(scenes: Scene[]): string[] {
     const unverifiedImage = Boolean(scene.imageDataUrl && !scene.imageCommercialUseConfirmed && !scene.imageGeneratedByAI);
     const hasExternalVideo = Boolean(scene.videoDataUrl || (scene.videoClipSource === "pixabay" && scene.videoClipId) || (scene.videoClipSource === "nasa" && scene.videoClipRef));
     const knownNasaEducationalSource = scene.videoClipSource === "nasa" && scene.videoRightsBasis === "nasa-educational";
-    const unverifiedVideo = hasExternalVideo && !knownNasaEducationalSource && !scene.videoCommercialUseConfirmed;
+    const knownPixabayLicense = scene.videoClipSource === "pixabay" && scene.videoRightsBasis === "pixabay-content-license";
+    const knownLibrarySource = knownNasaEducationalSource || knownPixabayLicense;
+    const unverifiedVideo = hasExternalVideo && !knownLibrarySource && !scene.videoCommercialUseConfirmed;
     return unverifiedImage || unverifiedVideo ? [scene.title || "Untitled scene"] : [];
   });
 }

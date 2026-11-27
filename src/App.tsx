@@ -5,6 +5,7 @@ import { loadLatestProject, saveProject } from "./lib/storage";
 import { makeProject } from "./lib/story";
 import { getTimelineDuration } from "./lib/timeline";
 import { attachFreeNasaFootage } from "./lib/nasa-video";
+import { attachFreePixabayFootage } from "./lib/free-footage";
 import { getUnverifiedSceneMedia } from "./lib/video-generation";
 import { getVideoFileExtension } from "./lib/export-format";
 import {
@@ -17,7 +18,8 @@ import {
   type SelectedAIProvider,
 } from "./lib/ai-selection";
 import PlaybackTimeline from "./components/PlaybackTimeline";
-import type { AspectRatio, Language, Scene, StudioProject } from "./types";
+import TrendingTopics from "./components/TrendingTopics";
+import type { AspectRatio, Language, Scene, StudioProject, TrendEditorialContext, TrendingTopic, VideoGenre } from "./types";
 
 const initialProject = () => makeProject("What is happening today?", "English", "9:16", 45);
 
@@ -39,6 +41,8 @@ const providerLabels: Record<SelectedAIProvider, string> = {
 
 export default function App() {
   const [project, setProject] = useState<StudioProject>(initialProject);
+  const [videoGenre, setVideoGenre] = useState<VideoGenre>("auto");
+  const [trendContext, setTrendContext] = useState<TrendEditorialContext | undefined>();
   const [selectedProvider, setSelectedProvider] = useState<SelectedAIProvider>(() => {
     // Cloudflare is the default production path. Preserve its existing Free-only consent.
     try { selectAIProvider("cloudflare"); } catch { /* The selection state remains safe in memory when storage is unavailable. */ }
@@ -97,6 +101,19 @@ export default function App() {
     exportUrlRef.current = "";
     setExportUrl("");
     setExportType("mp4");
+  }
+
+  function handleTrendChoose(topic: TrendingTopic, region: string) {
+    clearExport();
+    setProject((current) => ({ ...current, topic: topic.title, updatedAt: Date.now() }));
+    setTrendContext({
+      source: "Google Trends",
+      region,
+      traffic: topic.traffic,
+      publishedAt: topic.publishedAt,
+      relatedNews: topic.relatedNews.slice(0, 3).map((item) => ({ title: item.title, source: item.source })),
+    });
+    setNotice("Selected a Google Trends topic. Headlines are research leads, not verified facts; the storyboard will flag claims that need checking.");
   }
 
   function handleProviderChange(value: string) {
@@ -204,6 +221,8 @@ export default function App() {
         language: project.language,
         targetDuration: project.targetDuration,
         aspectRatio: project.aspectRatio,
+        genre: videoGenre,
+        trendContext,
       });
       let scenes: Scene[] = result.story.scenes.map((scene, index) => ({
         ...scene,
@@ -216,7 +235,7 @@ export default function App() {
           const scene = scenes[index];
           setNotice("Creating original FLUX artwork · scene " + (index + 1) + " of " + scenes.length + "…");
           const visualPrompt = [
-            "Premium cinematic documentary still image for an educational video.",
+            "Premium cinematic still image for a professional " + (videoGenre === "auto" ? "genre-appropriate" : videoGenre) + " video. Match the actual scene setting, era, environment, and emotional tone; do not force an educational-documentary look onto unrelated subjects.",
             "Subject and visual direction: " + (scene.visualPrompt || scene.title),
             "Scene title for context only: " + scene.title,
             "Photorealistic, art-directed, rich environmental detail, strong composition, depth and natural lighting.",
@@ -242,14 +261,30 @@ export default function App() {
 
       let footageNote = "";
       try {
-        const footage = await attachFreeNasaFootage(scenes, setNotice);
-        scenes = footage.scenes;
-        if (footage.attachedTitles.length) {
-          footageNote = " Free NASA moving footage added to " + footage.attachedTitles.join(", ") + ". NASA source credit is embedded; clips are muted. Other scenes keep their AI artwork and local animation.";
+        // Pixabay covers broad genres; NASA is a specialised free archive fallback for relevant science/Earth scenes.
+        // The combined cap keeps every generation to at most three external clips.
+        const pixabayFootage = await attachFreePixabayFootage(scenes, setNotice, 3);
+        scenes = pixabayFootage.scenes;
+        const nasaFootage = await attachFreeNasaFootage(
+          scenes,
+          setNotice,
+          Math.max(0, 3 - pixabayFootage.attachedTitles.length),
+        );
+        scenes = nasaFootage.scenes;
+        const pixabayTitles = pixabayFootage.attachedTitles;
+        const nasaTitles = nasaFootage.attachedTitles;
+        if (pixabayTitles.length || nasaTitles.length) {
+          const credits = [
+            ...(pixabayTitles.length ? ["Pixabay: " + pixabayTitles.join(", ")] : []),
+            ...(nasaTitles.length ? ["NASA: " + nasaTitles.join(", ")] : []),
+          ];
+          footageNote = " Free stock footage added to " + credits.join(" · ") + ". Source credits are embedded; stock clips are muted. Scenes without a strong visual match keep their AI artwork and local animation.";
+        } else {
+          footageNote = " No sufficiently relevant free stock clips were found or configured for these scenes. Every scene keeps its own AI artwork and local animation.";
         }
       } catch {
-        // NASA is an optional, no-key public archive; a temporary outage must not block video creation.
-        footageNote = " The free NASA footage archive was unavailable, so all scenes will use their generated artwork and local animation.";
+        // Free footage libraries are optional; their outages must never block story or video generation.
+        footageNote = " Free footage libraries were temporarily unavailable, so scenes keep their generated artwork and local animation.";
       }
 
       let voiceAudioDataUrl: string | undefined;
@@ -326,6 +361,8 @@ export default function App() {
     clearExport();
     const fresh = makeProject("What is happening today?", project.language, project.aspectRatio, project.targetDuration);
     setProject(fresh);
+    setTrendContext(undefined);
+    setVideoGenre("auto");
     setSelectedSceneId(fresh.scenes[0]?.id ?? "");
     setPlayhead(0);
     setIsPlaying(false);
@@ -358,13 +395,14 @@ export default function App() {
 
         <div className="simple-layout">
           <section className="panel simple-controls">
+            <TrendingTopics onChoose={handleTrendChoose} />
             <label className="field-label" htmlFor="simple-topic">WHAT SHOULD THE VIDEO BE ABOUT?</label>
             <textarea
               id="simple-topic"
               className="topic-input"
               rows={3}
               value={project.topic}
-              onChange={(event) => { clearExport(); setProject((current) => ({ ...current, topic: event.target.value, updatedAt: Date.now() })); }}
+              onChange={(event) => { clearExport(); setTrendContext(undefined); setProject((current) => ({ ...current, topic: event.target.value, updatedAt: Date.now() })); }}
               placeholder="Example: How does the stock market work?"
               disabled={isGenerating || isRendering}
             />
@@ -390,6 +428,31 @@ export default function App() {
               </div>
             </div>
 
+            <div className="simple-genre">
+              <label className="field-label" htmlFor="simple-genre">VIDEO GENRE</label>
+              <select id="simple-genre" value={videoGenre} onChange={(event) => { clearExport(); setVideoGenre(event.target.value as VideoGenre); }}>
+                <option value="auto">Auto-detect best style</option>
+                <option value="documentary">Documentary</option>
+                <option value="explainer">Educational explainer</option>
+                <option value="news">Current affairs / news</option>
+                <option value="technology">Technology & AI</option>
+                <option value="business">Business & startups</option>
+                <option value="finance">Finance & markets</option>
+                <option value="sports">Sports</option>
+                <option value="entertainment">Entertainment & culture</option>
+                <option value="history">History</option>
+                <option value="science">Science</option>
+                <option value="travel">Travel</option>
+                <option value="food">Food</option>
+                <option value="health">Health & fitness education</option>
+                <option value="education">Education</option>
+                <option value="mystery">Mystery & investigations</option>
+                <option value="biography">Biography</option>
+                <option value="nature">Nature & wildlife</option>
+                <option value="storytelling">Storytelling</option>
+              </select>
+            </div>
+
             <div className="simple-provider">
               <label className="field-label" htmlFor="simple-provider-select">CHOOSE YOUR AI</label>
               <select id="simple-provider-select" value={selectedProvider} onChange={(event) => handleProviderChange(event.target.value)}>
@@ -402,7 +465,7 @@ export default function App() {
                 <div className="simple-security-note">
                   <strong>Daily free AI allowance</strong>
                   <p>Gemma creates the story, FLUX.1 schnell creates distinct scene artwork, and Aura-1 adds English voice-over. All three use the same 10,000-Neuron daily pool, resetting at 00:00 UTC.</p>
-                  <p>FLUX artwork, varied camera moves, subtitles and cross-fades are included. Matching NASA archive footage can add real moving scenes automatically at no API charge or key. The NASA clips are muted and credited; topics without relevant archive footage keep the animated AI artwork. No paid text-to-video provider is called.</p>
+                  <p>FLUX artwork, varied camera moves, subtitles and cross-fades are included. When a free Pixabay key is configured, matching stock footage can cover many genres; NASA adds relevant space, Earth and science clips. The app uses no more than three external clips, credits every source and keeps AI artwork motion wherever footage does not fit. No paid text-to-video provider is called.</p>
                 </div>
               ) : (
                 <>

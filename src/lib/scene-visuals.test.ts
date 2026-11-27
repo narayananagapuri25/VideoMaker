@@ -18,7 +18,14 @@ describe("cinematic scene visual themes", () => {
     ["Life in a rainforest", "nature"],
     ["How atoms behave", "science"],
     ["How the stock market works", "finance"],
-    ["An unexpected mystery", "generic"],
+    ["A dramatic football match", "sports"],
+    ["The making of a film", "entertainment"],
+    ["A journey through Kyoto", "travel"],
+    ["Street food cooking", "food"],
+    ["A daily fitness workout", "health"],
+    ["An unsolved mystery", "mystery"],
+    ["A founder's life story", "biography"],
+    ["An unexpected mystery", "mystery"],
   ] as const)("classifies %s as %s", (title, expected) => {
     expect(getSceneTheme(scene(title))).toBe(expected);
   });
