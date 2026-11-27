@@ -14,7 +14,7 @@ export async function loadTrendingTopics(region = "IN", signal?: AbortSignal): P
   if (!allowed.has(code)) throw new Error("Choose a supported trends region.");
   const response = await fetch("/api/trends?region=" + encodeURIComponent(code), {
     headers: { Accept: "application/json" },
-    cache: "no-store",
+    cache: "force-cache",
     signal,
   });
   let payload: TrendsResponse;
