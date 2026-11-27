@@ -773,7 +773,7 @@ function drawTextOverlay(
   const captionMaxWidth = width * 0.86;
   ctx.font = "650 " + captionSize + "px Arial";
   const maxCharactersPerLine = Math.max(28, Math.floor(captionMaxWidth / (captionSize * 0.55)));
-  const caption = scene.caption || scene.narration;
+  const caption = scene.narration || scene.caption;
   const cues = buildSubtitleCues(caption, sceneDuration, maxCharactersPerLine);
   const cue = getActiveSubtitleCue(cues, elapsed);
   if (cue) {
