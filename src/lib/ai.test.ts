@@ -291,9 +291,10 @@ describe("generation request watchdog", () => {
       targetDuration: 30,
       aspectRatio: "9:16",
     });
+    const rejection = expect(pending).rejects.toThrow(/story generation timed out after 150 seconds/i);
 
     await vi.advanceTimersByTimeAsync(150_000);
-    await expect(pending).rejects.toThrow(/story generation timed out after 150 seconds/i);
+    await rejection;
     expect(fetchMock).toHaveBeenCalledOnce();
     vi.useRealTimers();
   });
