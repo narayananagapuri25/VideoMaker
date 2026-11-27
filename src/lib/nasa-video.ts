@@ -75,11 +75,12 @@ export async function searchNasaVideos(query: string, signal?: AbortSignal): Pro
 export async function attachFreeNasaFootage(
   scenes: Scene[],
   onProgress?: (message: string) => void,
+  maxAttachments = 3,
 ): Promise<{ scenes: Scene[]; attachedTitles: string[]; skipped: number }> {
   const output = [...scenes];
   const eligible = output.map((scene, index) => ({ scene, index, query: queryForScene(scene) }))
-    .filter((entry) => entry.query && terms(entry.scene.title + " " + entry.scene.visualPrompt).some((word) => TOPIC_TERMS.has(word)))
-    .slice(0, 3);
+    .filter((entry) => !entry.scene.videoClipSource && entry.query && terms(entry.scene.title + " " + entry.scene.visualPrompt).some((word) => TOPIC_TERMS.has(word)))
+    .slice(0, Math.max(0, Math.min(3, maxAttachments)));
   const used = new Set<string>();
   const attachedTitles: string[] = [];
   let skipped = 0;
