@@ -393,23 +393,48 @@ async function readApiError(response: Response): Promise<Error> {
   return new Error(detail);
 }
 
+/** Abort a stalled same-origin generation stage and release the UI with a useful error. */
+async function withRequestTimeout<T>(
+  label: string,
+  timeoutMs: number,
+  operation: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await operation(controller.signal);
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(label + " timed out after " + Math.round(timeoutMs / 1000) + " seconds. The request was stopped; check the selected provider's free quota/status and retry.");
+    }
+    if (error instanceof TypeError) {
+      throw new Error(label + " could not connect to the secure service. Check your connection and retry.");
+    }
+    throw error;
+  } finally {
+    globalThis.clearTimeout(timer);
+  }
+}
+
 /** Public browser entry point: an optional per-tab key is passed only to the same-origin Pages Function. */
 export async function generateStory(
   options: Omit<GenerateOptions, "apiKey">,
 ): Promise<{ story: GeneratedStory; source: AIProvider; fallbackNotice?: string }> {
-  const response = await fetch("/api/ai/story", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json", ...getSelectedAIHeaders(), ...getAIProviderHealthHeader() },
-    body: JSON.stringify(options),
-    cache: "no-store",
+  const payload: unknown = await withRequestTimeout("Story generation", 150_000, async (signal) => {
+    const response = await fetch("/api/ai/story", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json", ...getSelectedAIHeaders(), ...getAIProviderHealthHeader() },
+      body: JSON.stringify(options),
+      cache: "no-store",
+      signal,
+    });
+    if (!response.ok) throw await readApiError(response);
+    try {
+      return await response.json();
+    } catch {
+      throw new Error("The secure AI service returned an unreadable story response.");
+    }
   });
-  if (!response.ok) throw await readApiError(response);
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch {
-    throw new Error("The secure AI service returned an unreadable story response.");
-  }
   if (isRecord(payload) && isRecord(payload.providerHealth)) saveAIProviderHealth(payload.providerHealth as AIProviderHealthMap);
   if (!isRecord(payload) || !isRecord(payload.story) || typeof payload.story.title !== "string" || !Array.isArray(payload.story.scenes)) {
     throw new Error("The secure AI service returned an incomplete video storyboard.");
@@ -421,19 +446,21 @@ export async function generateStory(
 
 /** Generates one scene-specific still image with the explicitly selected Cloudflare Workers AI provider. */
 export async function generateCloudflareSceneImage(prompt: string): Promise<string> {
-  const response = await fetch("/api/ai/scene-image", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json", ...getSelectedAIHeaders() },
-    body: JSON.stringify({ prompt }),
-    cache: "no-store",
+  const payload: unknown = await withRequestTimeout("Scene artwork generation", 60_000, async (signal) => {
+    const response = await fetch("/api/ai/scene-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json", ...getSelectedAIHeaders() },
+      body: JSON.stringify({ prompt }),
+      cache: "no-store",
+      signal,
+    });
+    if (!response.ok) throw await readApiError(response);
+    try {
+      return await response.json();
+    } catch {
+      throw new Error("Cloudflare Workers AI returned an unreadable scene image response.");
+    }
   });
-  if (!response.ok) throw await readApiError(response);
-  let payload: unknown;
-  try {
-    payload = await response.json();
-  } catch {
-    throw new Error("Cloudflare Workers AI returned an unreadable scene image response.");
-  }
   if (!isRecord(payload) || typeof payload.imageDataUrl !== "string" || !payload.imageDataUrl.startsWith("data:image/")) {
     throw new Error("Cloudflare Workers AI did not return a valid scene image.");
   }
@@ -442,18 +469,21 @@ export async function generateCloudflareSceneImage(prompt: string): Promise<stri
 
 /** Generates English voice-over with Cloudflare Workers AI Aura-1 on the same selected free-tier account. */
 export async function generateCloudflareNarration(script: string, language: Language): Promise<Blob> {
-  const response = await fetch("/api/ai/narration-cloudflare", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "audio/mpeg", ...getSelectedAIHeaders() },
-    body: JSON.stringify({ script, language }),
-    cache: "no-store",
+  return withRequestTimeout("Voice-over generation", 120_000, async (signal) => {
+    const response = await fetch("/api/ai/narration-cloudflare", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "audio/mpeg", ...getSelectedAIHeaders() },
+      body: JSON.stringify({ script, language }),
+      cache: "no-store",
+      signal,
+    });
+    if (!response.ok) throw await readApiError(response);
+    const audio = await response.blob();
+    if (!audio.size || !audio.type.includes("audio")) {
+      throw new Error("Cloudflare Aura did not return a usable narration audio file.");
+    }
+    return audio;
   });
-  if (!response.ok) throw await readApiError(response);
-  const audio = await response.blob();
-  if (!audio.size || !audio.type.includes("audio")) {
-    throw new Error("Cloudflare Aura did not return a usable narration audio file.");
-  }
-  return audio;
 }
 /** Connection check uses the tab-session key when saved, otherwise the Cloudflare Pages secret. */
 export async function testGeminiConnection(): Promise<string> {
