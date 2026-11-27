@@ -21,7 +21,7 @@ export function getSceneTheme(scene: Pick<Scene, "title" | "caption" | "visualPr
   const topicContext = (scene.topicContext ?? "").toLowerCase();
   // The explicit whole-video topic must outrank a misleading scene-level art prompt.
   // A generic AI prompt mentioning a planet must not turn a cricket story into an Earth scene.
-  if (/football|soccer|cricket|basketball|tennis|formula 1|grand prix|athlete|stadium|match|tournament|olympic|race|mumbai indians|rohit sharma|wankhede|\\bipl\\b|captaincy/.test(topicContext)) return "sports";
+  if (/football|soccer|cricket|basketball|tennis|formula 1|grand prix|athlete|stadium|match|tournament|olympic|race|mumbai indians|rohit sharma|wankhede|\bipl\b|captaincy/.test(topicContext)) return "sports";
   const subject = ((scene.topicContext ?? "") + " " + (scene.narration ?? "") + " " + scene.title + " " + scene.caption + " " + scene.visualPrompt + " " + (scene.visualPlan?.subject ?? "")).toLowerCase();
   if (/\b(petrol|gasoline|diesel|fuel|petroleum|refinery|oilfield|pipeline|opec|brent|wti|barrel|fuel pump)\b|crude[- ]oil|oil tanker|fuel price|oil price/.test(subject)) return "energy";
   if (/stock market|share market|stock exchange|trading floor|investor|investment portfolio|initial public offering|\\bipo\\b|\\bnifty\\b|\\bsensex\\b|candlestick|order book|equity market|bull market|bear market|dividend/.test(subject)) return "finance";
@@ -29,7 +29,7 @@ export function getSceneTheme(scene: Pick<Scene, "title" | "caption" | "visualPr
   if (/space|galaxy|black hole|nebula|moon|mars|orbit|cosmos|astronaut|star/.test(subject)) return "space";
   if (/lightning|thunder|storm|rain(?!forest)|cloud|hurricane|cyclone|weather|wind|atmosphere|inertia|pressure/.test(subject)) return "weather";
   if (/ocean|sea|water|wave|tsunami|river|underwater|coral|iceberg/.test(subject)) return "ocean";
-  if (/football|soccer|cricket|basketball|tennis|formula 1|grand prix|athlete|stadium|match|tournament|olympic|race|mumbai indians|rohit sharma|wankhede|\\bipl\\b|captaincy/.test(subject)) return "sports";
+  if (/football|soccer|cricket|basketball|tennis|formula 1|grand prix|athlete|stadium|match|tournament|olympic|race|mumbai indians|rohit sharma|wankhede|\bipl\b|captaincy/.test(subject)) return "sports";
   if (/travel|tourism|destination|holiday|journey|sightseeing|landmark|itinerary|airport|hotel/.test(subject)) return "travel";
   if (/food|recipe|cooking|cuisine|dish|restaurant|ingredient|kitchen|baking|street food/.test(subject)) return "food";
   if (/health|fitness|workout|exercise|nutrition|medical|hospital|anatomy|wellness|medicine/.test(subject)) return "health";
