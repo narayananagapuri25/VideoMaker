@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { onRequestPost as generateStory } from "../../functions/api/ai/story";
 import { onRequestPost as generateNarration } from "../../functions/api/ai/narration";
 import { onRequestPost as generateSceneImage } from "../../functions/api/ai/scene-image";
+import { onRequestPost as generateSceneImage } from "../../functions/api/ai/scene-image";
 import { onRequestGet as getStatus } from "../../functions/api/ai/status";
 import type { PagesContext } from "../../functions/api/ai/_shared";
 
@@ -141,6 +142,61 @@ describe("Cloudflare secure Gemini endpoints", () => {
 
   it("generates FLUX scene images only through the explicitly selected Cloudflare binding", async () => {
     const run = vi.fn(async () => ({ image: "AQID" }));
+    const ctx = context("/api/ai/scene-image", { prompt: "Cinematic documentary still image" });
+    ctx.request = new Request(ctx.request.url, {
+      method: "POST",
+      headers: {
+        Origin: "https://studio.example",
+        "Content-Type": "application/json",
+        "X-SochoZara-AI-Provider": "cloudflare",
+        "X-SochoZara-Cloudflare-Free-Use": "true",
+      },
+      body: JSON.stringify({ prompt: "Cinematic documentary still image" }),
+    });
+    ctx.env = { AI: { run } };
+
+    const response = await generateSceneImage(ctx);
+    expect(response.status).toBe(200);
+    const payload = await response.json() as { imageDataUrl: string; model: string };
+    expect(payload.imageDataUrl).toBe("data:image/jpeg;charset=utf-8;base64,AQID");
+    expect(payload.model).toBe("@cf/black-forest-labs/flux-1-schnell");
+    expect(run).toHaveBeenCalledOnce();
+    expect(run.mock.calls[0][1]).toMatchObject({ steps: 8, prompt: "Cinematic documentary still image" });
+  });
+  it("uses only the selected Cloudflare Workers AI binding for story generation", async () => {
+    const story = {
+      title: "Cloudflare storyboard",
+      script: "A short explanation.",
+      scenes: [
+        { title: "One", narration: "One.", caption: "One", visualPrompt: "A scene", duration: 5 },
+        { title: "Two", narration: "Two.", caption: "Two", visualPrompt: "Another scene", duration: 5 },
+      ],
+    };
+    const run = vi.fn(async (_model: string, _inputs: Record<string, unknown>) => ({ response: JSON.stringify(story) }));
+    const ctx = context("/api/ai/story", { topic: "A test topic", language: "English", targetDuration: 30, aspectRatio: "9:16" });
+    ctx.request = new Request(ctx.request.url, {
+      method: "POST",
+      headers: {
+        Origin: "https://studio.example",
+        "Content-Type": "application/json",
+        "X-SochoZara-AI-Provider": "cloudflare",
+        "X-SochoZara-Cloudflare-Free-Use": "true",
+      },
+      body: JSON.stringify({ topic: "A test topic", language: "English", targetDuration: 30, aspectRatio: "9:16" }),
+    });
+    ctx.env = { AI: { run }, GEMINI_API_KEY: "must-not-be-used" };
+
+    const response = await generateStory(ctx);
+    expect(response.status).toBe(200);
+    const payload = await response.json() as { story: { title: string }; source: string };
+    expect(payload.story.title).toBe(story.title);
+    expect(payload.source).toBe("cloudflare");
+    expect(run).toHaveBeenCalledOnce();
+    expect(run.mock.calls[0][0]).toBe("@cf/google/gemma-4-26b-a4b-it");
+  });
+
+  it("generates FLUX scene images only through the selected Cloudflare binding", async () => {
+    const run = vi.fn(async (_model: string, _inputs: Record<string, unknown>) => ({ image: "AQID" }));
     const ctx = context("/api/ai/scene-image", { prompt: "Cinematic documentary still image" });
     ctx.request = new Request(ctx.request.url, {
       method: "POST",
