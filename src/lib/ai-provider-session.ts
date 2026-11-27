@@ -233,9 +233,9 @@ export function hasGroqApiKey(): boolean {
   return Boolean(read(STORAGE.groq));
 }
 
+/** The dashboard AI binding is server-side; this tab stores only Free-plan consent. */
 export function hasCloudflareAIKey(): boolean {
-  const keys = getSecondaryAIKeys();
-  return Boolean(keys.cloudflareApiToken && keys.cloudflareAccountId);
+  return hasCloudflareFreeUseOnlyConfirmation();
 }
 
 export function confirmCloudflareFreeUseOnly(confirmed: boolean): void {
@@ -287,7 +287,7 @@ export function hasSecondaryAIKey(provider: SecondaryAIProvider): boolean {
   const keys = getSecondaryAIKeys();
   if (provider === "groq") return Boolean(keys.groq && hasGroqFreeUseOnlyConfirmation());
   if (provider === "openrouter") return Boolean(keys.openrouter);
-  return Boolean(keys.cloudflareApiToken && keys.cloudflareAccountId && hasCloudflareFreeUseOnlyConfirmation());
+  return hasCloudflareFreeUseOnlyConfirmation();
 }
 
 export function hasAnySecondaryAIKey(): boolean {
@@ -314,10 +314,12 @@ export function getSecondaryAIHeaders(): Record<string, string> {
     headers["X-SochoZara-Groq-Free-Use"] = "true";
   }
   if (keys.openrouter) headers["X-SochoZara-OpenRouter-Key"] = keys.openrouter;
-  if (keys.cloudflareApiToken && keys.cloudflareAccountId && hasCloudflareFreeUseOnlyConfirmation()) {
-    headers["X-SochoZara-Cloudflare-Token"] = keys.cloudflareApiToken;
-    headers["X-SochoZara-Cloudflare-Account"] = keys.cloudflareAccountId;
+  if (hasCloudflareFreeUseOnlyConfirmation()) {
     headers["X-SochoZara-Cloudflare-Free-Use"] = "true";
+    if (keys.cloudflareApiToken && keys.cloudflareAccountId) {
+      headers["X-SochoZara-Cloudflare-Token"] = keys.cloudflareApiToken;
+      headers["X-SochoZara-Cloudflare-Account"] = keys.cloudflareAccountId;
+    }
   }
   return headers;
 }
@@ -330,10 +332,12 @@ export function getSecondaryAIProviderHeaders(provider: SecondaryAIProvider): Re
     headers["X-SochoZara-Groq-Free-Use"] = "true";
   }
   if (provider === "openrouter" && keys.openrouter) headers["X-SochoZara-OpenRouter-Key"] = keys.openrouter;
-  if (provider === "cloudflare" && keys.cloudflareApiToken && keys.cloudflareAccountId && hasCloudflareFreeUseOnlyConfirmation()) {
-    headers["X-SochoZara-Cloudflare-Token"] = keys.cloudflareApiToken;
-    headers["X-SochoZara-Cloudflare-Account"] = keys.cloudflareAccountId;
+  if (provider === "cloudflare" && hasCloudflareFreeUseOnlyConfirmation()) {
     headers["X-SochoZara-Cloudflare-Free-Use"] = "true";
+    if (keys.cloudflareApiToken && keys.cloudflareAccountId) {
+      headers["X-SochoZara-Cloudflare-Token"] = keys.cloudflareApiToken;
+      headers["X-SochoZara-Cloudflare-Account"] = keys.cloudflareAccountId;
+    }
   }
   return headers;
 }
