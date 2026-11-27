@@ -229,6 +229,10 @@ export function hasGroqFreeUseOnlyConfirmation(): boolean {
   }
 }
 
+export function hasGroqApiKey(): boolean {
+  return Boolean(read(STORAGE.groq));
+}
+
 export function hasCloudflareAIKey(): boolean {
   const keys = getSecondaryAIKeys();
   return Boolean(keys.cloudflareApiToken && keys.cloudflareAccountId);
