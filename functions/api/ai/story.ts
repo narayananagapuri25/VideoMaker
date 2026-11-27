@@ -1,10 +1,30 @@
 import { generateStoryWithAvailableProviders, parseProviderHealthFromRequest } from "../../../src/lib/multi-ai";
 import { checkSameOrigin, jsonNoStore, parseJsonBody, providerError, resolveAIRequestCredentials, type PagesContext } from "./_shared";
-import type { AspectRatio, Language } from "../../../src/types";
+import type { AspectRatio, Language, TrendEditorialContext, VideoGenre } from "../../../src/types";
 
 const languages: Language[] = ["English", "Hinglish", "Hindi", "Telugu"];
 const ratios: AspectRatio[] = ["9:16", "16:9"];
 const providers = ["gemini", "groq", "openrouter", "cloudflare"] as const;
+const genres: VideoGenre[] = ["auto", "documentary", "explainer", "news", "technology", "business", "finance", "sports", "entertainment", "history", "science", "travel", "food", "health", "education", "mystery", "biography", "nature", "storytelling"];
+
+function parseTrendContext(value: unknown): TrendEditorialContext | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const item = value as Record<string, unknown>;
+  if (item.source !== "Google Trends" || typeof item.region !== "string" || !/^[A-Z]{2}$/.test(item.region)) return undefined;
+  const relatedNews = Array.isArray(item.relatedNews) ? item.relatedNews.slice(0, 3).flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const news = entry as Record<string, unknown>;
+    if (typeof news.title !== "string" || !news.title.trim()) return [];
+    return [{ title: news.title.trim().slice(0, 220), source: typeof news.source === "string" ? news.source.trim().slice(0, 100) : "" }];
+  }) : [];
+  return {
+    source: "Google Trends",
+    region: item.region,
+    traffic: typeof item.traffic === "string" ? item.traffic.slice(0, 40) : "Trending",
+    publishedAt: typeof item.publishedAt === "string" ? item.publishedAt.slice(0, 80) : "",
+    relatedNews,
+  };
+}
 
 export async function onRequestPost({ request, env }: PagesContext): Promise<Response> {
   const originError = checkSameOrigin(request);
@@ -16,6 +36,8 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
   const language = body.language;
   const aspectRatio = body.aspectRatio;
   const targetDuration = Number(body.targetDuration);
+  const genre = typeof body.genre === "string" && genres.includes(body.genre as VideoGenre) ? body.genre as VideoGenre : "auto";
+  const trendContext = parseTrendContext(body.trendContext);
   if (!topic || topic.length > 2_000) {
     return jsonNoStore({ error: "Enter a topic between 1 and 2,000 characters." }, 400);
   }
@@ -85,6 +107,8 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
       language: language as Language,
       aspectRatio: aspectRatio as AspectRatio,
       targetDuration,
+      genre,
+      trendContext,
       credentials,
       providerHealth: parseProviderHealthFromRequest(request),
     });
