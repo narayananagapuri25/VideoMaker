@@ -3,9 +3,10 @@ import type { ChangeEvent } from "react";
 import { generateStory, testGeminiConnection } from "./lib/ai";
 import AIProviderConnections from "./components/AIProviderConnections";
 import VideoProviderConnections from "./components/VideoProviderConnections";
-import { hasAgnesApiKey, hasAgnesFreeTrialOnlyConfirmation, hasAnySecondaryAIKey, hasMagicHourApiKey, hasMagicHourFreeCreditsOnlyConfirmation } from "./lib/ai-provider-session";
+import { hasAgnesApiKey, hasAgnesFreeTrialOnlyConfirmation, hasAnySecondaryAIKey, hasMagicHourApiKey, hasMagicHourFreeCreditsOnlyConfirmation, hasReplicateApiToken, hasReplicateTryForFreeConfirmation } from "./lib/ai-provider-session";
 import { checkMagicHourConnection, generateMagicHourClip } from "./lib/video-ai";
 import { checkAgnesConnection, generateAgnesClip } from "./lib/video-agnes";
+import { checkReplicateConnection, generateReplicateClip } from "./lib/video-replicate";
 import { deriveTopicFromScript, makeProject, parsePastedNarration, scenesFromScript } from "./lib/story";
 import { loadLatestProject, saveProject } from "./lib/storage";
 import { generateNarration } from "./lib/tts";
@@ -722,6 +723,60 @@ export default function App() {
         }
       } else if (hasAgnesApiKey() && !hasAgnesFreeTrialOnlyConfirmation()) {
         videoNote += " Agnes API key is saved but automatic use is paused; test it and confirm Default / Angel User Trial $0 pricing in Agnes Billing.";
+      }
+
+      // Replicate's official Try-for-Free collection includes minimax/video-01
+      // for a limited number of runs. Its API does not expose the remaining free
+      // count or distinguish purchased credits, so this route is opt-in only.
+      // One clip per project keeps use conservative; if billing/credits are required,
+      // the server returns an error and the project continues with local graphics.
+      if (hasReplicateApiToken() && hasReplicateTryForFreeConfirmation() && generatedVideoCount < scenes.length) {
+        try {
+          const replicateAccess = await checkReplicateConnection();
+          if (!replicateAccess.modelAvailable) {
+            videoNote += " Replicate minimax/video-01 is not currently available to this token.";
+          } else {
+            const missingSceneIndex = scenes.findIndex((scene) => !scene.videoDataUrl);
+            if (missingSceneIndex >= 0) {
+              const scene = scenes[missingSceneIndex];
+              setNotice("Step 2/4 · Agnes is unavailable. Trying one Replicate Try-for-Free clip for " + scene.title + "…");
+              const clip = await generateReplicateClip({
+                prompt: [
+                  scene.visualPrompt || scene.title,
+                  "Scene context: " + scene.narration.slice(0, 500),
+                  "Create a six-second cinematic documentary insert with coherent physical movement, purposeful camera motion and realistic lighting.",
+                  "No text, captions, labels, logos or subtitles. This footage will be edited with a separate narration track.",
+                ].join(" "),
+                onProgress: (message) => setNotice("Step 2/4 · " + message),
+              });
+              const videoDataUrl = await fileToDataUrl(clip.blob);
+              const clipBytes = getEmbeddedVideoSize(videoDataUrl) ?? clip.blob.size;
+              if (generatedMediaBytes + clipBytes > MAX_PROJECT_MEDIA_BYTES) {
+                videoNote += " Replicate produced a clip, but the project storage limit was reached; the clip was not added.";
+              } else {
+                const updatedScenes = [...scenes];
+                updatedScenes[missingSceneIndex] = {
+                  ...scene,
+                  videoDataUrl,
+                  videoClipSource: "local",
+                  videoClipName: "Replicate · MiniMax Video-01 · Try-for-Free",
+                  videoClipDuration: clip.seconds,
+                  videoClipStart: 0,
+                  videoSourceNote: "Replicate minimax/video-01 · Try-for-Free limited run. Verify model license and output rights in the scene editor before export.",
+                  videoCommercialUseConfirmed: false,
+                };
+                scenes = updatedScenes;
+                generatedMediaBytes += clipBytes;
+                generatedVideoCount += 1;
+                videoNote += " Replicate generated one six-second video under its limited Try-for-Free run allowance. Check the model license and confirm usage rights in the scene editor.";
+              }
+            }
+          }
+        } catch (error) {
+          videoNote += " Replicate Try-for-Free generation was unavailable: " + (error instanceof Error ? error.message : "provider error") + ". Remaining scenes will use local motion graphics.";
+        }
+      } else if (hasReplicateApiToken() && !hasReplicateTryForFreeConfirmation()) {
+        videoNote += " Replicate token is saved but automatic use is paused until you confirm that free Try-for-Free runs remain and no paid billing or purchased credits are enabled.";
       }
 
       setNotice("Step 3/4 · Story created by " + result.source + ". Preparing narration; video clips: " + generatedVideoCount + "/" + scenes.length + "…");
