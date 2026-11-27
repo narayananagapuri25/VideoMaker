@@ -39,7 +39,11 @@ const providerLabels: Record<SelectedAIProvider, string> = {
 
 export default function App() {
   const [project, setProject] = useState<StudioProject>(initialProject);
-  const [selectedProvider, setSelectedProvider] = useState<SelectedAIProvider>(() => getSelectedAIProvider());
+  const [selectedProvider, setSelectedProvider] = useState<SelectedAIProvider>(() => {
+    // Cloudflare is the default production path. Preserve its existing Free-only consent.
+    try { selectAIProvider("cloudflare"); } catch { /* The selection state remains safe in memory when storage is unavailable. */ }
+    return "cloudflare";
+  });
   const [apiKey, setApiKey] = useState("");
   const [keySaved, setKeySaved] = useState(() => hasSelectedAIKey());
   const [freeUseConfirmed, setFreeUseConfirmed] = useState(() => hasSelectedAIFreeUseConsent());
