@@ -3,6 +3,8 @@ import {
   confirmGroqFreeUseOnly,
   getSecondaryAIProviderHeaders,
   hasGroqFreeUseOnlyConfirmation,
+  hasSecondaryAIKey,
+  confirmCloudflareFreeUseOnly,
   saveSecondaryAIKey,
   type SecondaryAIProvider,
 } from "./ai-provider-session";
@@ -15,12 +17,12 @@ import {
   saveGeminiSessionKey,
 } from "./gemini-session";
 
-export type SelectedAIProvider = "gemini" | "groq" | "openrouter";
+export type SelectedAIProvider = "gemini" | "groq" | "openrouter" | "cloudflare";
 
 const SELECTED_PROVIDER_KEY = "sochozara.ai.selected-provider";
 
 function validProvider(value: string | null): value is SelectedAIProvider {
-  return value === "gemini" || value === "groq" || value === "openrouter";
+  return value === "gemini" || value === "groq" || value === "openrouter" || value === "cloudflare";
 }
 
 export function getSelectedAIProvider(): SelectedAIProvider {
@@ -37,7 +39,7 @@ export function selectAIProvider(provider: SelectedAIProvider): void {
   if (provider !== "gemini") clearGeminiSessionKey();
   if (provider !== "groq") clearSecondaryAIKey("groq");
   if (provider !== "openrouter") clearSecondaryAIKey("openrouter");
-  clearSecondaryAIKey("cloudflare");
+  if (provider !== "cloudflare") clearSecondaryAIKey("cloudflare");
   try {
     globalThis.sessionStorage.setItem(SELECTED_PROVIDER_KEY, provider);
   } catch {
@@ -48,7 +50,9 @@ export function selectAIProvider(provider: SelectedAIProvider): void {
 export function hasSelectedAIKey(provider: SelectedAIProvider = getSelectedAIProvider()): boolean {
   if (provider === "gemini") return hasGeminiSessionKey();
   if (provider === "groq") return hasSecondaryKey("groq");
-  return hasSecondaryKey("openrouter");
+  if (provider === "cloudflare") return hasSecondaryAIKey("cloudflare");
+  if (provider === "openrouter") return hasSecondaryKey("openrouter");
+  return hasSecondaryAIKey("cloudflare");
 }
 
 function hasSecondaryKey(provider: SecondaryAIProvider): boolean {
@@ -62,12 +66,14 @@ function hasSecondaryKey(provider: SecondaryAIProvider): boolean {
 export function hasSelectedAIFreeUseConsent(provider: SelectedAIProvider = getSelectedAIProvider()): boolean {
   if (provider === "gemini") return hasGeminiFreeUseOnlyConfirmation();
   if (provider === "groq") return hasGroqFreeUseOnlyConfirmation();
+  if (provider === "cloudflare") return hasSecondaryAIKey("cloudflare");
   return true;
 }
 
 export function confirmSelectedAIFreeUseOnly(provider: SelectedAIProvider, confirmed: boolean): void {
   if (provider === "gemini") confirmGeminiFreeUseOnly(confirmed);
   else if (provider === "groq") confirmGroqFreeUseOnly(confirmed);
+  else if (provider === "cloudflare") confirmCloudflareFreeUseOnly(confirmed);
 }
 
 export function saveSelectedAIKey(provider: SelectedAIProvider, key: string): void {
@@ -88,6 +94,7 @@ export function saveSelectedAIKey(provider: SelectedAIProvider, key: string): vo
 
 export function removeSelectedAIKey(provider: SelectedAIProvider = getSelectedAIProvider()): void {
   if (provider === "gemini") clearGeminiSessionKey();
+  else if (provider === "cloudflare") confirmCloudflareFreeUseOnly(false);
   else clearSecondaryAIKey(provider);
 }
 
