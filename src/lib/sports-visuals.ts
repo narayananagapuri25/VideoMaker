@@ -226,7 +226,7 @@ function drawWalkoutTunnel(ctx: CanvasRenderingContext2D, width: number, height:
   }
 }
 
-function drawTrophyStage(ctx: CanvasRenderingContext2D, width: number, height: number, time: number) {
+function drawTrophyStage(ctx: CanvasRenderingContext2D, width: number, height: number) {
   const backdrop = ctx.createLinearGradient(0, 0, 0, height);
   backdrop.addColorStop(0, "#100E18"); backdrop.addColorStop(0.55, "#312113"); backdrop.addColorStop(1, "#090D16");
   ctx.fillStyle = backdrop; ctx.fillRect(0, 0, width, height);
@@ -434,7 +434,7 @@ function drawAction(ctx: CanvasRenderingContext2D, width: number, height: number
 export function drawSportsScene(ctx: CanvasRenderingContext2D, width: number, height: number, scene: Scene, elapsed: number, sceneIndex: number): void {
   const kind = getSportsVisualKind(scene, sceneIndex);
   if (kind === "captain-return") drawWalkoutTunnel(ctx, width, height, elapsed);
-  else if (kind === "trophy-legacy") drawTrophyStage(ctx, width, height, elapsed);
+  else if (kind === "trophy-legacy") drawTrophyStage(ctx, width, height);
   else if (kind === "squad-moves") drawTransferBackdrop(ctx, width, height, elapsed);
   else stadium(ctx, width, height, elapsed);
   switch (kind) {
