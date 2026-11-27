@@ -801,7 +801,8 @@ export default function App() {
       let voiceAudioName: string | undefined;
       let narrationNote = "";
       try {
-        const audio = await generateNarration(result.story.script, ttsVoice, project.language);
+        const narration = await generateNarration(result.story.script, ttsVoice, project.language);
+        const audio = narration.blob;
         if (audio.size > MAX_NARRATION_AUDIO_BYTES) {
           throw new Error("Generated narration is larger than 30 MB.");
         }
@@ -809,7 +810,7 @@ export default function App() {
           throw new Error("The 64 MB local media limit leaves no room for the generated narration.");
         }
         voiceAudioDataUrl = await fileToDataUrl(audio);
-        voiceAudioName = "Gemini TTS · " + ttsVoice + ".wav";
+        voiceAudioName = narration.provider + " · " + ttsVoice + "." + (audio.type.includes("mpeg") ? "mp3" : "wav");
       } catch (error) {
         narrationNote = "Narration provider unavailable: " + (error instanceof Error ? error.message : "TTS request failed") + ". The storyboard and any AI video clips will still be rendered; you can record or import voice later.";
       }
