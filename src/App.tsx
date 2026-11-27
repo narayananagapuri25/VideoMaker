@@ -100,10 +100,10 @@ export default function App() {
       .then(async (response) => {
         if (!response.ok) throw new Error("Gemini server status is unavailable.");
         const payload: unknown = await response.json();
-        if (typeof payload !== "object" || payload === null || !("configured" in payload)) {
+        if (typeof payload !== "object" || payload === null || !("configured" in payload) || !("serverSecretConfigured" in payload)) {
           throw new Error("Gemini server status response is invalid.");
         }
-        const serverKeyConfigured = payload.configured === true && payload.source === "cloudflare-secret";
+        const serverKeyConfigured = payload.serverSecretConfigured === true;
         // The server key is never returned to the browser. Only its configured status is exposed.
         if (active) {
           setGeminiServerKeyConfigured(serverKeyConfigured);
