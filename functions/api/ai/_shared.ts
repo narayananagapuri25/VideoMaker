@@ -106,10 +106,14 @@ export async function parseJsonBody(request: Request, maxBytes: number): Promise
   return body;
 }
 
-export function providerError(error: unknown): Response {
-  const message = error instanceof Error ? error.message : "Gemini could not complete this request.";
-  const quota = /quota|rate limit|daily limit|free allocation|neurons?|\(429\)/i.test(message);
-  const auth = /\(401\)|\(403\)|api key|permission denied/i.test(message);
+export function providerError(error: unknown, provider = "Gemini"): Response {
+  const message = error instanceof Error ? error.message : provider + " could not complete this request."; 
+  const quota = /quota|rate limit|daily limit|free allocation|neurons?|\\(429\\)/i.test(message);
+  const auth = /\\(401\\)|\\(403\\)|api key|permission denied/i.test(message);
   const status = quota ? 429 : auth ? 502 : /timed out|timeout/i.test(message) ? 504 : 502;
-  return jsonNoStore({ error: message.slice(0, 900), code: quota ? "GEMINI_QUOTA" : auth ? "GEMINI_AUTH" : "GEMINI_UPSTREAM" }, status);
+  const prefix = provider === "Gemini" ? "GEMINI" : "AI_PROVIDER";
+  return jsonNoStore({
+    error: message.slice(0, 900),
+    code: quota ? prefix + "_QUOTA" : auth ? prefix + "_AUTH" : prefix + "_UPSTREAM",
+  }, status);
 }
