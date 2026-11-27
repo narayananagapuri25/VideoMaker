@@ -174,6 +174,7 @@ export default function App() {
     setIsRendering(true);
     setRenderProgress(0);
     setRenderMessage("Preparing 1080p cinematic scenes…");
+    setNotice("Rendering the video locally in this browser. Keep this tab open until the download is ready.");
     setIsPlaying(false);
     try {
       const { exportMp4 } = await import("./lib/renderer");
@@ -513,15 +514,17 @@ export default function App() {
             </div>
 
             <button className="button button-primary simple-generate" onClick={() => void handleGenerateVideo()} disabled={!providerReady || !project.topic.trim() || isGenerating || isRendering}>
-              {isGenerating ? <><span className="spinner" /> Creating your video…</> : isRendering ? <><span className="spinner" /> Rendering video…</> : "✦ Generate Video"}
+              {isRendering ? <><span className="spinner" /> Rendering video…</> : isGenerating ? <><span className="spinner" /> Creating your video…</> : "✦ Generate Video"}
             </button>
+        <div className="simple-status" role="status" aria-live="polite">{notice}</div>
           </section>
 
           <section className="panel simple-preview-panel">
             <div className="simple-preview-header">
-              <div><span className="field-label">VIDEO PREVIEW</span><h2>{project.title || "Your video"}</h2></div>
-              <span className="preview-live"><i /> {isRendering ? "RENDERING" : "READY"}</span>
+              <div><span className="field-label">VIDEO PREVIEW</span><h2>{isGenerating && !isRendering ? "Preparing your new video…" : project.title || "Your video"}</h2></div>
+              <span className="preview-live"><i /> {isRendering ? "RENDERING" : isGenerating ? "GENERATING" : "READY"}</span>
             </div>
+            {isGenerating && !isRendering && <p className="preview-build-note">The previous preview stays here while the new story, voice-over and scene visuals are prepared.</p>}
             <PlaybackTimeline
               scenes={project.scenes}
               aspectRatio={project.aspectRatio}
@@ -558,7 +561,6 @@ export default function App() {
           </section>
         </div>
 
-        <div className="simple-status" role="status" aria-live="polite">{notice}</div>
         {project.editorialNote && <details className="simple-editorial"><summary>Editorial note</summary><p>{project.editorialNote}</p></details>}
         <footer className="simple-footer">SOCHOZARA STUDIO · LOCAL-FIRST VIDEO CREATION</footer>
       </main>

@@ -9,7 +9,7 @@ import {
 } from "./ai-provider-health";
 
 export interface WorkersAIBinding {
-  run(model: string, inputs: Record<string, unknown>, options?: { returnRawResponse?: boolean }): Promise<unknown>;
+  run(model: string, inputs: Record<string, unknown>, options?: { returnRawResponse?: boolean; rejectIfBusy?: boolean }): Promise<unknown>;
 }
 
 export interface AIProviderCredentials {
@@ -362,7 +362,7 @@ async function generateCloudflareWithBinding(
     messages: storyMessages(prompt),
     max_tokens: 8_000,
     temperature: 0.6,
-  });
+  }, { rejectIfBusy: true });
   const text = extractChatText(payload);
   if (!text) throw new Error("Cloudflare Workers AI binding completed without returning story text.");
   return parseStory(text);
@@ -372,7 +372,7 @@ export async function testCloudflareBinding(ai: WorkersAIBinding): Promise<strin
   const payload = await ai.run(CLOUDFLARE_MODEL, {
     messages: [{ role: "user", content: "Reply exactly: SOCHOZARA_CLOUDFLARE_OK" }],
     max_tokens: 24,
-  });
+  }, { rejectIfBusy: true });
   const text = extractChatText(payload);
   if (!text) throw new Error("The Workers AI binding responded without text. Check its model access.");
   return "Cloudflare Workers AI binding successful · " + CLOUDFLARE_MODEL + ". The test used a small inference request.";

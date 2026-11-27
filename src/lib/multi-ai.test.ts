@@ -203,7 +203,7 @@ describe("multi-provider AI storyboard fallback", () => {
   });
 
   it("uses the configured Cloudflare Pages AI binding without any browser API token", async () => {
-    const run = vi.fn(async (_model: string, _inputs: Record<string, unknown>) => ({ response: JSON.stringify(validStory) }));
+    const run = vi.fn(async (_model: string, _inputs: Record<string, unknown>, _options?: { rejectIfBusy?: boolean }) => ({ response: JSON.stringify(validStory) }));
     const fetchMock = vi.spyOn(globalThis, "fetch");
     const result = await generateStoryWithAvailableProviders(options({
       cloudflareAI: { run },
@@ -215,6 +215,7 @@ describe("multi-provider AI storyboard fallback", () => {
     expect(run).toHaveBeenCalledOnce();
     expect(run.mock.calls[0][0]).toBe("@cf/google/gemma-4-26b-a4b-it");
     expect(run.mock.calls[0][1]).toMatchObject({ max_tokens: 8_000, temperature: 0.6 });
+    expect(run.mock.calls[0][2]).toEqual({ rejectIfBusy: true });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

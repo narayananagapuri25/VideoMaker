@@ -15,7 +15,7 @@ function makeContext(options: { language?: string; provider?: string; consent?: 
     },
     body: JSON.stringify({ script: "Welcome to this documentary. Let us explore the idea.", language: options.language ?? "English" }),
   });
-  const run = vi.fn(async (_model: string, _inputs: Record<string, unknown>, _options?: { returnRawResponse?: boolean }) =>
+  const run = vi.fn(async (_model: string, _inputs: Record<string, unknown>, _options?: { returnRawResponse?: boolean; rejectIfBusy?: boolean }) =>
     new Response(new Uint8Array([1, 2, 3]), { headers: { "Content-Type": "audio/mpeg" } }),
   );
   return { context: { request, env: { AI: { run } } }, run };
@@ -31,7 +31,7 @@ describe("Cloudflare Aura-1 narration", () => {
     expect(run).toHaveBeenCalledOnce();
     expect(run.mock.calls[0][0]).toBe("@cf/deepgram/aura-1");
     expect(run.mock.calls[0][1]).toMatchObject({ text: "Welcome to this documentary. Let us explore the idea.", speaker: "luna", encoding: "mp3" });
-    expect(run.mock.calls[0][2]).toEqual({ returnRawResponse: true });
+    expect(run.mock.calls[0][2]).toEqual({ returnRawResponse: true, rejectIfBusy: true });
   });
 
   it("rejects non-English narration instead of calling a different provider", async () => {
