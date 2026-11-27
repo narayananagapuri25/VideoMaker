@@ -95,7 +95,8 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
     const providerHealth = error && typeof error === "object" && "providerHealth" in error
       ? (error as Error & { providerHealth?: unknown }).providerHealth
       : undefined;
-    const result = providerError(error);
+    const providerName = selected === "cloudflare" ? "Cloudflare Workers AI" : selected === "groq" ? "Groq" : selected === "openrouter" ? "OpenRouter" : "Gemini";
+    const result = providerError(error, providerName);
     if (providerHealth) return jsonNoStore({ ...await result.json() as Record<string, unknown>, providerHealth }, result.status);
     return result;
   }
