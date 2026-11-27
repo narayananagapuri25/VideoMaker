@@ -3,8 +3,8 @@ import type { Scene } from "../types";
 import { getSceneTheme } from "./scene-visuals";
 import { getSportsVisualKind } from "./sports-visuals";
 
-function scene(title: string, visualPrompt = ""): Pick<Scene, "title" | "caption" | "visualPrompt"> {
-  return { title, caption: "", visualPrompt };
+function scene(title: string, visualPrompt = "", topicContext = ""): Pick<Scene, "title" | "caption" | "visualPrompt"> & Partial<Pick<Scene, "narration" | "topicContext">> {
+  return { title, caption: "", visualPrompt, narration: "", topicContext };
 }
 
 describe("cinematic scene visual themes", () => {
@@ -35,6 +35,10 @@ describe("cinematic scene visual themes", () => {
 
   it("uses visual direction as well as the scene title", () => {
     expect(getSceneTheme(scene("The impossible stop", "A rotating blue planet viewed from orbit"))).toBe("earth");
+  });
+
+  it("uses the overall topic to classify otherwise generic scene headings", () => {
+    expect(getSceneTheme(scene("The golden era", "Abstract cinematic artwork", "Rohit Sharma returns as Mumbai Indians captain for IPL 2027"))).toBe("sports");
   });
 });
 
