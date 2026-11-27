@@ -1,5 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { selectAIProvider } from "./ai-selection";
+
+beforeEach(() => selectAIProvider("gemini"));
 import { generateNarration, generateNarrationWithApiKey } from "./tts";
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
