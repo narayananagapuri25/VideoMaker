@@ -24,6 +24,7 @@ const MAX_KEY_LENGTH = 2_048;
 const MAX_ACCOUNT_ID_LENGTH = 128;
 const MAGIC_HOUR_FREE_CREDITS_CONFIRMATION = "sochozara.video.magichour-free-credits-confirmed";
 const CLOUDFLARE_FREE_ONLY_CONFIRMATION = "sochozara.ai.cloudflare-free-only-confirmed";
+const GROQ_FREE_ONLY_CONFIRMATION = "sochozara.ai.groq-free-only-confirmed";
 const AGNES_FREE_TRIAL_CONFIRMATION = "sochozara.video.agnes-free-trial-confirmed";
 const REPLICATE_TRY_FOR_FREE_CONFIRMATION = "sochozara.video.replicate-try-free-confirmed";
 
@@ -200,10 +201,32 @@ export function getMagicHourHeaders(): Record<string, string> {
 }
 
 export function saveSecondaryAIKey(provider: SecondaryAIProvider, value: string): void {
-  if (provider === "groq") save(STORAGE.groq, value, MAX_KEY_LENGTH, "Groq API key");
-  else if (provider === "openrouter") save(STORAGE.openrouter, value, MAX_KEY_LENGTH, "OpenRouter API key");
+  if (provider === "groq") {
+    save(STORAGE.groq, value, MAX_KEY_LENGTH, "Groq API key");
+    remove(GROQ_FREE_ONLY_CONFIRMATION);
+  } else if (provider === "openrouter") {
+    save(STORAGE.openrouter, value, MAX_KEY_LENGTH, "OpenRouter API key");
+  } else {
+    throw new Error("Cloudflare requires both an account ID and an API token.");
+  }
   clearAIProviderHealth(provider);
-  else throw new Error("Cloudflare requires both an account ID and an API token.");
+}
+
+export function confirmGroqFreeUseOnly(confirmed: boolean): void {
+  try {
+    if (confirmed) globalThis.sessionStorage.setItem(GROQ_FREE_ONLY_CONFIRMATION, "true");
+    else globalThis.sessionStorage.removeItem(GROQ_FREE_ONLY_CONFIRMATION);
+  } catch {
+    throw new Error("This browser could not save the Groq free-plan confirmation for this tab.");
+  }
+}
+
+export function hasGroqFreeUseOnlyConfirmation(): boolean {
+  try {
+    return globalThis.sessionStorage.getItem(GROQ_FREE_ONLY_CONFIRMATION) === "true";
+  } catch {
+    return false;
+  }
 }
 
 export function hasCloudflareAIKey(): boolean {
@@ -258,7 +281,7 @@ export function getSecondaryAIKeys(): SecondaryAIKeys {
 
 export function hasSecondaryAIKey(provider: SecondaryAIProvider): boolean {
   const keys = getSecondaryAIKeys();
-  if (provider === "groq") return Boolean(keys.groq);
+  if (provider === "groq") return Boolean(keys.groq && hasGroqFreeUseOnlyConfirmation());
   if (provider === "openrouter") return Boolean(keys.openrouter);
   return Boolean(keys.cloudflareApiToken && keys.cloudflareAccountId && hasCloudflareFreeUseOnlyConfirmation());
 }
@@ -269,7 +292,7 @@ export function hasAnySecondaryAIKey(): boolean {
 
 export function clearSecondaryAIKey(provider: SecondaryAIProvider): void {
   clearAIProviderHealth(provider);
-  if (provider === "groq") remove(STORAGE.groq);
+  if (provider === "groq") { remove(STORAGE.groq); remove(GROQ_FREE_ONLY_CONFIRMATION); }
   else if (provider === "openrouter") remove(STORAGE.openrouter);
   else {
     remove(STORAGE.cloudflareApiToken);
@@ -282,7 +305,10 @@ export function clearSecondaryAIKey(provider: SecondaryAIProvider): void {
 export function getSecondaryAIHeaders(): Record<string, string> {
   const keys = getSecondaryAIKeys();
   const headers: Record<string, string> = {};
-  if (keys.groq) headers["X-SochoZara-Groq-Key"] = keys.groq;
+  if (keys.groq && hasGroqFreeUseOnlyConfirmation()) {
+    headers["X-SochoZara-Groq-Key"] = keys.groq;
+    headers["X-SochoZara-Groq-Free-Use"] = "true";
+  }
   if (keys.openrouter) headers["X-SochoZara-OpenRouter-Key"] = keys.openrouter;
   if (keys.cloudflareApiToken && keys.cloudflareAccountId && hasCloudflareFreeUseOnlyConfirmation()) {
     headers["X-SochoZara-Cloudflare-Token"] = keys.cloudflareApiToken;
@@ -295,7 +321,10 @@ export function getSecondaryAIHeaders(): Record<string, string> {
 export function getSecondaryAIProviderHeaders(provider: SecondaryAIProvider): Record<string, string> {
   const keys = getSecondaryAIKeys();
   const headers: Record<string, string> = { "X-SochoZara-AI-Provider": provider };
-  if (provider === "groq" && keys.groq) headers["X-SochoZara-Groq-Key"] = keys.groq;
+  if (provider === "groq" && keys.groq && hasGroqFreeUseOnlyConfirmation()) {
+    headers["X-SochoZara-Groq-Key"] = keys.groq;
+    headers["X-SochoZara-Groq-Free-Use"] = "true";
+  }
   if (provider === "openrouter" && keys.openrouter) headers["X-SochoZara-OpenRouter-Key"] = keys.openrouter;
   if (provider === "cloudflare" && keys.cloudflareApiToken && keys.cloudflareAccountId && hasCloudflareFreeUseOnlyConfirmation()) {
     headers["X-SochoZara-Cloudflare-Token"] = keys.cloudflareApiToken;
