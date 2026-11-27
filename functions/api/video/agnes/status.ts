@@ -3,19 +3,22 @@ import {
   agnesRequest,
   checkSameOrigin,
   jsonNoStore,
+  parseAgnesBody,
   providerError,
   requireAgnesFreeTrialConfirmation,
   requireAgnesKey,
 } from "./_shared";
 
-export async function onRequestGet({ request }: { request: Request }): Promise<Response> {
+export async function onRequestPost({ request }: { request: Request }): Promise<Response> {
   const originError = checkSameOrigin(request);
   if (originError) return originError;
   const key = requireAgnesKey(request);
   if (key instanceof Response) return key;
   const consentError = requireAgnesFreeTrialConfirmation(request);
   if (consentError) return consentError;
-  const videoId = new URL(request.url).searchParams.get("video_id") || "";
+  const body = await parseAgnesBody(request, 1_000);
+  if (body instanceof Response) return body;
+  const videoId = typeof body.videoId === "string" ? body.videoId : "";
   if (!/^[a-zA-Z0-9_-]{8,120}$/.test(videoId)) {
     return jsonNoStore({ error: "The Agnes video ID is invalid.", code: "AGNES_VIDEO_ID_INVALID" }, 400);
   }
