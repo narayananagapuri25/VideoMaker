@@ -18,6 +18,8 @@ describe("cinematic scene visual themes", () => {
     ["Life in a rainforest", "nature"],
     ["How atoms behave", "science"],
     ["How the stock market works", "finance"],
+    ["Why petrol prices change", "energy"],
+    ["Inside a crude oil refinery", "energy"],
     ["A dramatic football match", "sports"],
     ["The making of a film", "entertainment"],
     ["A journey through Kyoto", "travel"],

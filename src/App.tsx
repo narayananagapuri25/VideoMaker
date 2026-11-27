@@ -224,6 +224,59 @@ export default function App() {
         genre: videoGenre,
         trendContext,
       });
+      let voiceAudioDataUrl: string | undefined;
+      let voiceAudioName: string | undefined;
+      let voiceNote = "";
+      setNotice("Creating the voice-over first so optional scene artwork cannot consume the remaining free AI allowance…");
+
+      const readAudioAsDataUrl = (audio: Blob): Promise<string> => new Promise((resolve, reject) => {
+        if (!audio.size || !audio.type.startsWith("audio/")) {
+          reject(new Error("The selected voice provider returned an empty or unsupported audio file."));
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          const value = String(reader.result || "");
+          if (!value.startsWith("data:audio/")) reject(new Error("The narration audio could not be prepared for export."));
+          else resolve(value);
+        };
+        reader.onerror = () => reject(new Error("Could not prepare the generated narration audio."));
+        reader.readAsDataURL(audio);
+      });
+
+      if (selectedProvider === "cloudflare") {
+        if (project.language !== "English") {
+          throw new Error("No video was exported: Cloudflare Aura-1 in this Studio currently supports English narration only. Select Gemini with its confirmed Free Tier for Hindi, Telugu or Hinglish. No paid voice provider was used.");
+        }
+        try {
+          setNotice("Generating English narration with Cloudflare Aura-1 before scene artwork…");
+          const audio = await generateCloudflareNarration(result.story.script, project.language);
+          voiceAudioDataUrl = await readAudioAsDataUrl(audio);
+          voiceAudioName = "Cloudflare Workers AI · Aura-1 · Luna";
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : "Aura-1 did not return a valid narration track.";
+          throw new Error("No video was exported because the voice-over failed. " + detail + " The Cloudflare Free daily AI allowance is shared by storyboard, artwork and narration; narration now runs before artwork to protect the remaining allowance. Retry after the daily reset or select Gemini Free Tier. No paid fallback was called.");
+        }
+      } else if (selectedProvider === "gemini") {
+        try {
+          setNotice("Generating multilingual narration with Gemini Free Tier before scene artwork…");
+          const narration = await generateNarration(result.story.script, "Kore", project.language);
+          voiceAudioDataUrl = await readAudioAsDataUrl(narration.blob);
+          voiceAudioName = narration.provider + " · Kore";
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : "Gemini did not return a valid narration track.";
+          throw new Error("No video was exported because Gemini narration failed. " + detail + " Check the Gemini Free Tier quota and key configuration. This Studio will not switch to a paid voice provider or another account automatically.");
+        }
+      } else {
+        throw new Error(providerLabels[selectedProvider] + " can create the script but does not provide a supported narration track in this Studio. Select Cloudflare for English or Gemini Free Tier for multilingual narration. No video was exported without voice-over.");
+      }
+
+      if (!voiceAudioDataUrl) {
+        throw new Error("No spoken narration was produced, so the Studio stopped before rendering rather than exporting a silent video.");
+      }
+      voiceNote = " Voice-over generated with " + (voiceAudioName || "the selected free-tier provider") + ".";
+      setNotice("Voice-over ready. Creating distinct visuals and matching free footage…");
+
       let scenes: Scene[] = result.story.scenes.map((scene, index) => ({
         ...scene,
         id: globalThis.crypto?.randomUUID?.() ?? ("scene-" + Date.now() + "-" + index),
@@ -285,45 +338,6 @@ export default function App() {
       } catch {
         // Free footage libraries are optional; their outages must never block story or video generation.
         footageNote = " Free footage libraries were temporarily unavailable, so scenes keep their generated artwork and local animation.";
-      }
-
-      let voiceAudioDataUrl: string | undefined;
-      let voiceAudioName: string | undefined;
-      let voiceNote = "";
-      if (selectedProvider === "cloudflare") {
-        if (project.language === "English") {
-          try {
-            setNotice("Generating English narration with Cloudflare Aura-1…");
-            const audio = await generateCloudflareNarration(result.story.script, project.language);
-            voiceAudioDataUrl = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(String(reader.result));
-              reader.onerror = () => reject(new Error("Could not prepare Cloudflare narration audio."));
-              reader.readAsDataURL(audio);
-            });
-            voiceAudioName = "Cloudflare Workers AI · Aura-1 · Luna";
-          } catch (error) {
-            voiceNote = " English narration was unavailable: " + (error instanceof Error ? error.message : "Aura-1 voice generation failed") + ". No other AI provider was used.";
-          }
-        } else {
-          voiceNote = " Cloudflare's integrated free-tier Aura-1 voice is configured for English only. No unsupported voice or alternate paid provider was called; this video will use the original soundtrack and subtitles.";
-        }
-      } else if (selectedProvider === "gemini") {
-        try {
-          setNotice("Generating Gemini narration…");
-          const narration = await generateNarration(result.story.script, "Kore", project.language);
-          voiceAudioDataUrl = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result));
-            reader.onerror = () => reject(new Error("Could not prepare generated narration."));
-            reader.readAsDataURL(narration.blob);
-          });
-          voiceAudioName = narration.provider + " · Kore";
-        } catch (error) {
-          voiceNote = " Narration was unavailable: " + (error instanceof Error ? error.message : "voice generation failed") + ". No alternate provider was used.";
-        }
-      } else {
-        voiceNote = " " + providerLabels[selectedProvider] + " created the story. This provider does not expose a compatible voice API here, so no other provider was called for narration.";
       }
 
       const generatedProject: StudioProject = {

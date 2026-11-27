@@ -263,7 +263,7 @@ describe("Cloudflare secure Gemini endpoints", () => {
 
   it("uses the per-tab key for narration when no Cloudflare secret exists", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
-      steps: [{ type: "model_output", content: [{ type: "audio", data: "AQID", mime_type: "audio/wav" }] }],
+      candidates: [{ content: { parts: [{ inlineData: { data: "AQID", mimeType: "audio/wav" } }] } }],
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
     const response = await generateNarration(context("/api/ai/narration", {
       script: "A short test narration.",
@@ -277,7 +277,7 @@ describe("Cloudflare secure Gemini endpoints", () => {
 
   it("returns narration audio bytes while keeping the server key out of the response", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
-      steps: [{ type: "model_output", content: [{ type: "audio", data: "AQID", mime_type: "audio/wav" }] }],
+      candidates: [{ content: { parts: [{ inlineData: { data: "AQID", mimeType: "audio/wav" } }] } }],
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
 
     const response = await generateNarration(context("/api/ai/narration", {
