@@ -292,6 +292,16 @@ const GENRE_GUIDANCE: Record<VideoGenre, string> = {
 
 export function buildStoryPrompt(options: StoryPromptOptions): string {
   const { topic, language, targetDuration, aspectRatio, genre = "auto", trendContext } = options;
+  const sportsTopic = genre === "sports" || /\b(cricket|ipl|batsman|bowler|wicket|tournament|football|soccer|basketball|tennis|athlete|stadium|match|olympic)\b/i.test(topic);
+  const sportsDirection = sportsTopic ? [
+    "SPORTS-SPECIFIC EDITORIAL RULES: This must feel like a real sports film or sports-news feature, not a slide deck. Start with the actual sport and event context. Explain what happened, who it affects, why it matters, and what happens next. Do not waste scene time repeating the headline, vague hype, or generic engagement questions.",
+    "For cricket: show cricket-specific action and environments—floodlit ground, oval outfield, pitch, crease, stumps, red ball, bat, fielders, pavilion, trophy presentation and captain walk-out. Match each scene to its own subject. Do not use planets, orbit rings, unrelated abstract spheres, finance dashboards, bar charts, generic process diagrams or generic timeline cards.",
+    "For a captaincy or team announcement: use one clear announcement scene, a captaincy/change context scene, a genuine achievement scene, a squad/tactical implications scene, the upcoming-season stakes, and a concise final takeaway. Keep each scene distinct; do not force every scene into all six beats when there is not enough verified information.",
+    "Use only player names, dates, team changes, title counts and historical claims supported by supplied source context or stable verified facts. Do not invent match scores, statistics, quotes, reasons for selection, transfer fees, player emotions or locker-room scenes. Mark unsupported current claims [VERIFY] and keep them out of the headline.",
+    "For sports visualPlan, set layout to hero or illustration. Put the actual cricket subject/action in visualPrompt, visualPlan.subject and each scene title. Use chart, dashboard, comparison, process or infographic only when the story genuinely contains data that has been supplied and verified.",
+    "Never depict a generated player image as authentic footage or a real photograph. Use a generic athlete silhouette for procedural fallback artwork; do not invent a likeness or a team logo."
+  ] : [];
+  const narrationWordTarget = Math.round(targetDuration * 2.05);
   const trendLines = trendContext ? [
     "Trend discovery context: Google Trends " + trendContext.region + " · approximate search traffic " + trendContext.traffic + " · feed date " + trendContext.publishedAt + ".",
     "Related headline leads (not independently verified facts):",
@@ -303,6 +313,8 @@ export function buildStoryPrompt(options: StoryPromptOptions): string {
     "Create a genuinely topic-specific video package for this question: " + topic,
     "Language: " + language + ". Approximate video duration: " + targetDuration + " seconds. Aspect ratio: " + aspectRatio + ".",
     "Genre: " + genre + ". Genre direction: " + GENRE_GUIDANCE[genre] + ".",
+    ...sportsDirection,
+    "Narration length: aim for roughly " + narrationWordTarget + " words for this duration (about 2 words per second), with real explanation and useful context. Do not pad with repeated headlines, empty hype or generic calls to action.",
     ...trendLines,
     "First determine the core concepts a viewer must understand, then create a compelling hook, a coherent beginning-middle-end explanation and a memorable takeaway.",
     "Write a complete, fact-conscious narration and divide it into 4 to 8 scenes. Each scene must teach a distinct idea and collectively cover the whole script without unrelated filler.",
