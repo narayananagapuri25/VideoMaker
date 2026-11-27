@@ -34,6 +34,7 @@ export async function searchStockVideos(query: string, signal?: AbortSignal): Pr
   const response = await fetch(`/api/stock/videos?q=${encodeURIComponent(clean)}`, {
     headers: { Accept: "application/json" },
     signal,
+    cache: "force-cache",
   });
   let payload: SearchResponse;
   try {
