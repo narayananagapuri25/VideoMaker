@@ -262,17 +262,17 @@ function errorHealth(provider: AIProvider, error: unknown): AIProviderHealthEntr
   }
   if (status === 429 || /quota|rate.?limit|too many requests|free allocation|daily limit|neurons?/i.test(message)) {
     if (!retryAt) retryAt = provider === "cloudflare" || provider === "openrouter" ? nextUtcMidnight() : undefined;
-    return healthEntry("exhausted", "Provider limit reached. Automatic fallback is active.", "last-response", retryAt ? { retryAt } : {});
+    return healthEntry("exhausted", "Provider limit reached. Retry after the provider's quota reset.", "last-response", retryAt ? { retryAt } : {});
   }
   if (status === 503 || status && status >= 500 || /temporarily unavailable|overloaded|high demand/i.test(message)) {
-    return healthEntry("degraded", "Provider is temporarily unavailable. Automatic fallback is active.", "last-response", {
+    return healthEntry("degraded", "Provider is temporarily unavailable. Retry shortly.", "last-response", {
       retryAt: Date.now() + (status === 503 ? 60_000 : 30_000),
     });
   }
   if (provider === "gemini" && /429/.test(message)) {
-    return healthEntry("exhausted", "Gemini quota exhausted. Automatic fallback is active.", "last-response", retryAt ? { retryAt } : {});
+    return healthEntry("exhausted", "Gemini quota exhausted. Retry after the provider's quota reset.", "last-response", retryAt ? { retryAt } : {});
   }
-  return healthEntry("degraded", "Latest request failed. Automatic fallback is active.", "last-response", {
+  return healthEntry("degraded", "Latest request failed. Check provider status and retry.", "last-response", {
     retryAt: Date.now() + 30_000,
   });
 }
