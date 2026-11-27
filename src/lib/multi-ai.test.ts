@@ -203,7 +203,7 @@ describe("multi-provider AI storyboard fallback", () => {
   });
 
   it("uses the configured Cloudflare Pages AI binding without any browser API token", async () => {
-    const run = vi.fn(async () => ({ response: JSON.stringify(validStory) }));
+    const run = vi.fn(async (_model: string, _inputs: Record<string, unknown>) => ({ response: JSON.stringify(validStory) }));
     const fetchMock = vi.spyOn(globalThis, "fetch");
     const result = await generateStoryWithAvailableProviders(options({
       cloudflareAI: { run },
