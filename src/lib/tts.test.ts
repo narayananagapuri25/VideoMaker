@@ -39,7 +39,7 @@ describe("Gemini narration", () => {
     expect(request.contents[0].parts[0].speechMetadata.style).toContain("Indian English pronunciation");
     expect(request.contents[0].parts[0].speechMetadata.style).toContain("Professional documentary voice-over");
     expect(request.generationConfig.responseModalities).toEqual(["AUDIO"]);
-    expect(request.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName).toBe("Kore");
+    expect(request.generationConfig.speechConfig.voiceConfig.voice).toBe("Kore");
   });
 
   it("wraps raw 24 kHz PCM responses in a valid WAV container", async () => {
