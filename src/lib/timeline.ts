@@ -28,6 +28,14 @@ export function getSceneAtTime(scenes: Scene[], requestedTime: number): ScenePos
   return null;
 }
 
+/** Cross-fades into the next scene during the final 0.65 seconds (or 18% of a short scene). */
+export function getSceneTransitionProgress(position: ScenePosition, hasNextScene: boolean, maximumDuration = 0.65): number {
+  if (!hasNextScene) return 0;
+  const sceneDuration = Math.max(0.1, position.end - position.start);
+  const transitionDuration = Math.min(maximumDuration, sceneDuration * 0.18);
+  const progress = Math.max(0, Math.min(1, (position.offset - (sceneDuration - transitionDuration)) / transitionDuration));
+  return progress * progress * (3 - 2 * progress);
+}
 export function getSceneStartTime(scenes: Scene[], sceneId: string): number {
   let start = 0;
   for (const scene of scenes) {
