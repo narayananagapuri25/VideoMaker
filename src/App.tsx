@@ -739,7 +739,7 @@ export default function App() {
             const missingSceneIndex = scenes.findIndex((scene) => !scene.videoDataUrl);
             if (missingSceneIndex >= 0) {
               const scene = scenes[missingSceneIndex];
-              setNotice("Step 2/4 · Agnes is unavailable. Trying one Replicate Try-for-Free clip for " + scene.title + "…");
+              setNotice("Step 2/4 · Agnes is unavailable. Trying one Replicate limited-free-run clip for " + scene.title + "…");
               const clip = await generateReplicateClip({
                 prompt: [
                   scene.visualPrompt || scene.title,
