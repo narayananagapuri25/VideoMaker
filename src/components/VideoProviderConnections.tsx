@@ -2,19 +2,26 @@ import { useState } from "react";
 import {
   clearAgnesApiKey,
   clearMagicHourApiKey,
+  clearReplicateApiToken,
   confirmAgnesFreeTrialOnly,
+  confirmReplicateTryForFreeOnly,
   confirmMagicHourFreeCreditsOnly,
   getAgnesConnectionHeaders,
+  getReplicateConnectionHeaders,
+  hasReplicateApiToken,
+  hasReplicateTryForFreeConfirmation,
   hasAgnesApiKey,
   hasAgnesFreeTrialOnlyConfirmation,
   getMagicHourHeaders,
   hasMagicHourApiKey,
   hasMagicHourFreeCreditsOnlyConfirmation,
   saveAgnesApiKey,
+  saveReplicateApiToken,
   saveMagicHourApiKey,
 } from "../lib/ai-provider-session";
 import type { MagicHourConnection } from "../lib/video-ai";
 import type { AgnesConnection } from "../lib/video-agnes";
+import type { ReplicateConnection } from "../lib/video-replicate";
 
 export default function VideoProviderConnections() {
   const [apiKey, setApiKey] = useState("");
@@ -31,6 +38,13 @@ export default function VideoProviderConnections() {
   const [agnesTesting, setAgnesTesting] = useState(false);
   const [agnesMessage, setAgnesMessage] = useState("");
   const [agnesMessageType, setAgnesMessageType] = useState<"success" | "error" | "">("");
+  const [replicateApiKey, setReplicateApiKey] = useState("");
+  const [replicateSaved, setReplicateSaved] = useState(() => hasReplicateApiToken());
+  const [replicateTryFreeConfirmed, setReplicateTryFreeConfirmed] = useState(() => hasReplicateTryForFreeConfirmation());
+  const [replicateAccount, setReplicateAccount] = useState<ReplicateConnection | null>(null);
+  const [replicateTesting, setReplicateTesting] = useState(false);
+  const [replicateMessage, setReplicateMessage] = useState("");
+  const [replicateMessageType, setReplicateMessageType] = useState<"success" | "error" | "">("");
 
   function handleAgnesSave() {
     try {
@@ -103,6 +117,77 @@ export default function VideoProviderConnections() {
     }
   }
 
+
+  function handleReplicateSave() {
+    try {
+      saveReplicateApiToken(replicateApiKey);
+      setReplicateApiKey("");
+      setReplicateSaved(true);
+      setReplicateTryFreeConfirmed(false);
+      setReplicateAccount(null);
+      setReplicateMessage("Replicate token saved for this tab. Test the model, then confirm this account has free Try-for-Free runs and no paid billing or purchased credits.");
+      setReplicateMessageType("success");
+    } catch (error) {
+      setReplicateMessage(error instanceof Error ? error.message : "Could not save the Replicate API token.");
+      setReplicateMessageType("error");
+    }
+  }
+
+  function handleReplicateRemove() {
+    clearReplicateApiToken();
+    setReplicateSaved(false);
+    setReplicateTryFreeConfirmed(false);
+    setReplicateAccount(null);
+    setReplicateMessage("Replicate API token and free-run confirmation removed from this tab.");
+    setReplicateMessageType("success");
+  }
+
+  function handleReplicateConsentChange(checked: boolean) {
+    try {
+      confirmReplicateTryForFreeOnly(checked);
+      setReplicateTryFreeConfirmed(checked);
+      setReplicateMessage(checked
+        ? "Replicate Try-for-Free-only confirmation saved for this tab."
+        : "Replicate generation is paused until the free-run conditions are confirmed again.");
+      setReplicateMessageType(checked ? "success" : "");
+    } catch (error) {
+      setReplicateMessage(error instanceof Error ? error.message : "Could not save Replicate free-run confirmation.");
+      setReplicateMessageType("error");
+    }
+  }
+
+  async function testReplicateConnection() {
+    setReplicateTesting(true);
+    setReplicateMessage("Checking Replicate token and minimax/video-01 model access…");
+    setReplicateMessageType("");
+    try {
+      const response = await fetch("/api/video/replicate/connection", {
+        method: "POST",
+        headers: { Accept: "application/json", ...getReplicateConnectionHeaders() },
+        cache: "no-store",
+      });
+      const payload: unknown = await response.json();
+      if (!response.ok) {
+        const detail = typeof payload === "object" && payload !== null && "error" in payload && typeof payload.error === "string"
+          ? payload.error
+          : "Replicate connection test failed (HTTP " + response.status + ").";
+        throw new Error(detail);
+      }
+      if (typeof payload !== "object" || payload === null || !("modelAvailable" in payload) || typeof payload.modelAvailable !== "boolean") {
+        throw new Error("Replicate returned an invalid model-access response.");
+      }
+      const result = payload as ReplicateConnection;
+      setReplicateAccount(result);
+      setReplicateSaved(true);
+      setReplicateMessage(result.message);
+      setReplicateMessageType("success");
+    } catch (error) {
+      setReplicateMessage(error instanceof Error ? error.message : "Replicate connection test failed.");
+      setReplicateMessageType("error");
+    } finally {
+      setReplicateTesting(false);
+    }
+  }
 
   function handleSave() {
     try {
@@ -275,7 +360,50 @@ export default function VideoProviderConnections() {
         </p>
         <p className="video-provider-security">The Agnes key is stored only in this browser tab's session storage, excluded from projects and backups, and sent only to same-origin HTTPS Cloudflare Functions. The server requires the free-trial attestation before creating or polling a video task.</p>
       </div>
-      <p className="video-provider-security">Magic Hour and Agnes keys remain only in this browser tab's session storage, never in projects or GitHub. The router tries verified Magic Hour Free credits first, then at most one Agnes 720p trial clip per project, then local motion graphics when no free source can safely complete.</p>
+      <div className="video-provider-card replicate-video-provider-card">
+        <div className="video-provider-title">
+          <strong>Replicate · MiniMax Hailuo Video-01</strong>
+          <span className="video-provider-badge">LIMITED FREE RUNS</span>
+        </div>
+        <p className="video-provider-help">Replicate's official Try-for-Free collection includes minimax/video-01 text-to-video. Free access is limited to an unpublished number of runs; it is not a recurring daily allowance. After the free runs, Replicate requires billing and purchased credits. The model page shows six-second outputs. The API cannot reveal how many free runs remain, so VideoMaker can only use this route after your confirmation.</p>
+        <label className="field-label" htmlFor="replicate-api-token">REPLICATE API TOKEN</label>
+        <input
+          id="replicate-api-token"
+          type="password"
+          autoComplete="off"
+          spellCheck={false}
+          value={replicateApiKey}
+          onChange={(event) => setReplicateApiKey(event.target.value)}
+          placeholder={replicateSaved ? "Token saved for this tab · paste to replace" : "Paste your Replicate API token"}
+        />
+        <div className="video-provider-actions">
+          <button className="button button-primary" disabled={!replicateApiKey.trim()} onClick={handleReplicateSave}>Save token for this tab</button>
+          <button className="button button-secondary" disabled={!replicateSaved || replicateTesting} onClick={() => void testReplicateConnection()}>{replicateTesting ? <><span className="spinner" /> Checking…</> : "Test API access"}</button>
+          {replicateSaved && <button className="text-button" onClick={handleReplicateRemove}>Remove token</button>}
+        </div>
+        {replicateAccount && (
+          <div className={replicateAccount.modelAvailable ? "video-credit-note" : "video-credit-note warning"}>
+            {replicateAccount.modelAvailable
+              ? "API token and minimax/video-01 model access verified. Replicate does not provide an API check for free-run count or billing state."
+              : "The Try-for-Free model is not available for this API token."}
+          </div>
+        )}
+        <label className="video-free-confirm">
+          <input
+            type="checkbox"
+            checked={replicateTryFreeConfirmed}
+            disabled={!replicateSaved || !replicateAccount?.modelAvailable}
+            onChange={(event) => handleReplicateConsentChange(event.target.checked)}
+          />
+          <span>I confirm this Replicate account still has Try-for-Free runs available, has no paid billing or purchased credits, and I will not add billing or buy credits for this automatic route. If Replicate returns a payment or credit requirement, VideoMaker must stop and use local graphics instead.</span>
+        </label>
+        {replicateMessage && <div className={"gemini-test-result " + (replicateMessageType || (replicateTesting ? "testing" : "success"))} role={replicateMessageType === "error" ? "alert" : "status"}>{replicateMessage}</div>}
+        <p className="video-provider-help">
+          <a href="https://replicate.com/collections/try-for-free" target="_blank" rel="noreferrer">Official Try-for-Free collection ↗</a> · <a href="https://replicate.com/minimax/video-01/api" target="_blank" rel="noreferrer">MiniMax Video-01 API docs ↗</a> · <a href="https://replicate.com/account/api-tokens" target="_blank" rel="noreferrer">Create API token ↗</a>
+        </p>
+        <p className="video-provider-security">Replicate's API does not expose free-run balance or distinguish free runs from purchased credits. The confirmation is an account-owner attestation, not an automatic billing guarantee. If the account has billing or purchased credits, do not enable this route.</p>
+      </div>
+      <p className="video-provider-security">Magic Hour, Agnes and Replicate tokens remain only in this browser tab's session storage, never in projects or GitHub. The router tries Magic Hour Free credits first, Agnes' creator-confirmed limited-time $0 trial second, Replicate Try-for-Free third, then local motion graphics.</p>
       <div className="manual-video-providers">
         <div className="manual-video-heading">
           <strong>More free video generators · manual fallback</strong>
