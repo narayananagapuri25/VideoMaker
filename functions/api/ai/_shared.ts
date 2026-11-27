@@ -1,5 +1,5 @@
 export interface WorkersAIBinding {
-  run(model: string, inputs: Record<string, unknown>): Promise<unknown>;
+  run(model: string, inputs: Record<string, unknown>, options?: { returnRawResponse?: boolean }): Promise<unknown>;
 }
 
 export interface GeminiEnv {

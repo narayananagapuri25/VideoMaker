@@ -1,5 +1,14 @@
 import type { Scene } from "../types";
 import { drawSceneVisualPlan } from "./visual-plan-renderer";
+import { buildSubtitleCues, getActiveSubtitleCue } from "./subtitle-layout";
+
+export interface SceneTransition {
+  scene: Scene;
+  image?: HTMLImageElement;
+  video?: HTMLVideoElement;
+  index: number;
+  progress: number;
+}
 
 export type SceneTheme =
   | "space" | "earth" | "weather" | "ocean" | "city"
@@ -635,26 +644,40 @@ function drawGeneric(ctx: CanvasRenderingContext2D, x: number, y: number, unit: 
   ctx.restore();
 }
 
-function drawImageScene(ctx: CanvasRenderingContext2D, width: number, height: number, image: HTMLImageElement, elapsed: number) {
-  const progress = smooth(elapsed / 7);
-  const scale = Math.max(width / image.width, height / image.height) * (1.04 + progress * 0.12);
+function drawImageScene(ctx: CanvasRenderingContext2D, width: number, height: number, image: HTMLImageElement, elapsed: number, duration: number, sceneIndex: number) {
+  // Give each still its own documentary camera move instead of applying the same zoom to every scene.
+  const progress = smooth(elapsed / Math.max(0.5, duration));
+  const shot = sceneIndex % 6;
+  const cover = Math.max(width / image.width, height / image.height);
+  const zoomStart = shot === 2 || shot === 5 ? 1.19 : 1.065;
+  const zoomEnd = shot === 2 || shot === 5 ? 1.065 : 1.19;
+  const scale = cover * (zoomStart + (zoomEnd - zoomStart) * progress);
   const drawWidth = image.width * scale;
   const drawHeight = image.height * scale;
-  const driftX = Math.sin(elapsed * 0.21) * width * 0.025;
-  const driftY = Math.cos(elapsed * 0.17) * height * 0.018;
+  const pan = (progress - 0.5) * width * 0.075;
+  const driftX = shot === 0 || shot === 3 || shot === 4 ? -pan : shot === 1 ? pan : Math.sin(progress * Math.PI) * width * 0.018;
+  const driftY = shot === 2 || shot === 5 ? (progress - 0.5) * -height * 0.045 : Math.sin(progress * Math.PI) * height * 0.018;
+  const rotation = shot === 4 ? (progress - 0.5) * 0.014 : shot === 5 ? (progress - 0.5) * -0.009 : 0;
   ctx.save();
-  ctx.drawImage(image, (width - drawWidth) / 2 + driftX, (height - drawHeight) / 2 + driftY, drawWidth, drawHeight);
+  ctx.translate(width / 2 + driftX, height / 2 + driftY);
+  ctx.rotate(rotation);
+  ctx.drawImage(image, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
   ctx.restore();
 }
 
-function drawVideoScene(ctx: CanvasRenderingContext2D, width: number, height: number, video: HTMLVideoElement, elapsed: number, duration: number) {
+function drawVideoScene(ctx: CanvasRenderingContext2D, width: number, height: number, video: HTMLVideoElement, elapsed: number, duration: number, sceneIndex: number) {
   if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth || !video.videoHeight) return;
   const progress = smooth(elapsed / Math.max(0.2, duration));
-  const scale = Math.max(width / video.videoWidth, height / video.videoHeight) * (1.03 + progress * 0.08);
+  const cover = Math.max(width / video.videoWidth, height / video.videoHeight);
+  const scale = cover * (1.045 + progress * (sceneIndex % 2 ? 0.09 : 0.14));
   const drawWidth = video.videoWidth * scale;
   const drawHeight = video.videoHeight * scale;
+  const direction = sceneIndex % 4 === 0 ? -1 : 1;
+  const driftX = direction * (progress - 0.5) * width * 0.045;
+  const driftY = sceneIndex % 3 === 0 ? (progress - 0.5) * height * 0.025 : 0;
   ctx.save();
-  ctx.drawImage(video, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
+  ctx.translate(width / 2 + driftX, height / 2 + driftY);
+  ctx.drawImage(video, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
   ctx.restore();
 }
 
@@ -695,6 +718,7 @@ function drawTextOverlay(
   sceneCount: number,
   projectElapsed: number,
   totalDuration: number,
+  sceneDuration: number,
 ) {
   const intro = smooth(elapsed / 0.58);
   const fontScale = Math.min(width / 720, height / 1280);
@@ -732,7 +756,7 @@ function drawTextOverlay(
   ctx.fillStyle = palette.accent;
   ctx.font = "800 " + Math.round(Math.min(width * 0.026, height * 0.019)) + "px Arial";
   ctx.textBaseline = "alphabetic";
-  ctx.fillText("CHAPTER " + String(sceneIndex + 1).padStart(2, "0") + "   /   " + String(sceneCount).padStart(2, "0"), left, height * 0.725);
+  ctx.fillText("CHAPTER " + String(sceneIndex + 1).padStart(2, "0") + "   /   " + String(sceneCount).padStart(2, "0"), left, height * 0.69);
 
   const titleSize = Math.round(Math.min(width * 0.065, height * 0.06));
   ctx.font = "900 " + titleSize + "px Arial";
@@ -741,16 +765,51 @@ function drawTextOverlay(
   ctx.shadowBlur = 18 * fontScale;
   const titleLines = wrapText(ctx, scene.title.toUpperCase(), width * 0.84, 2);
   const titleLineHeight = titleSize * 1.08;
-  titleLines.forEach((line, i) => ctx.fillText(line, left, height * 0.78 + i * titleLineHeight));
+  titleLines.forEach((line, i) => ctx.fillText(line, left, height * 0.745 + i * titleLineHeight));
   ctx.shadowBlur = 0;
 
-  const captionSize = Math.round(Math.min(width * 0.031, height * 0.029));
-  ctx.font = "500 " + captionSize + "px Arial";
-  ctx.fillStyle = "rgba(235,244,251,.9)";
-  const caption = scene.caption || scene.narration;
-  const captionLines = wrapText(ctx, caption, width * 0.82, 2);
-  const captionY = Math.min(height * 0.91, height * 0.79 + titleLines.length * titleLineHeight + captionSize * 1.8);
-  captionLines.forEach((line, i) => ctx.fillText(line, left, captionY + i * captionSize * 1.45));
+  // Social-video safe subtitle block: centered horizontally, wrapped, high-contrast and kept clear of the bottom app controls.
+  const captionSize = Math.max(25, Math.round(Math.min(width * 0.043, height * 0.026)));
+  const captionMaxWidth = width * 0.86;
+  ctx.font = "650 " + captionSize + "px Arial";
+  const maxCharactersPerLine = Math.max(28, Math.floor(captionMaxWidth / (captionSize * 0.55)));
+  const caption = scene.narration || scene.caption;
+  const cues = buildSubtitleCues(caption, sceneDuration, maxCharactersPerLine);
+  const cue = getActiveSubtitleCue(cues, elapsed);
+  if (cue) {
+    const lines = cue.text.split("\n").slice(0, 2);
+    const lineHeight = captionSize * 1.28;
+    const paddingX = captionSize * 0.72;
+    const paddingY = captionSize * 0.42;
+    ctx.font = "650 " + captionSize + "px Arial";
+    const measuredWidth = Math.max(...lines.map((line) => ctx.measureText(line).width), captionSize * 3);
+    const boxWidth = Math.min(captionMaxWidth, measuredWidth + paddingX * 2);
+    const boxHeight = lines.length * lineHeight + paddingY * 2;
+    const centerX = width * 0.5;
+    const centerY = height * 0.865;
+    const boxX = centerX - boxWidth / 2;
+    const boxY = centerY - boxHeight / 2;
+    const cueFade = smooth((elapsed - cue.start) / 0.18);
+    ctx.save();
+    ctx.globalAlpha = cueFade;
+    ctx.translate(0, (1 - cueFade) * captionSize * 0.18);
+    ctx.fillStyle = "rgba(3,9,18,.84)";
+    ctx.strokeStyle = "rgba(220,240,250,.22)";
+    ctx.lineWidth = Math.max(1, width * 0.0015);
+    roundedRect(ctx, boxX, boxY, boxWidth, boxHeight, captionSize * 0.38);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "650 " + captionSize + "px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = "rgba(0,0,0,.65)";
+    ctx.shadowBlur = captionSize * 0.2;
+    lines.forEach((line, index) => {
+      ctx.fillText(line, centerX, boxY + paddingY + lineHeight * (index + 0.5), captionMaxWidth - paddingX);
+    });
+    ctx.restore();
+  }
 
   ctx.restore();
 
@@ -779,6 +838,7 @@ export function drawSceneFrame(
   sceneCount: number,
   projectElapsed = elapsed,
   totalDuration = duration,
+  transition?: SceneTransition,
 ): void {
   const theme = getSceneTheme(scene);
   const palette = PALETTES[theme];
@@ -786,7 +846,7 @@ export function drawSceneFrame(
   drawBackdrop(ctx, width, height, theme, time, sceneIndex);
 
   if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-    drawVideoScene(ctx, width, height, video, time, duration);
+    drawVideoScene(ctx, width, height, video, time, duration, sceneIndex);
     const tint = ctx.createLinearGradient(0, 0, 0, height);
     tint.addColorStop(0, "rgba(4,12,25,.2)");
     tint.addColorStop(0.62, "rgba(4,12,25,.08)");
@@ -794,7 +854,7 @@ export function drawSceneFrame(
     ctx.fillStyle = tint;
     ctx.fillRect(0, 0, width, height);
   } else if (image) {
-    drawImageScene(ctx, width, height, image, time);
+    drawImageScene(ctx, width, height, image, time, duration, sceneIndex);
     const tint = ctx.createLinearGradient(0, 0, 0, height);
     tint.addColorStop(0, "rgba(4,12,25,.2)");
     tint.addColorStop(0.58, "rgba(4,12,25,.06)");
@@ -836,5 +896,24 @@ export function drawSceneFrame(
     ctx.fillStyle = "rgba(3,8,18," + ((1 - entry) * 0.48) + ")";
     ctx.fillRect(0, 0, width, height);
   }
-  drawTextOverlay(ctx, width, height, scene, palette, time, sceneIndex, sceneCount, projectElapsed, totalDuration);
+  drawTextOverlay(ctx, width, height, scene, palette, time, sceneIndex, sceneCount, projectElapsed, totalDuration, duration);
+  if (transition && transition.progress > 0) {
+    ctx.save();
+    ctx.globalAlpha = clamp(transition.progress, 0, 1);
+    drawSceneFrame(
+      ctx,
+      width,
+      height,
+      transition.scene,
+      transition.image,
+      transition.video,
+      0,
+      transition.scene.duration,
+      transition.index,
+      sceneCount,
+      projectElapsed,
+      totalDuration,
+    );
+    ctx.restore();
+  }
 }

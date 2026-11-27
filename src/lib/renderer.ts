@@ -11,7 +11,7 @@ import {
 } from "mediabunny";
 import type { Scene, StudioProject } from "../types";
 import { getSceneVideoSrc } from "./stock-video";
-import { drawSceneFrame } from "./scene-visuals";
+import { drawSceneFrame, type SceneTransition } from "./scene-visuals";
 import { createExportAbortError, throwIfExportAborted } from "./export-cancel";
 import { shouldUseWebmFallback } from "./export-format";
 
@@ -242,9 +242,9 @@ export async function exportMp4(
   }
 
   const vertical = project.aspectRatio === "9:16";
-  const width = vertical ? 720 : 1280;
-  const height = vertical ? 1280 : 720;
-  const fps = 24;
+  const width = vertical ? 1080 : 1920;
+  const height = vertical ? 1920 : 1080;
+  const fps = 30;
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -310,7 +310,7 @@ export async function exportMp4(
   const output = new Output({ format, target: new BufferTarget() });
   const videoSource = new CanvasSource(canvas, {
     codec: videoCodec,
-    quality: new Quality({ bitrate: vertical ? 3_000_000 : 4_000_000 }),
+    quality: new Quality({ bitrate: vertical ? 6_000_000 : 8_000_000 }),
     latencyMode: "quality",
   });
   output.addVideoTrack(videoSource, { frameRate: fps });
@@ -329,6 +329,7 @@ export async function exportMp4(
   const totalFrames = Math.ceil(duration * fps);
   let activeSceneId = "";
   let activeVideo: HTMLVideoElement | undefined;
+  let transitionVideoId = "";
   const renderStartedAt = performance.now();
   try {
     await output.start();
@@ -351,6 +352,36 @@ export async function exportMp4(
         }
       }
       if (activeVideo && activeVideo.paused) await activeVideo.play();
+      const nextScene = project.scenes[current.index + 1];
+      const transitionDuration = Math.min(0.65, current.scene.duration * 0.18);
+      const rawTransition = nextScene
+        ? Math.max(0, Math.min(1, (current.offset - (current.scene.duration - transitionDuration)) / transitionDuration))
+        : 0;
+      const transitionProgress = rawTransition * rawTransition * (3 - 2 * rawTransition);
+      let transitionVideo: HTMLVideoElement | undefined;
+      if (nextScene && transitionProgress > 0) {
+        transitionVideo = videos.get(nextScene.id);
+        if (transitionVideo && transitionVideo.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+          if (transitionVideoId !== nextScene.id) {
+            await seekVideo(transitionVideo, Math.max(0, nextScene.videoClipStart || 0), signal);
+            await transitionVideo.play();
+            transitionVideoId = nextScene.id;
+          } else if (transitionVideo.paused) {
+            await transitionVideo.play();
+          }
+        } else if (transitionVideo) {
+          transitionVideo = undefined;
+        }
+      }
+      const transition: SceneTransition | undefined = nextScene && transitionProgress > 0
+        ? {
+            scene: nextScene,
+            image: images.get(nextScene.id),
+            video: transitionVideo,
+            index: current.index + 1,
+            progress: transitionProgress,
+          }
+        : undefined;
       drawSceneFrame(
         context,
         width,
@@ -364,6 +395,7 @@ export async function exportMp4(
         project.scenes.length,
         time,
         duration,
+        transition,
       );
       await videoSource.add(time, 1 / fps);
       throwIfExportAborted(signal);

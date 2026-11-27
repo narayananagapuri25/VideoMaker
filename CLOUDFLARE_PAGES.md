@@ -27,6 +27,19 @@ Cloudflare Workers AI can generate the storyboard with `@cf/google/gemma-4-26b-a
 
 The binding is accessed server-side as `env.AI`. No Cloudflare API token or account ID is entered into the Studio. If the binding is missing, the app returns a clear setup error instead of switching to another provider.
 
+### Automatic voice-over and subtitle placement
+
+- English scripts use Cloudflare-hosted Deepgram Aura-1 (`@cf/deepgram/aura-1`) through the same `AI` binding.
+- Aura-1 costs 1,363.64 Neurons per 1,000 input characters in the Workers AI pricing table. Its usage shares the same 10,000-Neuron daily Free allocation with Gemma and FLUX.
+- The integrated Aura-1 route is intentionally limited to English. The deprecated MeloTTS model is not used. For Hindi, Telugu and Hinglish, the app does not silently switch providers; it renders subtitles and soundtrack without synthetic speech.
+- Subtitles use the spoken narration, wrap into two-line timed cues, appear centered horizontally and stay within a lower-third safe area with a high-contrast backing.
+
+### Export quality and motion
+
+- MP4 export is 1080p at 30 FPS (9:16 vertical is 1080 × 1920; 16:9 landscape is 1920 × 1080).
+- AI still images use different camera moves (push-in, pull-back, horizontal/vertical drift and restrained rotation) rather than the same fixed zoom on every scene.
+- Consecutive scenes cross-fade over the final 0.65 seconds of the outgoing scene; the live preview uses the same transition path as export.
+- Browser-side rendering and encoding remain local to the device. Longer high-resolution exports use more phone memory; shorter projects are safer on lower-memory phones.
 ### What this provider generates
 
 - Gemma creates the script and storyboard.

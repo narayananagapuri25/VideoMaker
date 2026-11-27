@@ -1,4 +1,15 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { selectAIProvider } from "./ai-selection";
+
+beforeEach(() => {
+  const values = new Map<string, string>();
+  vi.stubGlobal("sessionStorage", {
+    getItem: (name: string) => values.get(name) ?? null,
+    setItem: (name: string, value: string) => { values.set(name, value); },
+    removeItem: (name: string) => { values.delete(name); },
+  });
+  selectAIProvider("gemini");
+});
 import { generateNarration, generateNarrationWithApiKey } from "./tts";
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -47,11 +58,13 @@ describe("Gemini narration", () => {
   });
 
   it("attaches the saved tab-session key to the same-origin narration request", async () => {
+    const storage = new Map<string, string>([["sochozara.gemini.api-key", "tab-session-tts-key"]]);
     vi.stubGlobal("sessionStorage", {
-      getItem: () => "tab-session-tts-key",
-      setItem: () => undefined,
-      removeItem: () => undefined,
+      getItem: (name: string) => storage.get(name) ?? null,
+      setItem: (name: string, value: string) => { storage.set(name, value); },
+      removeItem: (name: string) => { storage.delete(name); },
     });
+    selectAIProvider("gemini");
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(new Uint8Array([1, 2, 3]), {
       status: 200,
       headers: { "Content-Type": "audio/wav" },
