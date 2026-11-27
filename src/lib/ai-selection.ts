@@ -33,6 +33,11 @@ export function getSelectedAIProvider(): SelectedAIProvider {
 }
 
 export function selectAIProvider(provider: SelectedAIProvider): void {
+  // Keep only the selected provider credential in the tab session.
+  if (provider !== "gemini") clearGeminiSessionKey();
+  if (provider !== "groq") clearSecondaryAIKey("groq");
+  if (provider !== "openrouter") clearSecondaryAIKey("openrouter");
+  clearSecondaryAIKey("cloudflare");
   try {
     globalThis.sessionStorage.setItem(SELECTED_PROVIDER_KEY, provider);
   } catch {
