@@ -3,8 +3,9 @@ import type { ChangeEvent } from "react";
 import { generateStory, testGeminiConnection } from "./lib/ai";
 import AIProviderConnections from "./components/AIProviderConnections";
 import VideoProviderConnections from "./components/VideoProviderConnections";
-import { hasAnySecondaryAIKey, hasMagicHourApiKey, hasMagicHourFreeCreditsOnlyConfirmation } from "./lib/ai-provider-session";
+import { hasAgnesApiKey, hasAgnesFreeTrialOnlyConfirmation, hasAnySecondaryAIKey, hasMagicHourApiKey, hasMagicHourFreeCreditsOnlyConfirmation } from "./lib/ai-provider-session";
 import { checkMagicHourConnection, generateMagicHourClip } from "./lib/video-ai";
+import { checkAgnesConnection, generateAgnesClip } from "./lib/video-agnes";
 import { deriveTopicFromScript, makeProject, parsePastedNarration, scenesFromScript } from "./lib/story";
 import { loadLatestProject, saveProject } from "./lib/storage";
 import { generateNarration } from "./lib/tts";
@@ -664,6 +665,63 @@ export default function App() {
         videoNote = "Magic Hour is connected but paused. Confirm that its balance contains only free credits and that you will use the clips for personal, non-commercial projects.";
       } else {
         videoNote = "No AI video API is connected. The built-in local motion-graphics renderer will create the remaining footage.";
+      }
+
+      // Agnes has a separate, limited-time $0 Angel User Trial price at 720p.
+      // The creator must confirm that the account is on Default / Angel Trial,
+      // not Agent Plan, and that the current dashboard still shows $0/second.
+      // The published Default-user video RPM is about one create request/minute,
+      // so deliberately create at most one Agnes clip per completed project.
+      if (hasAgnesApiKey() && hasAgnesFreeTrialOnlyConfirmation() && generatedVideoCount < scenes.length) {
+        try {
+          const agnesAccess = await checkAgnesConnection();
+          if (!agnesAccess.modelAvailable) {
+            videoNote += " Agnes Video 2.5 Flash is not currently available to this API key.";
+          } else {
+            const missingSceneIndex = scenes.findIndex((scene) => !scene.videoDataUrl);
+            if (missingSceneIndex >= 0) {
+              const scene = scenes[missingSceneIndex];
+              const agnesSeconds = Math.min(12, Math.max(4, Math.floor(scene.duration)));
+              setNotice("Step 2/4 · Magic Hour credits are exhausted or unavailable. Trying one Agnes 720p free-trial clip for " + scene.title + "…");
+              const clip = await generateAgnesClip({
+                prompt: [
+                  scene.visualPrompt || scene.title,
+                  "Scene context: " + scene.narration.slice(0, 500),
+                  "Create a polished documentary insert shot with believable subject motion, cinematic lighting and a purposeful camera move.",
+                  "No text, labels, subtitles, logos or watermarks added by the prompt. This footage will be edited with a separate narration track.",
+                ].join(" "),
+                seconds: agnesSeconds,
+                aspectRatio: project.aspectRatio,
+                onProgress: (message) => setNotice("Step 2/4 · " + message),
+              });
+              const videoDataUrl = await fileToDataUrl(clip.blob);
+              const clipBytes = getEmbeddedVideoSize(videoDataUrl) ?? clip.blob.size;
+              if (generatedMediaBytes + clipBytes > MAX_PROJECT_MEDIA_BYTES) {
+                videoNote += " Agnes produced a clip, but the project storage limit was reached; the clip was not added.";
+              } else {
+                const updatedScenes = [...scenes];
+                updatedScenes[missingSceneIndex] = {
+                  ...scene,
+                  videoDataUrl,
+                  videoClipSource: "local",
+                  videoClipName: "Agnes AI · Video 2.5 Flash · 720P",
+                  videoClipDuration: clip.seconds,
+                  videoClipStart: 0,
+                  videoSourceNote: "Agnes Video 2.5 Flash · 720P · Default / Angel User Trial $0 price confirmed by creator. Recheck trial pricing before each session.",
+                  videoCommercialUseConfirmed: true,
+                };
+                scenes = updatedScenes;
+                generatedMediaBytes += clipBytes;
+                generatedVideoCount += 1;
+                videoNote += " Agnes generated one 720p clip under the creator-confirmed limited-time $0 trial; the remaining scenes use local motion graphics.";
+              }
+            }
+          }
+        } catch (error) {
+          videoNote += " Agnes free-trial generation was unavailable: " + (error instanceof Error ? error.message : "provider error") + ". Remaining scenes will use local motion graphics.";
+        }
+      } else if (hasAgnesApiKey() && !hasAgnesFreeTrialOnlyConfirmation()) {
+        videoNote += " Agnes API key is saved but automatic use is paused; test it and confirm Default / Angel User Trial $0 pricing in Agnes Billing.";
       }
 
       setNotice("Step 3/4 · Story created by " + result.source + ". Preparing narration; video clips: " + generatedVideoCount + "/" + scenes.length + "…");
