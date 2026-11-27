@@ -17,7 +17,7 @@ export type SceneTheme =
   | "entertainment" | "travel" | "food" | "health" | "education"
   | "mystery" | "biography" | "energy" | "generic";
 
-export function getSceneTheme(scene: Pick<Scene, "title" | "caption" | "visualPrompt" | "visualPlan"> & Partial<Pick<Scene, "narration" | "topicContext">>): SceneTheme {
+export function getSceneTheme(scene: Pick<Scene, "title" | "caption" | "visualPrompt"> & Partial<Pick<Scene, "visualPlan" | "narration" | "topicContext">>): SceneTheme {
   const subject = ((scene.topicContext ?? "") + " " + (scene.narration ?? "") + " " + scene.title + " " + scene.caption + " " + scene.visualPrompt + " " + (scene.visualPlan?.subject ?? "")).toLowerCase();
   if (/\b(petrol|gasoline|diesel|fuel|petroleum|refinery|oilfield|pipeline|opec|brent|wti|barrel|fuel pump)\b|crude[- ]oil|oil tanker|fuel price|oil price/.test(subject)) return "energy";
   if (/stock market|share market|stock exchange|trading floor|investor|investment portfolio|initial public offering|\\bipo\\b|\\bnifty\\b|\\bsensex\\b|candlestick|order book|equity market|bull market|bear market|dividend/.test(subject)) return "finance";
