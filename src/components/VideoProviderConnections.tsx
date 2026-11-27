@@ -16,6 +16,22 @@ import {
 import type { MagicHourConnection } from "../lib/video-ai";
 import type { AgnesConnection } from "../lib/video-agnes";
 
+export default function VideoProviderConnections() {
+  const [apiKey, setApiKey] = useState("");
+  const [saved, setSaved] = useState(() => hasMagicHourApiKey());
+  const [freeCreditsConfirmed, setFreeCreditsConfirmed] = useState(() => hasMagicHourFreeCreditsOnlyConfirmation());
+  const [account, setAccount] = useState<MagicHourConnection | null>(null);
+  const [testing, setTesting] = useState(false);
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error" | "">("");
+  const [agnesApiKey, setAgnesApiKey] = useState("");
+  const [agnesSaved, setAgnesSaved] = useState(() => hasAgnesApiKey());
+  const [agnesTrialConfirmed, setAgnesTrialConfirmed] = useState(() => hasAgnesFreeTrialOnlyConfirmation());
+  const [agnesAccount, setAgnesAccount] = useState<AgnesConnection | null>(null);
+  const [agnesTesting, setAgnesTesting] = useState(false);
+  const [agnesMessage, setAgnesMessage] = useState("");
+  const [agnesMessageType, setAgnesMessageType] = useState<"success" | "error" | "">("");
+
   function handleAgnesSave() {
     try {
       saveAgnesApiKey(agnesApiKey);
@@ -87,21 +103,6 @@ import type { AgnesConnection } from "../lib/video-agnes";
     }
   }
 
-export default function VideoProviderConnections() {
-  const [apiKey, setApiKey] = useState("");
-  const [saved, setSaved] = useState(() => hasMagicHourApiKey());
-  const [freeCreditsConfirmed, setFreeCreditsConfirmed] = useState(() => hasMagicHourFreeCreditsOnlyConfirmation());
-  const [account, setAccount] = useState<MagicHourConnection | null>(null);
-  const [testing, setTesting] = useState(false);
-  const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<"success" | "error" | "">("");
-  const [agnesApiKey, setAgnesApiKey] = useState("");
-  const [agnesSaved, setAgnesSaved] = useState(() => hasAgnesApiKey());
-  const [agnesTrialConfirmed, setAgnesTrialConfirmed] = useState(() => hasAgnesFreeTrialOnlyConfirmation());
-  const [agnesAccount, setAgnesAccount] = useState<AgnesConnection | null>(null);
-  const [agnesTesting, setAgnesTesting] = useState(false);
-  const [agnesMessage, setAgnesMessage] = useState("");
-  const [agnesMessageType, setAgnesMessageType] = useState<"success" | "error" | "">("");
 
   function handleSave() {
     try {
