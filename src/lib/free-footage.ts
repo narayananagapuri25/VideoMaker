@@ -14,10 +14,16 @@ const STOP_WORDS = new Set([
   "close", "wide", "dramatic", "modern", "premium", "concept", "illustration", "realistic",
 ]);
 
+function normaliseTerm(word: string): string {
+  if (word.length > 5 && word.endsWith("ies")) return word.slice(0, -3) + "y";
+  if (word.length > 4 && word.endsWith("s") && !word.endsWith("ss")) return word.slice(0, -1);
+  return word;
+}
+
 function sceneTerms(scene: Scene): string[] {
   const words = (scene.title + " " + scene.caption + " " + scene.visualPrompt)
     .toLowerCase().match(/[a-z0-9]{3,}/g) ?? [];
-  const unique = [...new Set(words.filter((word) => !STOP_WORDS.has(word)))];
+  const unique = [...new Set(words.filter((word) => !STOP_WORDS.has(word)).map(normaliseTerm))];
   return unique.slice(0, 8);
 }
 
@@ -27,7 +33,9 @@ function queryForScene(scene: Scene): string {
 
 function relevanceScore(scene: Scene, tags: string[]): number {
   const wanted = new Set(sceneTerms(scene));
-  const candidate = new Set(tags.flatMap((tag) => tag.toLowerCase().match(/[a-z0-9]{3,}/g) ?? []));
+  const candidate = new Set(tags.flatMap((tag) =>
+    (tag.toLowerCase().match(/[a-z0-9]{3,}/g) ?? []).map(normaliseTerm),
+  ));
   let score = 0;
   for (const term of wanted) if (candidate.has(term)) score += 1;
   return score;
