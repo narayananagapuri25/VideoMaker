@@ -250,7 +250,6 @@ function statusFromError(error: unknown): number | undefined {
 function errorHealth(provider: AIProvider, error: unknown): AIProviderHealthEntry {
   const status = statusFromError(error);
   const message = compactError(error);
-  const headers = error instanceof ProviderRequestError ? error.headers : new Headers();
   let retryAt = error instanceof ProviderRequestError ? error.retryAt : undefined;
   if (!retryAt) retryAt = retryAtFromMessage(message);
   if (status === 401 || status === 403) {
