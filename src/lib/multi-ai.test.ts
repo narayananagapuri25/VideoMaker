@@ -182,6 +182,25 @@ describe("multi-provider AI storyboard fallback", () => {
     expect(String(fetchMock.mock.calls[0][0])).toBe("https://api.groq.com/openai/v1/chat/completions");
   });
 
+
+  it("does not treat missing rate-limit headers as zero remaining capacity", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: { free_model_daily_requests: { limit: 50, remaining: 17, used: 33 } },
+      }), { status: 200, headers: { "Content-Type": "application/json" } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify(validStory) } }],
+      }), { status: 200, headers: { "Content-Type": "application/json" } }));
+
+    const result = await generateStoryWithAvailableProviders(options({
+      openrouter: "openrouter-test-key",
+    }));
+
+    expect(result.source).toBe("openrouter");
+    expect(result.providerHealth.openrouter?.remainingRequests).toBe(17);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("fails clearly when no API provider is configured", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
     await expect(generateStoryWithAvailableProviders(options({})))
