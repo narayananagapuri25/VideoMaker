@@ -229,7 +229,7 @@ function responseQuota(provider: "groq" | "openrouter", headers: Headers): AIPro
   const hasRequests = remainingRequests !== undefined;
   const hasTokens = remainingTokens !== undefined;
   if (!hasRequests && !hasTokens) return undefined;
-  const state = hasRequests && remainingRequests === 0 ? "exhausted" : "available";
+  const state = (hasRequests && remainingRequests === 0) || (hasTokens && remainingTokens === 0) ? "exhausted" : "available";
   return healthEntry(state, provider === "groq"
     ? "Latest Groq response rate-limit headers."
     : "Latest OpenRouter inference response headers.", "response-headers", {
