@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampPlayhead, getSceneAtTime, getSceneStartTime, getTimelineDuration } from "./timeline";
+import { clampPlayhead, getSceneAtTime, getSceneStartTime, getSceneTransitionProgress, getTimelineDuration } from "./timeline";
 import type { Scene } from "../types";
 
 const scenes: Scene[] = [
@@ -24,6 +24,13 @@ describe("timeline helpers", () => {
     expect(getSceneAtTime(scenes, 100)?.scene.id).toBe("three");
   });
 
+  it("cross-fades the outgoing scene into its successor near the scene boundary", () => {
+    const position = getSceneAtTime(scenes, 3.8)!;
+    expect(getSceneTransitionProgress(position, true)).toBeGreaterThan(0);
+    expect(getSceneTransitionProgress(position, true)).toBeLessThan(1);
+    expect(getSceneTransitionProgress(getSceneAtTime(scenes, 2)!, true)).toBe(0);
+    expect(getSceneTransitionProgress(getSceneAtTime(scenes, 14.5)!, false)).toBe(0);
+  });
   it("finds a scene start for timeline navigation", () => {
     expect(getSceneStartTime(scenes, "three")).toBe(10);
     expect(getSceneStartTime(scenes, "missing")).toBe(0);
