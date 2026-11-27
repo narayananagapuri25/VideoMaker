@@ -1,13 +1,91 @@
 import { useState } from "react";
 import {
+  clearAgnesApiKey,
   clearMagicHourApiKey,
+  confirmAgnesFreeTrialOnly,
   confirmMagicHourFreeCreditsOnly,
+  getAgnesConnectionHeaders,
+  hasAgnesApiKey,
+  hasAgnesFreeTrialOnlyConfirmation,
   getMagicHourHeaders,
   hasMagicHourApiKey,
   hasMagicHourFreeCreditsOnlyConfirmation,
+  saveAgnesApiKey,
   saveMagicHourApiKey,
 } from "../lib/ai-provider-session";
 import type { MagicHourConnection } from "../lib/video-ai";
+import type { AgnesConnection } from "../lib/video-agnes";
+
+  function handleAgnesSave() {
+    try {
+      saveAgnesApiKey(agnesApiKey);
+      setAgnesApiKey("");
+      setAgnesSaved(true);
+      setAgnesTrialConfirmed(false);
+      setAgnesAccount(null);
+      setAgnesMessage("Agnes API key saved for this browser tab. Test access, then confirm the current $0 Angel User Trial price.");
+      setAgnesMessageType("success");
+    } catch (error) {
+      setAgnesMessage(error instanceof Error ? error.message : "Could not save the Agnes API key.");
+      setAgnesMessageType("error");
+    }
+  }
+
+  function handleAgnesRemove() {
+    clearAgnesApiKey();
+    setAgnesSaved(false);
+    setAgnesTrialConfirmed(false);
+    setAgnesAccount(null);
+    setAgnesMessage("Agnes API key and free-trial consent removed from this tab.");
+    setAgnesMessageType("success");
+  }
+
+  function handleAgnesConsentChange(checked: boolean) {
+    try {
+      confirmAgnesFreeTrialOnly(checked);
+      setAgnesTrialConfirmed(checked);
+      setAgnesMessage(checked
+        ? "Agnes $0 trial-price confirmation saved for this browser tab."
+        : "Agnes automatic video generation is paused until the $0 trial price is reconfirmed.");
+      setAgnesMessageType(checked ? "success" : "");
+    } catch (error) {
+      setAgnesMessage(error instanceof Error ? error.message : "Could not save Agnes trial-price confirmation.");
+      setAgnesMessageType("error");
+    }
+  }
+
+  async function testAgnesConnection() {
+    setAgnesTesting(true);
+    setAgnesMessage("Checking Agnes API access and the free-trial model listing…");
+    setAgnesMessageType("");
+    try {
+      const response = await fetch("/api/video/agnes/connection", {
+        method: "POST",
+        headers: { Accept: "application/json", ...getAgnesConnectionHeaders() },
+        cache: "no-store",
+      });
+      const payload: unknown = await response.json();
+      if (!response.ok) {
+        const detail = typeof payload === "object" && payload !== null && "error" in payload && typeof payload.error === "string"
+          ? payload.error
+          : "Agnes connection test failed (HTTP " + response.status + ").";
+        throw new Error(detail);
+      }
+      if (typeof payload !== "object" || payload === null || !("modelAvailable" in payload) || typeof payload.modelAvailable !== "boolean") {
+        throw new Error("Agnes returned an invalid model-access response.");
+      }
+      const result = payload as AgnesConnection;
+      setAgnesAccount(result);
+      setAgnesSaved(true);
+      setAgnesMessage(result.message);
+      setAgnesMessageType("success");
+    } catch (error) {
+      setAgnesMessage(error instanceof Error ? error.message : "Agnes connection test failed.");
+      setAgnesMessageType("error");
+    } finally {
+      setAgnesTesting(false);
+    }
+  }
 
 export default function VideoProviderConnections() {
   const [apiKey, setApiKey] = useState("");
@@ -17,6 +95,13 @@ export default function VideoProviderConnections() {
   const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"success" | "error" | "">("");
+  const [agnesApiKey, setAgnesApiKey] = useState("");
+  const [agnesSaved, setAgnesSaved] = useState(() => hasAgnesApiKey());
+  const [agnesTrialConfirmed, setAgnesTrialConfirmed] = useState(() => hasAgnesFreeTrialOnlyConfirmation());
+  const [agnesAccount, setAgnesAccount] = useState<AgnesConnection | null>(null);
+  const [agnesTesting, setAgnesTesting] = useState(false);
+  const [agnesMessage, setAgnesMessage] = useState("");
+  const [agnesMessageType, setAgnesMessageType] = useState<"success" | "error" | "">("");
 
   function handleSave() {
     try {
@@ -146,7 +231,50 @@ export default function VideoProviderConnections() {
           Create a developer key at <a href="https://magichour.ai/developer?tab=api-keys" target="_blank" rel="noreferrer">Magic Hour Developer Hub ↗</a>. Magic Hour currently advertises 300 signup credits and up to seven 100-credit daily claims for Basic accounts. Your live API balance is authoritative. The API balance can include purchased credit packs, and Magic Hour does not expose a separate free-credit balance, so generation requires your explicit confirmation that no purchased credits are present. Free-plan video is 480p, for personal, non-commercial use only; watermarks may apply.
         </p>
       </div>
-      <p className="video-provider-security">The key is stored only in this browser tab's session storage, never in your video project or GitHub. It is sent only to the same-origin HTTPS Cloudflare Function. Each request checks credits before submitting; generation stops when the free balance is insufficient.</p>
+      <div className="video-provider-card agnes-video-provider-card">
+        <div className="video-provider-title">
+          <strong>Agnes AI · Video 2.5 Flash</strong>
+          <span className="video-provider-badge">720P · LIMITED-TIME $0 TRIAL</span>
+        </div>
+        <p className="video-provider-help">Agnes currently lists its 720p Flash video model at $0/second during the Angel User Trial promotion. It is intended for Default users; Agent Plan requests are billed at list price ($0.025/second). The offer can end without notice, so recheck Agnes Billing before each session. Free / Default video access has a published limit of about one generation request per minute.</p>
+        <label className="field-label" htmlFor="agnes-api-key">AGNES AI API KEY</label>
+        <input
+          id="agnes-api-key"
+          type="password"
+          autoComplete="off"
+          spellCheck={false}
+          value={agnesApiKey}
+          onChange={(event) => setAgnesApiKey(event.target.value)}
+          placeholder={agnesSaved ? "Key saved for this tab · paste to replace" : "Paste your Agnes AI API key"}
+        />
+        <div className="video-provider-actions">
+          <button className="button button-primary" disabled={!agnesApiKey.trim()} onClick={handleAgnesSave}>Save key for this tab</button>
+          <button className="button button-secondary" disabled={!agnesSaved || agnesTesting} onClick={() => void testAgnesConnection()}>{agnesTesting ? <><span className="spinner" /> Checking…</> : "Test API access"}</button>
+          {agnesSaved && <button className="text-button" onClick={handleAgnesRemove}>Remove key</button>}
+        </div>
+        {agnesAccount && (
+          <div className={agnesAccount.modelAvailable ? "video-credit-note" : "video-credit-note warning"}>
+            {agnesAccount.modelAvailable
+              ? "API access confirmed. Agnes Video 2.5 Flash is listed at 720P. The test cannot verify your billing plan or trial price."
+              : "The free-trial model is not available for this API key."}
+          </div>
+        )}
+        <label className="video-free-confirm">
+          <input
+            type="checkbox"
+            checked={agnesTrialConfirmed}
+            disabled={!agnesSaved || !agnesAccount?.modelAvailable}
+            onChange={(event) => handleAgnesConsentChange(event.target.checked)}
+          />
+          <span>I have checked Agnes Billing and confirm this key is on the Default / Angel User Trial account (not an Agent Plan), and Agnes Video 2.5 Flash currently displays $0/second. I understand the promotion is temporary; if the trial price changes, API generation may be billed at $0.025/second, and I will recheck before using it.</span>
+        </label>
+        {agnesMessage && <div className={"gemini-test-result " + (agnesMessageType || (agnesTesting ? "testing" : "success"))} role={agnesMessageType === "error" ? "alert" : "status"}>{agnesMessage}</div>}
+        <p className="video-provider-help">
+          <a href="https://wiki.agnes-ai.com/en/docs/agnes-video-25-flash" target="_blank" rel="noreferrer">Agnes Video 2.5 Flash API docs ↗</a> · <a href="https://wiki.agnes-ai.com/en/docs/pricing" target="_blank" rel="noreferrer">Official model pricing ↗</a> · <a href="https://agnes-ai.com/" target="_blank" rel="noreferrer">Agnes AI dashboard ↗</a>
+        </p>
+        <p className="video-provider-security">The Agnes key is stored only in this browser tab's session storage, excluded from projects and backups, and sent only to same-origin HTTPS Cloudflare Functions. The server requires the free-trial attestation before creating or polling a video task.</p>
+      </div>
+      <p className="video-provider-security">Magic Hour and Agnes keys remain only in this browser tab's session storage, never in projects or GitHub. The router tries verified Magic Hour Free credits first, then at most one Agnes 720p trial clip per project, then local motion graphics when no free source can safely complete.</p>
       <div className="manual-video-providers">
         <div className="manual-video-heading">
           <strong>More free video generators · manual fallback</strong>
