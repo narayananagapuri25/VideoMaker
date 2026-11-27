@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AspectRatio, Scene } from "../types";
-import { getSceneAtTime, getSceneStartTime, getTimelineDuration } from "../lib/timeline";
+import { getSceneAtTime, getSceneStartTime, getSceneTransitionProgress, getTimelineDuration } from "../lib/timeline";
 import { getSceneVideoSrc } from "../lib/stock-video";
-import { drawSceneFrame } from "../lib/scene-visuals";
+import { drawSceneFrame, type SceneTransition } from "../lib/scene-visuals";
 
 interface PlaybackTimelineProps {
   scenes: Scene[];
@@ -20,6 +20,61 @@ interface PlaybackTimelineProps {
 function formatTime(seconds: number): string {
   const safe = Math.max(0, Math.floor(seconds));
   return Math.floor(safe / 60) + ":" + String(safe % 60).padStart(2, "0");
+}
+
+function drawTimelineFrame(
+  ctx: CanvasRenderingContext2D,
+  scenes: Scene[],
+  images: Map<string, HTMLImageElement>,
+  videos: Map<string, HTMLVideoElement>,
+  position: NonNullable<ReturnType<typeof getSceneAtTime>>,
+  width: number,
+  height: number,
+  projectTime: number,
+  totalDuration: number,
+  isPlaying: boolean,
+): void {
+  const nextScene = scenes[position.index + 1];
+  const progress = getSceneTransitionProgress(position, Boolean(nextScene));
+  let transitionVideo: HTMLVideoElement | undefined;
+  if (nextScene && progress > 0) {
+    transitionVideo = videos.get(nextScene.id);
+    if (transitionVideo && transitionVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      const clipStart = Math.max(0, nextScene.videoClipStart || 0);
+      if (Math.abs(transitionVideo.currentTime - clipStart) > 0.12 && transitionVideo.paused) {
+        try { transitionVideo.currentTime = clipStart; } catch { /* wait for video metadata */ }
+      }
+      if (isPlaying && transitionVideo.paused) {
+        void transitionVideo.play().catch(() => undefined);
+      }
+    } else if (transitionVideo) {
+      transitionVideo = undefined;
+    }
+  }
+  const transition: SceneTransition | undefined = nextScene && progress > 0
+    ? {
+        scene: nextScene,
+        image: images.get(nextScene.id),
+        video: transitionVideo,
+        index: position.index + 1,
+        progress,
+      }
+    : undefined;
+  drawSceneFrame(
+    ctx,
+    width,
+    height,
+    position.scene,
+    images.get(position.scene.id),
+    videos.get(position.scene.id),
+    position.offset,
+    position.scene.duration,
+    position.index,
+    scenes.length,
+    projectTime,
+    totalDuration,
+    transition,
+  );
 }
 
 export default function PlaybackTimeline({
@@ -107,7 +162,7 @@ export default function PlaybackTimeline({
           try { video.currentTime = target; } catch { /* video metadata may still be loading */ }
         }
       }
-      drawSceneFrame(ctx, width, height, position.scene, imagesRef.current.get(position.scene.id), video, position.offset, position.scene.duration, position.index, scenes.length, playheadRef.current, totalDuration);
+      drawTimelineFrame(ctx, scenes, imagesRef.current, videosRef.current, position, width, height, playheadRef.current, totalDuration, isPlaying);
     }
   }, [width, height, scenes, playhead, totalDuration, imageVersion, isPlaying]);
 
@@ -156,7 +211,7 @@ export default function PlaybackTimeline({
           if (activeVideo.paused) void activeVideo.play().catch(() => onPlaybackError?.("This browser could not play the selected scene clip. Try importing a local MP4."));
         }
         if (ctx) {
-          drawSceneFrame(ctx, width, height, position.scene, imagesRef.current.get(position.scene.id), activeVideo, position.offset, position.scene.duration, position.index, scenes.length, nextTime, totalDuration);
+          drawTimelineFrame(ctx, scenes, imagesRef.current, videosRef.current, position, width, height, nextTime, totalDuration, true);
         }
         if (position.scene.id !== lastSelected) {
           lastSelected = position.scene.id;
