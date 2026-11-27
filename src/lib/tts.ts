@@ -25,6 +25,10 @@ function pcmToWav(pcm: Uint8Array, sampleRate = 24_000, channels = 1): Blob {
     for (let index = 0; index < value.length; index += 1) view.setUint8(offset + index, value.charCodeAt(index));
   };
   const byteRate = sampleRate * channels * 2;
+  // Copy into a concrete ArrayBuffer so BlobPart remains valid in TS versions
+  // that distinguish Uint8Array<ArrayBufferLike> from ArrayBuffer-backed views.
+  const pcmBuffer = new ArrayBuffer(pcm.byteLength);
+  new Uint8Array(pcmBuffer).set(pcm);
   writeAscii(0, "RIFF");
   view.setUint32(4, 36 + pcm.byteLength, true);
   writeAscii(8, "WAVE");
@@ -38,7 +42,7 @@ function pcmToWav(pcm: Uint8Array, sampleRate = 24_000, channels = 1): Blob {
   view.setUint16(34, 16, true);
   writeAscii(36, "data");
   view.setUint32(40, pcm.byteLength, true);
-  return new Blob([header, pcm], { type: "audio/wav" });
+  return new Blob([header, pcmBuffer], { type: "audio/wav" });
 }
 
 function decodeBase64Audio(encoded: string, mimeType: string): Blob {
