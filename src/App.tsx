@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { generateStory } from "./lib/ai";
 import { generateNarration } from "./lib/tts";
 import { loadLatestProject, saveProject } from "./lib/storage";
@@ -57,10 +57,6 @@ export default function App() {
   const renderAbortRef = useRef<AbortController | null>(null);
 
   const duration = getTimelineDuration(project.scenes);
-  const selectedScene = useMemo(
-    () => project.scenes.find((scene) => scene.id === selectedSceneId) ?? project.scenes[0],
-    [project.scenes, selectedSceneId],
-  );
   const needsFreeAttestation = selectedProvider === "gemini" || selectedProvider === "groq";
   const providerReady = keySaved && (!needsFreeAttestation || freeUseConfirmed);
 
