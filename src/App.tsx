@@ -8,7 +8,6 @@ import { getUnverifiedSceneMedia } from "./lib/video-generation";
 import { getVideoFileExtension } from "./lib/export-format";
 import {
   confirmSelectedAIFreeUseOnly,
-  getSelectedAIProvider,
   hasSelectedAIFreeUseConsent,
   hasSelectedAIKey,
   removeSelectedAIKey,
