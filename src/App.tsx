@@ -174,6 +174,7 @@ export default function App() {
     setIsRendering(true);
     setRenderProgress(0);
     setRenderMessage("Preparing 1080p cinematic scenes…");
+    setNotice("Rendering the video locally in this browser. Keep this tab open until the download is ready.");
     setIsPlaying(false);
     try {
       const { exportMp4 } = await import("./lib/renderer");
@@ -513,7 +514,7 @@ export default function App() {
             </div>
 
             <button className="button button-primary simple-generate" onClick={() => void handleGenerateVideo()} disabled={!providerReady || !project.topic.trim() || isGenerating || isRendering}>
-              {isGenerating ? <><span className="spinner" /> Creating your video…</> : isRendering ? <><span className="spinner" /> Rendering video…</> : "✦ Generate Video"}
+              {isRendering ? <><span className="spinner" /> Rendering video…</> : isGenerating ? <><span className="spinner" /> Creating your video…</> : "✦ Generate Video"}
             </button>
         <div className="simple-status" role="status" aria-live="polite">{notice}</div>
           </section>
