@@ -27,6 +27,11 @@ describe("scene video sources", () => {
       .toBe("/api/stock/videos/98765?quality=medium");
   });
 
+  it("builds a same-origin stream URL for a NASA public archive clip", () => {
+    expect(getSceneVideoSrc(scene({ videoClipSource: "nasa", videoClipRef: "EARTH_001" })))
+      .toBe("/api/stock/nasa-videos/EARTH_001");
+  });
+
   it("does not invent a video source for an unassigned scene", () => {
     expect(getSceneVideoSrc(scene())).toBeUndefined();
   });
