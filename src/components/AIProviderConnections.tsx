@@ -1,7 +1,10 @@
 import { useState } from "react";
 import {
   clearSecondaryAIKey,
+  confirmCloudflareFreeUseOnly,
   getSecondaryAIProviderHeaders,
+  hasCloudflareAIKey,
+  hasCloudflareFreeUseOnlyConfirmation,
   hasSecondaryAIKey,
   saveCloudflareAIConnection,
   saveSecondaryAIKey,
@@ -45,8 +48,9 @@ export default function AIProviderConnections({ onConnectionChange }: Props) {
   const [saved, setSaved] = useState<Record<string, boolean>>({
     groq: hasSecondaryAIKey("groq"),
     openrouter: hasSecondaryAIKey("openrouter"),
-    cloudflare: hasSecondaryAIKey("cloudflare"),
+    cloudflare: hasCloudflareAIKey(),
   });
+  const [cloudflareFreeOnly, setCloudflareFreeOnly] = useState(() => hasCloudflareFreeUseOnlyConfirmation());
   const [tests, setTests] = useState<Record<string, TestState | undefined>>({});
   const [testing, setTesting] = useState<string | null>(null);
 
@@ -67,6 +71,7 @@ export default function AIProviderConnections({ onConnectionChange }: Props) {
       saveCloudflareAIConnection(inputs.cloudflareAccount || "", inputs.cloudflareToken || "");
       setInputs((current) => ({ ...current, cloudflareToken: "", cloudflareAccount: "" }));
       setSaved((current) => ({ ...current, cloudflare: true }));
+      setCloudflareFreeOnly(false);
       setTests((current) => ({ ...current, cloudflare: undefined }));
       onConnectionChange?.();
     } catch (error) {
@@ -74,8 +79,23 @@ export default function AIProviderConnections({ onConnectionChange }: Props) {
     }
   }
 
+  function handleCloudflareFreeUseChange(checked: boolean) {
+    try {
+      confirmCloudflareFreeUseOnly(checked);
+      setCloudflareFreeOnly(checked);
+      setTests((current) => ({ ...current, cloudflare: undefined }));
+      onConnectionChange?.();
+    } catch (error) {
+      setTests((current) => ({
+        ...current,
+        cloudflare: { status: "error", message: error instanceof Error ? error.message : "Could not save the free-allocation confirmation." },
+      }));
+    }
+  }
+
   function removeProvider(provider: SecondaryAIProvider) {
     clearSecondaryAIKey(provider);
+    if (provider === "cloudflare") setCloudflareFreeOnly(false);
     setSaved((current) => ({ ...current, [provider]: false }));
     setTests((current) => ({ ...current, [provider]: undefined }));
     onConnectionChange?.();
@@ -151,12 +171,21 @@ export default function AIProviderConnections({ onConnectionChange }: Props) {
           <input id="cloudflare-account-id" autoComplete="off" spellCheck={false} value={inputs.cloudflareAccount} onChange={(event) => setInputs((current) => ({ ...current, cloudflareAccount: event.target.value }))} placeholder={saved.cloudflare ? "Account ID saved · paste to replace" : "32-character account ID"} />
           <label className="field-label" htmlFor="cloudflare-ai-token">WORKERS AI API TOKEN</label>
           <input id="cloudflare-ai-token" type="password" autoComplete="off" spellCheck={false} value={inputs.cloudflareToken} onChange={(event) => setInputs((current) => ({ ...current, cloudflareToken: event.target.value }))} placeholder={saved.cloudflare ? "Token saved for this tab · paste to replace" : "Workers AI API token"} />
+          <label className="rights-confirm ai-cloudflare-free-confirm">
+            <input
+              type="checkbox"
+              checked={cloudflareFreeOnly}
+              disabled={!saved.cloudflare}
+              onChange={(event) => handleCloudflareFreeUseChange(event.target.checked)}
+            />
+            <span>I confirm this token belongs to my Cloudflare Workers Free plan. Use only its 10,000-Neuron daily free allocation; do not use Workers Paid overage.</span>
+          </label>
           <div className="ai-provider-actions">
             <button className="button button-primary" disabled={!inputs.cloudflareAccount?.trim() || !inputs.cloudflareToken?.trim()} onClick={saveCloudflare}>Save for this tab</button>
-            <button className="button button-secondary" disabled={testing !== null || !saved.cloudflare} onClick={() => void testProvider("cloudflare")}>{testing === "cloudflare" ? "Testing…" : "Test connection"}</button>
+            <button className="button button-secondary" disabled={testing !== null || !saved.cloudflare || !cloudflareFreeOnly} onClick={() => void testProvider("cloudflare")}>{testing === "cloudflare" ? "Testing…" : "Test connection"}</button>
             {saved.cloudflare && <button className="text-button" onClick={() => removeProvider("cloudflare")}>Remove</button>}
           </div>
-          <p className="ai-provider-help">Use a token with Workers AI read and execution permissions. <a href="https://developers.cloudflare.com/workers-ai/get-started/rest-api/" target="_blank" rel="noreferrer">Setup guide ↗</a></p>
+          <p className="ai-provider-help">Workers AI includes 10,000 Neurons/day at no charge on Workers Free. On Workers Paid, usage beyond that allocation is billed, so VideoMaker keeps this provider disabled until you confirm a Workers Free account. <a href="https://developers.cloudflare.com/workers-ai/platform/pricing/" target="_blank" rel="noreferrer">Free allocation & pricing ↗</a> · <a href="https://developers.cloudflare.com/workers-ai/get-started/rest-api/" target="_blank" rel="noreferrer">Setup guide ↗</a></p>
           {tests.cloudflare && (
             <div className={"gemini-test-result " + tests.cloudflare.status} role={tests.cloudflare.status === "error" ? "alert" : "status"}>
               <span className="gemini-test-icon">{tests.cloudflare.status === "success" ? "✓" : tests.cloudflare.status === "error" ? "!" : "…"}</span>
