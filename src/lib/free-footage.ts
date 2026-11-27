@@ -29,12 +29,13 @@ function sceneTerms(scene: Scene): string[] {
 
 function queryForScene(scene: Scene): string {
   const context = (scene.topicContext + " " + scene.title + " " + scene.narration).toLowerCase();
-  if (/\b(cricket|ipl|rohit sharma|mumbai indians|wankhede)\b/.test(context)) {
-    if (/trophy|champion|title|legacy|golden era|five seasons/.test(context)) return "cricket trophy presentation champions five titles";
-    if (/captain|captaincy|return|comeback|leadership/.test(context)) return "cricket captain walking onto stadium field batting";
-    if (/arshdeep|hardik|trade|transfer|roster|squad|joins|bowler/.test(context)) return "cricket fast bowler bowling action stadium";
-    if (/20th|twentieth|landmark|season|anniversary/.test(context)) return "cricket stadium crowd floodlights night match";
-    if (/prediction|question|final|wankhede|trophy back/.test(context)) return "cricket batsman batting shot ball field stadium";
+  const local = (scene.title + " " + scene.narration + " " + scene.caption).toLowerCase();
+  if (/\\b(cricket|ipl|rohit sharma|mumbai indians|wankhede)\\b/.test(context)) {
+    if (/trophy|champion|title|legacy|golden era|five seasons/.test(local)) return "cricket trophy presentation champions five titles";
+    if (/arshdeep|hardik|trade|transfer|roster|squad|joins|bowler/.test(local)) return "cricket fast bowler bowling action stadium";
+    if (/20th|twentieth|landmark|season|anniversary/.test(local)) return "cricket stadium crowd floodlights night match";
+    if (/prediction|question|final|wankhede|trophy back/.test(local)) return "cricket batsman batting shot ball field stadium";
+    if (/captain|captaincy|return|comeback|leadership/.test(local)) return "cricket captain walking onto stadium field batting";
     return "cricket stadium batting action crowd floodlights";
   }
   return sceneTerms(scene).slice(0, 6).join(" ").slice(0, 100);
