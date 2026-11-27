@@ -215,20 +215,26 @@ function healthEntry(
 }
 
 function responseQuota(provider: "groq" | "openrouter", headers: Headers): AIProviderHealthEntry | undefined {
-  const remainingRequests = Number(headers.get("x-ratelimit-remaining-requests"));
-  const limitRequests = Number(headers.get("x-ratelimit-limit-requests"));
-  const remainingTokens = Number(headers.get("x-ratelimit-remaining-tokens"));
-  const limitTokens = Number(headers.get("x-ratelimit-limit-tokens"));
+  const readHeaderNumber = (name: string): number | undefined => {
+    const raw = headers.get(name);
+    if (raw === null || raw.trim() === "") return undefined;
+    const value = Number(raw);
+    return Number.isFinite(value) && value >= 0 ? value : undefined;
+  };
+  const remainingRequests = readHeaderNumber("x-ratelimit-remaining-requests");
+  const limitRequests = readHeaderNumber("x-ratelimit-limit-requests");
+  const remainingTokens = readHeaderNumber("x-ratelimit-remaining-tokens");
+  const limitTokens = readHeaderNumber("x-ratelimit-limit-tokens");
   const retryAt = retryAtFromHeaders(headers);
-  const hasRequests = Number.isFinite(remainingRequests) && remainingRequests >= 0;
-  const hasTokens = Number.isFinite(remainingTokens) && remainingTokens >= 0;
+  const hasRequests = remainingRequests !== undefined;
+  const hasTokens = remainingTokens !== undefined;
   if (!hasRequests && !hasTokens) return undefined;
   const state = hasRequests && remainingRequests === 0 ? "exhausted" : "available";
   return healthEntry(state, provider === "groq"
     ? "Latest Groq response rate-limit headers."
     : "Latest OpenRouter inference response headers.", "response-headers", {
-    ...(hasRequests ? { remainingRequests, ...(Number.isFinite(limitRequests) && limitRequests >= 0 ? { limitRequests } : {}) } : {}),
-    ...(hasTokens ? { remainingTokens, ...(Number.isFinite(limitTokens) && limitTokens >= 0 ? { limitTokens } : {}) } : {}),
+    ...(hasRequests ? { remainingRequests, ...(limitRequests !== undefined ? { limitRequests } : {}) } : {}),
+    ...(hasTokens ? { remainingTokens, ...(limitTokens !== undefined ? { limitTokens } : {}) } : {}),
     ...(retryAt ? { retryAt } : {}),
   });
 }
