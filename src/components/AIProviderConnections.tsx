@@ -5,12 +5,10 @@ import {
   confirmGroqFreeUseOnly,
   getSecondaryAIHeaders,
   getSecondaryAIProviderHeaders,
-  hasCloudflareAIKey,
   hasCloudflareFreeUseOnlyConfirmation,
   hasGroqApiKey,
   hasGroqFreeUseOnlyConfirmation,
   hasSecondaryAIKey,
-  saveCloudflareAIConnection,
   saveSecondaryAIKey,
   type SecondaryAIProvider,
 } from "../lib/ai-provider-session";
@@ -84,10 +82,9 @@ function healthSummary(entry?: AIProviderHealthEntry): string {
 }
 
 export default function AIProviderConnections({ onConnectionChange }: Props) {
-  const [inputs, setInputs] = useState<Record<string, string>>({ groq: "", openrouter: "", cloudflareToken: "", cloudflareAccount: "" });
+  const [inputs, setInputs] = useState<Record<string, string>>({ groq: "", openrouter: "" });
   const [groqSaved, setGroqSaved] = useState(() => hasGroqApiKey());
   const [openrouterSaved, setOpenrouterSaved] = useState(() => hasSecondaryAIKey("openrouter"));
-  const [cloudflareSaved, setCloudflareSaved] = useState(() => hasCloudflareAIKey());
   const [groqFreeOnly, setGroqFreeOnly] = useState(() => hasGroqFreeUseOnlyConfirmation());
   const [cloudflareFreeOnly, setCloudflareFreeOnly] = useState(() => hasCloudflareFreeUseOnlyConfirmation());
   const [tests, setTests] = useState<Record<string, TestState | undefined>>({});
@@ -168,19 +165,6 @@ export default function AIProviderConnections({ onConnectionChange }: Props) {
     }
   }
 
-  function saveCloudflare() {
-    try {
-      saveCloudflareAIConnection(inputs.cloudflareAccount || "", inputs.cloudflareToken || "");
-      setInputs((current) => ({ ...current, cloudflareToken: "", cloudflareAccount: "" }));
-      setCloudflareSaved(true);
-      setCloudflareFreeOnly(false);
-      setTests((current) => ({ ...current, cloudflare: undefined }));
-      onConnectionChange?.();
-    } catch (error) {
-      setTests((current) => ({ ...current, cloudflare: { status: "error", message: error instanceof Error ? error.message : "Could not save Cloudflare credentials." } }));
-    }
-  }
-
   function handleCloudflareFreeUseChange(checked: boolean) {
     try {
       confirmCloudflareFreeUseOnly(checked);
@@ -204,7 +188,6 @@ export default function AIProviderConnections({ onConnectionChange }: Props) {
     } else if (provider === "openrouter") {
       setOpenrouterSaved(false);
     } else {
-      setCloudflareSaved(false);
       setCloudflareFreeOnly(false);
     }
     setTests((current) => ({ ...current, [provider]: undefined }));
@@ -243,7 +226,7 @@ export default function AIProviderConnections({ onConnectionChange }: Props) {
     }
   }
 
-  const connectedCount = Number(hasSecondaryAIKey("groq")) + Number(hasSecondaryAIKey("openrouter")) + Number(cloudflareSaved && cloudflareFreeOnly);
+  const connectedCount = Number(hasSecondaryAIKey("groq")) + Number(hasSecondaryAIKey("openrouter")) + Number(cloudflareFreeOnly);
 
   return (
     <section className="ai-providers-section" aria-labelledby="alternate-ai-heading">
@@ -270,7 +253,7 @@ export default function AIProviderConnections({ onConnectionChange }: Props) {
             );
           })}
         </div>
-        <small className="ai-quota-footnote">{quotaMessage} Gemini's API does not expose exact remaining free quota; Groq quota is visible only after a generation response; Cloudflare's daily Neuron balance is account-wide and must be checked in its dashboard.</small>
+        <small className="ai-quota-footnote">{quotaMessage} Gemini's API does not expose exact remaining free quota; Groq quota is visible only after a generation response; Workers AI daily Neuron usage is account-wide and must be checked in its dashboard.</small>
       </div>
 
       <div className="ai-provider-grid">
@@ -313,26 +296,21 @@ export default function AIProviderConnections({ onConnectionChange }: Props) {
           );
         })}
         <article className="ai-provider-card">
-          <div className="ai-provider-card-heading"><strong>Cloudflare Workers AI</strong><span className={cloudflareSaved && cloudflareFreeOnly ? "provider-dot connected" : "provider-dot"} />{cloudflareSaved && <em>KEY SAVED</em>}</div>
-          <label className="field-label" htmlFor="cloudflare-account-id">CLOUDFLARE ACCOUNT ID</label>
-          <input id="cloudflare-account-id" autoComplete="off" spellCheck={false} value={inputs.cloudflareAccount} onChange={(event) => setInputs((current) => ({ ...current, cloudflareAccount: event.target.value }))} placeholder={cloudflareSaved ? "Account ID saved · paste to replace" : "32-character account ID"} />
-          <label className="field-label" htmlFor="cloudflare-ai-token">WORKERS AI API TOKEN</label>
-          <input id="cloudflare-ai-token" type="password" autoComplete="off" spellCheck={false} value={inputs.cloudflareToken} onChange={(event) => setInputs((current) => ({ ...current, cloudflareToken: event.target.value }))} placeholder={cloudflareSaved ? "Token saved for this tab · paste to replace" : "Workers AI API token"} />
+          <div className="ai-provider-card-heading"><strong>Cloudflare Workers AI</strong><span className={cloudflareFreeOnly ? "provider-dot connected" : "provider-dot"} /><em>{cloudflareFreeOnly ? "FREE PLAN CONFIRMED" : "SERVER BINDING"}</em></div>
+          <p className="ai-provider-help">Your Cloudflare Pages project already has the Workers AI binding named <strong>AI</strong>. SochoZara calls it server-side; no account ID, API token or browser credential is needed.</p>
           <label className="rights-confirm ai-cloudflare-free-confirm">
             <input
               type="checkbox"
               checked={cloudflareFreeOnly}
-              disabled={!cloudflareSaved}
               onChange={(event) => handleCloudflareFreeUseChange(event.target.checked)}
             />
-            <span>I confirm this token belongs to my Cloudflare Workers Free plan. Use only its 10,000-Neuron daily free allocation; do not use Workers Paid overage.</span>
+            <span>I confirm this account is on the Cloudflare Workers Free plan. Use only the included 10,000-Neuron daily allocation; never use paid overage. If I have a Workers Paid plan, I will leave this disabled unless I separately authorise charges.</span>
           </label>
           <div className="ai-provider-actions">
-            <button className="button button-primary" disabled={!inputs.cloudflareAccount?.trim() || !inputs.cloudflareToken?.trim()} onClick={saveCloudflare}>Save for this tab</button>
-            <button className="button button-secondary" disabled={testing !== null || !cloudflareSaved || !cloudflareFreeOnly} onClick={() => void testProvider("cloudflare")}>{testing === "cloudflare" ? "Testing…" : "Test connection"}</button>
-            {cloudflareSaved && <button className="text-button" onClick={() => removeProvider("cloudflare")}>Remove</button>}
+            <button className="button button-secondary" disabled={testing !== null || !cloudflareFreeOnly} onClick={() => void testProvider("cloudflare")}>{testing === "cloudflare" ? "Testing…" : "Test Workers AI binding"}</button>
+            {cloudflareFreeOnly && <button className="text-button" onClick={() => removeProvider("cloudflare")}>Disable</button>}
           </div>
-          <p className="ai-provider-help">Workers AI Free has 10,000 Neurons/day. VideoMaker never opts into paid Workers overage. Quota is shared with other workloads on this account and is not exposed by the API. <a href="https://developers.cloudflare.com/workers-ai/platform/pricing/" target="_blank" rel="noreferrer">Free allocation & pricing ↗</a> · <a href="https://developers.cloudflare.com/workers-ai/get-started/rest-api/" target="_blank" rel="noreferrer">Setup guide ↗</a></p>
+          <p className="ai-provider-help">Daily usage is account-wide. Check Workers & Pages → AI → Usage in Cloudflare to monitor Neurons. The binding does not expose an exact remaining balance to the app. <a href="https://developers.cloudflare.com/workers-ai/platform/pricing/" target="_blank" rel="noreferrer">Current pricing & limits ↗</a></p>
           {tests.cloudflare && (
             <div className={"gemini-test-result " + tests.cloudflare.status} role={tests.cloudflare.status === "error" ? "alert" : "status"}>
               <span className="gemini-test-icon">{tests.cloudflare.status === "success" ? "✓" : tests.cloudflare.status === "error" ? "!" : "…"}</span>
