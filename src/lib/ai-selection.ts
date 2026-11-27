@@ -51,8 +51,7 @@ export function hasSelectedAIKey(provider: SelectedAIProvider = getSelectedAIPro
   if (provider === "gemini") return hasGeminiSessionKey();
   if (provider === "groq") return hasSecondaryKey("groq");
   if (provider === "cloudflare") return hasSecondaryAIKey("cloudflare");
-  if (provider === "openrouter") return hasSecondaryKey("openrouter");
-  return hasSecondaryAIKey("cloudflare");
+  return hasSecondaryKey("openrouter");
 }
 
 function hasSecondaryKey(provider: SecondaryAIProvider): boolean {
