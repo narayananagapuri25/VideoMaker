@@ -21,13 +21,22 @@ function normaliseTerm(word: string): string {
 }
 
 function sceneTerms(scene: Scene): string[] {
-  const words = (scene.title + " " + scene.caption + " " + scene.visualPrompt)
+  const words = (scene.topicContext + " " + scene.title + " " + scene.narration + " " + scene.caption + " " + scene.visualPrompt)
     .toLowerCase().match(/[a-z0-9]{3,}/g) ?? [];
   const unique = [...new Set(words.filter((word) => !STOP_WORDS.has(word)).map(normaliseTerm))];
   return unique.slice(0, 8);
 }
 
 function queryForScene(scene: Scene): string {
+  const context = (scene.topicContext + " " + scene.title + " " + scene.narration).toLowerCase();
+  if (/\b(cricket|ipl|rohit sharma|mumbai indians|wankhede)\b/.test(context)) {
+    if (/trophy|champion|title|legacy|golden era|five seasons/.test(context)) return "cricket trophy presentation champions five titles";
+    if (/captain|captaincy|return|comeback|leadership/.test(context)) return "cricket captain walking onto stadium field batting";
+    if (/arshdeep|hardik|trade|transfer|roster|squad|joins|bowler/.test(context)) return "cricket fast bowler bowling action stadium";
+    if (/20th|twentieth|landmark|season|anniversary/.test(context)) return "cricket stadium crowd floodlights night match";
+    if (/prediction|question|final|wankhede|trophy back/.test(context)) return "cricket batsman batting shot ball field stadium";
+    return "cricket stadium batting action crowd floodlights";
+  }
   return sceneTerms(scene).slice(0, 6).join(" ").slice(0, 100);
 }
 
