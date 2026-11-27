@@ -49,6 +49,8 @@ export interface SceneVisualPlan {
 export interface Scene {
   id: string;
   title: string;
+  /** Whole-video subject passed to visual direction so context survives scene-level wording. */
+  topicContext?: string;
   narration: string;
   caption: string;
   visualPrompt: string;
