@@ -3,9 +3,9 @@ export type VideoFileExtension = "mp4" | "webm";
 export function shouldUseWebmFallback(
   hasMp4VideoEncoder: boolean,
   hasMp4AudioEncoder: boolean,
-  narrationRequired: boolean,
+  audioTrackRequired: boolean,
 ): boolean {
-  return !hasMp4VideoEncoder || (narrationRequired && !hasMp4AudioEncoder);
+  return !hasMp4VideoEncoder || (audioTrackRequired && !hasMp4AudioEncoder);
 }
 
 export function getVideoFileExtension(mimeType: string): VideoFileExtension {
