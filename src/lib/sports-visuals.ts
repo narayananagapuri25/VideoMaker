@@ -8,7 +8,7 @@ const WHITE = "#F4F8FC";
 const MUTED = "rgba(226,239,247,.72)";
 
 function sceneText(scene: Scene): string {
-  return [scene.title, scene.narration, scene.caption, scene.visualPrompt, scene.visualPlan?.subject, scene.visualPlan?.headline, ...(scene.visualPlan?.labels || []), ...(scene.visualPlan?.steps || [])]
+  return [scene.topicContext, scene.title, scene.narration, scene.caption, scene.visualPrompt, scene.visualPlan?.subject, scene.visualPlan?.headline, ...(scene.visualPlan?.labels || []), ...(scene.visualPlan?.steps || [])]
     .filter(Boolean).join(" ").toLowerCase();
 }
 
