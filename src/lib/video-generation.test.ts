@@ -28,6 +28,11 @@ describe("in-house video generation", () => {
     expect(getSceneVisualMode(scene({ videoClipSource: "pixabay", videoClipId: 123 }))).toBe("footage");
   });
 
+  it("recognizes vetted NASA educational footage as a real scene video", () => {
+    expect(getSceneVisualMode(scene({ videoClipSource: "nasa", videoClipRef: "EARTH_001", videoRightsBasis: "nasa-educational" }))).toBe("footage");
+    expect(getUnverifiedSceneMedia([scene({ videoClipSource: "nasa", videoClipRef: "EARTH_001", videoRightsBasis: "nasa-educational" })])).toEqual([]);
+  });
+
   it("requires rights confirmation only for imported artwork and footage", () => {
     const scenes = [
       scene({ title: "Original motion" }),
