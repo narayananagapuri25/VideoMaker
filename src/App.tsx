@@ -515,6 +515,7 @@ export default function App() {
             <button className="button button-primary simple-generate" onClick={() => void handleGenerateVideo()} disabled={!providerReady || !project.topic.trim() || isGenerating || isRendering}>
               {isGenerating ? <><span className="spinner" /> Creating your video…</> : isRendering ? <><span className="spinner" /> Rendering video…</> : "✦ Generate Video"}
             </button>
+        <div className="simple-status" role="status" aria-live="polite">{notice}</div>
           </section>
 
           <section className="panel simple-preview-panel">
@@ -558,7 +559,6 @@ export default function App() {
           </section>
         </div>
 
-        <div className="simple-status" role="status" aria-live="polite">{notice}</div>
         {project.editorialNote && <details className="simple-editorial"><summary>Editorial note</summary><p>{project.editorialNote}</p></details>}
         <footer className="simple-footer">SOCHOZARA STUDIO · LOCAL-FIRST VIDEO CREATION</footer>
       </main>
