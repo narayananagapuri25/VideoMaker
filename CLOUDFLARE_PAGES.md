@@ -12,7 +12,30 @@ The production secret must be configured on the exact Pages project serving the 
 
 The Pages project is expected to deploy from `main`. Confirm the production branch and build configuration in **Cloudflare Dashboard → Workers & Pages → the Pages project serving this production URL → Settings → Builds**; this repository cannot read account-level Cloudflare settings.
 
-## Cloudflare Workers AI (daily free allocation)\n\nCloudflare Workers AI can generate the storyboard with `@cf/google/gemma-4-26b-a4b-it` and scene-specific artwork with `@cf/black-forest-labs/flux-1-schnell`. The Workers Free plan includes 10,000 Neurons per day, resetting at 00:00 UTC. Requests beyond that allocation fail on Workers Free. Workers Paid accounts can incur charges above the daily allowance, so select this option only when the Cloudflare account is on the Workers Free plan and paid overage is not enabled.\n\n### Add the required Pages binding\n\n1. Open **Cloudflare Dashboard → Workers & Pages → the Pages project serving `https://videomaker-1mz.pages.dev` → Settings**.\n2. Choose the **Production** environment (and Preview separately only if you test preview deployments).\n3. Open **Bindings → Add → Workers AI**.\n4. Set **Variable name** to exactly `AI` and save.\n5. Redeploy the Pages project so the binding is available to its Functions.\n6. Open SochoZara Studio, select **Cloudflare Workers AI**, and confirm the Workers Free-only checkbox.\n\nThe binding is accessed server-side as `env.AI`. No Cloudflare API token or account ID is entered into the Studio. If the binding is missing, the app returns a clear setup error instead of switching to another provider.\n\n### What this provider generates\n\n- Gemma creates the script and storyboard.\n- FLUX.1 schnell generates one topic-specific still image per scene, sequentially, while the selected provider remains Cloudflare.\n- The browser animates those stills with local camera motion and renders the final MP4.\n- This is AI-generated scene artwork, not text-to-video clips. It uses the daily Workers AI allocation shared with other Workers AI usage in the same account.\n\nCloudflare Pages requires the Workers AI binding to be configured in the dashboard for Pages Functions. See the official [Pages bindings guide](https://developers.cloudflare.com/pages/functions/bindings/) and [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/).\n## Gemini API setup
+## Cloudflare Workers AI (daily free allocation)
+
+Cloudflare Workers AI can generate the storyboard with `@cf/google/gemma-4-26b-a4b-it` and scene-specific artwork with `@cf/black-forest-labs/flux-1-schnell`. The Workers Free plan includes 10,000 Neurons per day, resetting at 00:00 UTC. Requests beyond that allocation fail on Workers Free. Workers Paid accounts can incur charges above the daily allowance, so select this option only when the Cloudflare account is on the Workers Free plan and paid overage is not enabled.
+
+### Add the required Pages binding
+
+1. Open **Cloudflare Dashboard → Workers & Pages → the Pages project serving `https://videomaker-1mz.pages.dev` → Settings**.
+2. Choose the **Production** environment (and Preview separately only if you test preview deployments).
+3. Open **Bindings → Add → Workers AI**.
+4. Set **Variable name** to exactly `AI` and save.
+5. Redeploy the Pages project so the binding is available to its Functions.
+6. Open SochoZara Studio, select **Cloudflare Workers AI**, and confirm the Workers Free-only checkbox.
+
+The binding is accessed server-side as `env.AI`. No Cloudflare API token or account ID is entered into the Studio. If the binding is missing, the app returns a clear setup error instead of switching to another provider.
+
+### What this provider generates
+
+- Gemma creates the script and storyboard.
+- FLUX.1 schnell generates one topic-specific still image per scene, sequentially, while the selected provider remains Cloudflare.
+- The browser animates those stills with local camera motion and renders the final MP4.
+- This is AI-generated scene artwork, not text-to-video clips. It uses the daily Workers AI allocation shared with other Workers AI usage in the same account.
+
+Cloudflare Pages requires the Workers AI binding to be configured in the dashboard for Pages Functions. See the official [Pages bindings guide](https://developers.cloudflare.com/pages/functions/bindings/) and [Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/).
+## Gemini API setup
 
 ### Use a key in the Studio for this browser tab
 
