@@ -56,7 +56,7 @@ export async function checkMagicHourConnection(): Promise<MagicHourConnection> {
 
 interface SubmitResponse {
   id: string;
-  model: "default" | "minimax-h3";
+  model: "ltx-2.5" | "minimax-h3";
   creditsCharged: number;
 }
 
