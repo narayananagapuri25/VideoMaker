@@ -15,10 +15,10 @@ function sceneText(scene: Scene): string {
 export function getSportsVisualKind(scene: Scene, sceneIndex: number): SportsVisualKind {
   const text = sceneText(scene);
   if (sceneIndex === 0 && /hook|breaking news|opening|announcement/.test(text)) return "stadium-action";
+  if (/prediction|your prediction|final question|can .* bring|will .* win|comments/.test(text)) return "match-question";
   if (/five titles|five trophies|trophy|champion|championship|legacy|five unforgettable|five seasons|title wins/.test(text)) return "trophy-legacy";
   if (/arshdeep|hardik|trade|transfer|roster|squad|player move|joins|leaves|bowler joins/.test(text)) return "squad-moves";
   if (/20th|twentieth|landmark season|anniversary|milestone/.test(text)) return "season-milestone";
-  if (/prediction|your prediction|final question|can .* bring|will .* win|comments/.test(text)) return "match-question";
   if (/captain|captaincy|leadership|return|back in charge|three years|comeback/.test(text)) return "captain-return";
   return sceneIndex === 0 ? "stadium-action" : sceneIndex % 2 ? "captain-return" : "match-question";
 }
