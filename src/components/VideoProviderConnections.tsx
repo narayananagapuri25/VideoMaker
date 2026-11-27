@@ -229,7 +229,7 @@ export default function VideoProviderConnections() {
         </label>
         {message && <div className={"gemini-test-result " + (messageType || (testing ? "testing" : "success"))} role={messageType === "error" ? "alert" : "status"}>{message}</div>}
         <p className="video-provider-help">
-          Create a developer key at <a href="https://magichour.ai/developer?tab=api-keys" target="_blank" rel="noreferrer">Magic Hour Developer Hub ↗</a>. Magic Hour currently advertises 300 signup credits and up to seven 100-credit daily claims for Basic accounts. Your live API balance is authoritative. The API balance can include purchased credit packs, and Magic Hour does not expose a separate free-credit balance, so generation requires your explicit confirmation that no purchased credits are present. Free-plan video is 480p, for personal, non-commercial use only; watermarks may apply.
+          Create a developer key at <a href="https://magichour.ai/developer?tab=api-keys" target="_blank" rel="noreferrer">Magic Hour Developer Hub ↗</a>. Magic Hour's own help pages currently show different signup-credit allocations (300 versus 400), while Basic accounts can claim up to seven daily 100-credit rewards. The live API balance is authoritative. The API balance can include purchased credit packs, and Magic Hour does not expose a separate free-credit balance, so generation requires your explicit confirmation that no purchased credits are present. Free-plan video is 480p, for personal, non-commercial use only; watermarks may apply.
         </p>
       </div>
       <div className="video-provider-card agnes-video-provider-card">
