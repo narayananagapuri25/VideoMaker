@@ -33,6 +33,12 @@ describe("in-house video generation", () => {
     expect(getUnverifiedSceneMedia([scene({ videoClipSource: "nasa", videoClipRef: "EARTH_001", videoRightsBasis: "nasa-educational" })])).toEqual([]);
   });
 
+  it("recognizes Pixabay Content License footage while still requiring confirmation for unrelated imports", () => {
+    const licensed = scene({ videoClipSource: "pixabay", videoClipId: 123, videoRightsBasis: "pixabay-content-license" });
+    expect(getSceneVisualMode(licensed)).toBe("footage");
+    expect(getUnverifiedSceneMedia([licensed])).toEqual([]);
+  });
+
   it("requires rights confirmation only for imported artwork and footage", () => {
     const scenes = [
       scene({ title: "Original motion" }),
