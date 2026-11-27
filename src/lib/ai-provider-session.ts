@@ -20,6 +20,7 @@ const STORAGE = {
 const MAX_KEY_LENGTH = 2_048;
 const MAX_ACCOUNT_ID_LENGTH = 128;
 const MAGIC_HOUR_FREE_CREDITS_CONFIRMATION = "sochozara.video.magichour-free-credits-confirmed";
+const CLOUDFLARE_FREE_ONLY_CONFIRMATION = "sochozara.ai.cloudflare-free-only-confirmed";
 
 function read(name: string): string {
   try {
@@ -99,6 +100,28 @@ export function saveSecondaryAIKey(provider: SecondaryAIProvider, value: string)
   else throw new Error("Cloudflare requires both an account ID and an API token.");
 }
 
+export function hasCloudflareAIKey(): boolean {
+  const keys = getSecondaryAIKeys();
+  return Boolean(keys.cloudflareApiToken && keys.cloudflareAccountId);
+}
+
+export function confirmCloudflareFreeUseOnly(confirmed: boolean): void {
+  try {
+    if (confirmed) globalThis.sessionStorage.setItem(CLOUDFLARE_FREE_ONLY_CONFIRMATION, "true");
+    else globalThis.sessionStorage.removeItem(CLOUDFLARE_FREE_ONLY_CONFIRMATION);
+  } catch {
+    throw new Error("This browser could not save the Cloudflare free-plan confirmation for this tab.");
+  }
+}
+
+export function hasCloudflareFreeUseOnlyConfirmation(): boolean {
+  try {
+    return globalThis.sessionStorage.getItem(CLOUDFLARE_FREE_ONLY_CONFIRMATION) === "true";
+  } catch {
+    return false;
+  }
+}
+
 export function saveCloudflareAIConnection(accountId: string, apiToken: string): void {
   const account = accountId.trim();
   if (!account) throw new Error("Enter your Cloudflare account ID.");
@@ -110,6 +133,7 @@ export function saveCloudflareAIConnection(accountId: string, apiToken: string):
   try {
     globalThis.sessionStorage.setItem(STORAGE.cloudflareAccountId, account);
     globalThis.sessionStorage.setItem(STORAGE.cloudflareApiToken, apiToken.trim());
+    globalThis.sessionStorage.removeItem(CLOUDFLARE_FREE_ONLY_CONFIRMATION);
   } catch {
     throw new Error("This browser could not save the Cloudflare credentials for this tab.");
   }
@@ -142,6 +166,7 @@ export function clearSecondaryAIKey(provider: SecondaryAIProvider): void {
   else {
     remove(STORAGE.cloudflareApiToken);
     remove(STORAGE.cloudflareAccountId);
+    remove(CLOUDFLARE_FREE_ONLY_CONFIRMATION);
   }
 }
 
@@ -151,8 +176,11 @@ export function getSecondaryAIHeaders(): Record<string, string> {
   const headers: Record<string, string> = {};
   if (keys.groq) headers["X-SochoZara-Groq-Key"] = keys.groq;
   if (keys.openrouter) headers["X-SochoZara-OpenRouter-Key"] = keys.openrouter;
-  if (keys.cloudflareApiToken) headers["X-SochoZara-Cloudflare-Token"] = keys.cloudflareApiToken;
-  if (keys.cloudflareAccountId) headers["X-SochoZara-Cloudflare-Account"] = keys.cloudflareAccountId;
+  if (keys.cloudflareApiToken && keys.cloudflareAccountId && hasCloudflareFreeUseOnlyConfirmation()) {
+    headers["X-SochoZara-Cloudflare-Token"] = keys.cloudflareApiToken;
+    headers["X-SochoZara-Cloudflare-Account"] = keys.cloudflareAccountId;
+    headers["X-SochoZara-Cloudflare-Free-Use"] = "true";
+  }
   return headers;
 }
 
