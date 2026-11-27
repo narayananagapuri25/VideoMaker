@@ -168,12 +168,13 @@ async function decodeAudio(dataUrl: string, maxDuration: number): Promise<AudioB
   }
 }
 
-async function mixWithOriginalAmbientBed(
+async function mixWithLocalSoundtrack(
   narration: AudioBuffer | undefined,
   duration: number,
 ): Promise<AudioBuffer> {
-  // Produce a broadly supported AAC input regardless of the source voice
-  // codec. Older mono/22.05 kHz buffers can be rejected by mobile encoders.
+  // This original instrumental score is synthesised by the app itself. It does
+  // not call a TTS, music, or other AI service, and it is present even when
+  // there is no narration track.
   const sampleRate = 48_000;
   const channelCount = 2;
   const frameCount = Math.max(1, Math.ceil(duration * sampleRate));
@@ -195,28 +196,54 @@ async function mixWithOriginalAmbientBed(
       }
       voiceRms = Math.sqrt(squaredTotal / Math.max(1, sampleCount));
       if (!Number.isFinite(voiceRms) || voiceRms < 0.003) {
-        throw new Error("The generated narration is silent or too quiet to use. Generate the voice-over again before exporting.");
+        throw new Error("The saved narration is silent or too quiet to use. Remove it or replace it before exporting.");
       }
     }
-    // Bring provider-dependent voice levels to a consistent speech target,
-    // while keeping the ambient bed clearly underneath the narration.
     const voiceGain = voiceChannels.length ? Math.max(0.35, Math.min(8, 0.18 / voiceRms)) : 1;
-    const roots = [110, 130.81, 98, 146.83];
+
+    // A four-chord D-minor progression, layered with a soft bass pulse and
+    // short plucked notes. The score loops seamlessly for the full video.
+    const progression = [
+      [73.416, 110.000, 146.832, 174.614],  // Dm
+      [58.270, 116.541, 146.832, 174.614],  // Bb
+      [87.307, 130.813, 174.614, 220.000],  // F
+      [65.406, 130.813, 164.814, 196.000],  // C
+    ];
+    const beatsPerMinute = 96;
+    const beatDuration = 60 / beatsPerMinute;
+    const eighthDuration = beatDuration / 2;
+    const musicGain = voiceChannels.length ? 0.012 : 0.052;
 
     for (let channel = 0; channel < channelCount; channel += 1) {
       const output = mixed.getChannelData(channel);
       const voice = voiceChannels.length ? voiceChannels[Math.min(channel, voiceChannels.length - 1)] : undefined;
       for (let frame = 0; frame < frameCount; frame += 1) {
         const time = frame / sampleRate;
-        const root = roots[Math.floor(time / 8) % roots.length];
-        const slow = 0.72 + 0.28 * Math.sin(time * 0.19);
-        const pad = Math.sin(2 * Math.PI * root * time)
-          + 0.42 * Math.sin(2 * Math.PI * root * 1.5 * time + 0.3)
-          + 0.28 * Math.sin(2 * Math.PI * root * 2 * time + 0.7)
-          + 0.12 * Math.sin(2 * Math.PI * root * 2.5 * time + 0.2);
-        const fadeIn = Math.min(1, time / 1.6);
-        const fadeOut = Math.min(1, Math.max(0, (duration - time) / 2.5));
-        const music = pad * slow * fadeIn * fadeOut * (voice ? 0.012 : 0.052);
+        const chordIndex = Math.floor(time / (beatDuration * 4)) % progression.length;
+        const chord = progression[chordIndex];
+        const slowPulse = 0.82 + 0.18 * Math.sin(time * 0.19);
+        const pad = Math.sin(2 * Math.PI * chord[1] * time)
+          + 0.68 * Math.sin(2 * Math.PI * chord[2] * time + 0.12)
+          + 0.46 * Math.sin(2 * Math.PI * chord[3] * time + 0.28)
+          + 0.12 * Math.sin(2 * Math.PI * chord[1] * 2 * time + 0.4);
+
+        const beatPhase = time % beatDuration;
+        const bass = Math.sin(2 * Math.PI * chord[0] * time) * Math.exp(-beatPhase * 2.8);
+        const pluckStep = Math.floor(time / eighthDuration);
+        const pluckAge = time - pluckStep * eighthDuration;
+        const pluckNote = chord[1 + ([0, 2, 1, 2, 3, 2, 1, 2][pluckStep % 8] % 3)];
+        const pluck = Math.sin(2 * Math.PI * pluckNote * 2 * time) * Math.exp(-pluckAge * 10);
+
+        const kickAge = time % (beatDuration * 2);
+        const kickPhase = 2 * Math.PI * (48 * kickAge + 1.25 * (1 - Math.exp(-18 * kickAge)));
+        const kick = Math.sin(kickPhase) * Math.exp(-kickAge * 9);
+        const fadeIn = Math.min(1, time / 1.8);
+        const fadeOut = Math.min(1, Math.max(0, (duration - time) / 2.8));
+        const pan = channel === 0
+          ? 0.96 + 0.04 * Math.sin(time * 0.16)
+          : 0.96 + 0.04 * Math.sin(time * 0.16 + 0.85);
+        const music = (pad * 0.58 + bass * 0.18 + pluck * 0.12 + kick * 0.08)
+          * slowPulse * fadeIn * fadeOut * musicGain * pan;
 
         let spoken = 0;
         if (voice && narration) {
@@ -227,7 +254,6 @@ async function mixWithOriginalAmbientBed(
           spoken = (voice[lower] * (1 - fraction) + voice[upper] * fraction) * voiceGain * 0.88;
         }
         const combined = spoken + music;
-        // Soft limiting prevents peaks from clipping after normalisation.
         output[frame] = Math.tanh(combined * 1.15) / 1.15;
       }
     }
@@ -236,6 +262,7 @@ async function mixWithOriginalAmbientBed(
     await audioContext.close();
   }
 }
+
 export async function exportMp4(
   project: StudioProject,
   onProgress: (progress: ExportProgress) => void,
@@ -315,8 +342,8 @@ export async function exportMp4(
     throwIfExportAborted(signal);
 
     // Prefer MP4, but use WebM if this browser cannot encode either the MP4
-    // video stream or its required narration audio track.
-    if (shouldUseWebmFallback(Boolean(videoCodec), Boolean(audioCodec), Boolean(project.voiceAudioDataUrl))) {
+    // video stream or the locally generated soundtrack audio track.
+    if (shouldUseWebmFallback(Boolean(videoCodec), Boolean(audioCodec), true)) {
       format = new WebMOutputFormat();
       videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), { width, height, frameRate: fps });
       throwIfExportAborted(signal);
@@ -326,8 +353,8 @@ export async function exportMp4(
       if (!videoCodec) {
         throw new Error("This device cannot encode MP4 (H.264) or WebM (VP8/VP9) video. Update Chrome or try another supported browser/device.");
       }
-      if (project.voiceAudioDataUrl && !audioCodec) {
-        throw new Error("This browser cannot encode narration audio in MP4 or WebM. Update Chrome or try another supported browser/device.");
+      if (!audioCodec) {
+        throw new Error("This browser cannot encode the original soundtrack in MP4 or WebM. Update Chrome or try another supported browser/device.");
       }
       onProgress({
         progress: 0.025,
@@ -443,12 +470,12 @@ export async function exportMp4(
     activeVideo?.pause();
     videoSource.close();
     if (audioSource) {
-      onProgress({ progress: 0.94, message: "Mixing narration with an original ambient soundtrack…" });
+      onProgress({ progress: 0.94, message: "Creating the original soundtrack in SochoZara’s local audio engine…" });
       const narrationBuffer = project.voiceAudioDataUrl
         ? await decodeAudio(project.voiceAudioDataUrl, duration)
         : undefined;
       throwIfExportAborted(signal);
-      const soundtrack = await mixWithOriginalAmbientBed(narrationBuffer, duration);
+      const soundtrack = await mixWithLocalSoundtrack(narrationBuffer, duration);
       throwIfExportAborted(signal);
       await audioSource.add(soundtrack);
       throwIfExportAborted(signal);
