@@ -521,9 +521,10 @@ export default function App() {
 
           <section className="panel simple-preview-panel">
             <div className="simple-preview-header">
-              <div><span className="field-label">VIDEO PREVIEW</span><h2>{project.title || "Your video"}</h2></div>
-              <span className="preview-live"><i /> {isRendering ? "RENDERING" : "READY"}</span>
+              <div><span className="field-label">VIDEO PREVIEW</span><h2>{isGenerating && !isRendering ? "Preparing your new video…" : project.title || "Your video"}</h2></div>
+              <span className="preview-live"><i /> {isRendering ? "RENDERING" : isGenerating ? "GENERATING" : "READY"}</span>
             </div>
+            {isGenerating && !isRendering && <p className="preview-build-note">The previous preview stays here while the new story, voice-over and scene visuals are prepared.</p>}
             <PlaybackTimeline
               scenes={project.scenes}
               aspectRatio={project.aspectRatio}
