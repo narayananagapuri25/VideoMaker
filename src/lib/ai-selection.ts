@@ -28,9 +28,9 @@ function validProvider(value: string | null): value is SelectedAIProvider {
 export function getSelectedAIProvider(): SelectedAIProvider {
   try {
     const stored = globalThis.sessionStorage.getItem(SELECTED_PROVIDER_KEY);
-    return validProvider(stored) ? stored : "gemini";
+    return validProvider(stored) ? stored : "cloudflare";
   } catch {
-    return "gemini";
+    return "cloudflare";
   }
 }
 
