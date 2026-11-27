@@ -185,9 +185,9 @@ export default function App() {
       return;
     }
     if (!providerReady) {
-      setNotice(needsFreeAttestation
-        ? "Save your API key and confirm that the account has free-tier access with paid billing disabled."
-        : "Save your OpenRouter API key before generating.");
+      setNotice(selectedProvider === "cloudflare"
+        ? "Confirm Cloudflare Workers Free use before generating. The Cloudflare Pages project must also have an AI binding named AI."
+        : "Save your selected API key and confirm that the account has free-tier access with paid billing disabled.");
       return;
     }
     if (isGenerating || isRendering) return;
