@@ -707,8 +707,8 @@ export default function App() {
                   videoClipName: "Agnes AI · Video 2.5 Flash · 720P",
                   videoClipDuration: clip.seconds,
                   videoClipStart: 0,
-                  videoSourceNote: "Agnes Video 2.5 Flash · 720P · Default / Angel User Trial $0 price confirmed by creator. Recheck trial pricing before each session.",
-                  videoCommercialUseConfirmed: true,
+                  videoSourceNote: "Agnes Video 2.5 Flash · 720P · creator-confirmed Default / Angel User Trial $0 price. Verify output rights and confirm them in the scene editor before export.",
+                  videoCommercialUseConfirmed: false,
                 };
                 scenes = updatedScenes;
                 generatedMediaBytes += clipBytes;
