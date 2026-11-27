@@ -465,7 +465,7 @@ export default function App() {
                 <div className="simple-security-note">
                   <strong>Daily free AI allowance</strong>
                   <p>Gemma creates the story, FLUX.1 schnell creates distinct scene artwork, and Aura-1 adds English voice-over. All three use the same 10,000-Neuron daily pool, resetting at 00:00 UTC.</p>
-                  <p>FLUX artwork, varied camera moves, subtitles and cross-fades are included. Matching NASA archive footage can add real moving scenes automatically at no API charge or key. The NASA clips are muted and credited; topics without relevant archive footage keep the animated AI artwork. No paid text-to-video provider is called.</p>
+                  <p>FLUX artwork, varied camera moves, subtitles and cross-fades are included. When a free Pixabay key is configured, matching stock footage can cover many genres; NASA adds relevant space, Earth and science clips. The app uses no more than three external clips, credits every source and keeps AI artwork motion wherever footage does not fit. No paid text-to-video provider is called.</p>
                 </div>
               ) : (
                 <>
