@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { generateStory } from "./lib/ai";
+import { generateCloudflareSceneImage, generateStory } from "./lib/ai";
 import { generateNarration } from "./lib/tts";
 import { loadLatestProject, saveProject } from "./lib/storage";
 import { makeProject } from "./lib/story";
@@ -34,6 +34,7 @@ const providerLabels: Record<SelectedAIProvider, string> = {
   gemini: "Google Gemini",
   groq: "Groq",
   openrouter: "OpenRouter · Free models",
+  cloudflare: "Cloudflare Workers AI",
 };
 
 export default function App() {
@@ -57,8 +58,9 @@ export default function App() {
   const renderAbortRef = useRef<AbortController | null>(null);
 
   const duration = getTimelineDuration(project.scenes);
-  const needsFreeAttestation = selectedProvider === "gemini" || selectedProvider === "groq";
-  const providerReady = keySaved && (!needsFreeAttestation || freeUseConfirmed);
+  const needsFreeAttestation = selectedProvider === "gemini" || selectedProvider === "groq" || selectedProvider === "cloudflare";
+  const needsApiKey = selectedProvider !== "cloudflare";
+  const providerReady = (!needsApiKey || keySaved) && (!needsFreeAttestation || freeUseConfirmed);
 
   useEffect(() => {
     let mounted = true;
@@ -123,6 +125,7 @@ export default function App() {
     try {
       confirmSelectedAIFreeUseOnly(selectedProvider, checked);
       setFreeUseConfirmed(checked);
+      if (selectedProvider === "cloudflare") setKeySaved(checked);
       setNotice(checked
         ? "Free-tier-only use confirmed. The app will stop when this provider's free quota is exhausted."
         : "Generation is paused until free-tier-only use is confirmed.");
@@ -182,9 +185,9 @@ export default function App() {
       return;
     }
     if (!providerReady) {
-      setNotice(needsFreeAttestation
-        ? "Save your API key and confirm that the account has free-tier access with paid billing disabled."
-        : "Save your OpenRouter API key before generating.");
+      setNotice(selectedProvider === "cloudflare"
+        ? "Confirm Cloudflare Workers Free use before generating. The Cloudflare Pages project must also have an AI binding named AI."
+        : "Save your selected API key and confirm that the account has free-tier access with paid billing disabled.");
       return;
     }
     if (isGenerating || isRendering) return;
@@ -198,10 +201,40 @@ export default function App() {
         targetDuration: project.targetDuration,
         aspectRatio: project.aspectRatio,
       });
-      const scenes: Scene[] = result.story.scenes.map((scene, index) => ({
+      let scenes: Scene[] = result.story.scenes.map((scene, index) => ({
         ...scene,
         id: globalThis.crypto?.randomUUID?.() ?? ("scene-" + Date.now() + "-" + index),
       }));
+      let visualNote = "";
+      if (selectedProvider === "cloudflare") {
+        const illustrated: Scene[] = [];
+        for (let index = 0; index < scenes.length; index += 1) {
+          const scene = scenes[index];
+          setNotice("Creating original FLUX artwork · scene " + (index + 1) + " of " + scenes.length + "…");
+          const visualPrompt = [
+            "Premium cinematic documentary still image for an educational video.",
+            "Subject and visual direction: " + (scene.visualPrompt || scene.title),
+            "Scene title for context only: " + scene.title,
+            "Photorealistic, art-directed, rich environmental detail, strong composition, depth and natural lighting.",
+            "No text, letters, numbers, logos, captions, watermarks, borders, UI or infographic labels.",
+          ].join(" ").slice(0, 2_048);
+          try {
+            const imageDataUrl = await generateCloudflareSceneImage(visualPrompt);
+            illustrated.push({
+              ...scene,
+              imageDataUrl,
+              imageGeneratedByAI: true,
+              imageProvider: "other",
+              imageSourceNote: "Cloudflare Workers AI · FLUX.1 schnell",
+            });
+          } catch (error) {
+            illustrated.push(...scenes.slice(index));
+            visualNote = " AI artwork stopped at scene " + (index + 1) + ": " + (error instanceof Error ? error.message : "Cloudflare image generation failed") + ". Remaining scenes use original in-house motion graphics; no other AI provider was used.";
+            break;
+          }
+        }
+        scenes = illustrated;
+      }
 
       let voiceAudioDataUrl: string | undefined;
       let voiceAudioName: string | undefined;
@@ -245,8 +278,8 @@ export default function App() {
       setPlayhead(0);
       setIsPlaying(false);
       setNotice(result.fallbackNotice
-        ? result.fallbackNotice + voiceNote + " Rendering your video…"
-        : "Story and scenes are ready." + voiceNote + " Rendering your video…");
+        ? result.fallbackNotice + voiceNote + visualNote + " Rendering your video…"
+        : "Story and scenes are ready." + voiceNote + visualNote + " Rendering your video…");
       await renderProject(generatedProject);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Video generation failed.");
@@ -328,28 +361,41 @@ export default function App() {
               <select id="simple-provider-select" value={selectedProvider} onChange={(event) => handleProviderChange(event.target.value)}>
                 <option value="gemini">Google Gemini · Story + narration</option>
                 <option value="groq">Groq · Story generation</option>
-                <option value="openrouter">OpenRouter · Free models</option>
+                <option value="openrouter">OpenRouter · Free models · 50 requests/day</option>
+                <option value="cloudflare">Cloudflare Workers AI · 10,000 Neurons/day + FLUX images</option>
               </select>
-              <label className="field-label" htmlFor="simple-api-key">API KEY · SAVED FOR THIS TAB ONLY</label>
-              <input
-                id="simple-api-key"
-                type="password"
-                autoComplete="off"
-                spellCheck={false}
-                value={apiKey}
-                onChange={(event) => setApiKey(event.target.value)}
-                placeholder={keySaved ? "Key saved · paste a new key to replace" : "Paste your selected provider API key"}
-                disabled={isGenerating || isRendering}
-              />
-              <div className="simple-key-actions">
-                <button className="button button-secondary" onClick={handleSaveKey} disabled={!apiKey.trim() || isGenerating || isRendering}>Save key for this session</button>
-                {keySaved && <button className="text-button" onClick={handleRemoveKey} disabled={isGenerating || isRendering}>Remove key</button>}
-                <span className={providerReady ? "clip-status ready" : "clip-status"}>{providerReady ? "READY" : keySaved ? "FREE-TIER CONFIRMATION REQUIRED" : "KEY REQUIRED"}</span>
-              </div>
+              {selectedProvider === "cloudflare" ? (
+                <div className="simple-security-note">
+                  <strong>Daily free AI allowance</strong>
+                  <p>Uses the Cloudflare Pages AI binding for storyboard generation and FLUX.1 schnell scene artwork. The 10,000-Neuron allowance resets daily at 00:00 UTC. Requires an AI binding named AI on the Cloudflare Pages project.</p>
+                  <p>Scene images are animated locally with camera motion. This creates AI artwork, not AI-generated video clips.</p>
+                </div>
+              ) : (
+                <>
+                  <label className="field-label" htmlFor="simple-api-key">API KEY · SAVED FOR THIS TAB ONLY</label>
+                  <input
+                    id="simple-api-key"
+                    type="password"
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={apiKey}
+                    onChange={(event) => setApiKey(event.target.value)}
+                    placeholder={keySaved ? "Key saved · paste a new key to replace" : "Paste your selected provider API key"}
+                    disabled={isGenerating || isRendering}
+                  />
+                  <div className="simple-key-actions">
+                    <button className="button button-secondary" onClick={handleSaveKey} disabled={!apiKey.trim() || isGenerating || isRendering}>Save key for this session</button>
+                    {keySaved && <button className="text-button" onClick={handleRemoveKey} disabled={isGenerating || isRendering}>Remove key</button>}
+                    <span className={providerReady ? "clip-status ready" : "clip-status"}>{providerReady ? "READY" : keySaved ? "FREE-TIER CONFIRMATION REQUIRED" : "KEY REQUIRED"}</span>
+                  </div>
+                </>
+              )}
               {needsFreeAttestation && (
                 <label className="simple-free-confirm">
-                  <input type="checkbox" checked={freeUseConfirmed} disabled={!keySaved || isGenerating || isRendering} onChange={(event) => handleFreeUseChange(event.target.checked)} />
-                  <span>I confirm this account is on the provider's free tier, has no paid API billing enabled, and must stop when free quota is exhausted.</span>
+                  <input type="checkbox" checked={freeUseConfirmed} disabled={(!keySaved && selectedProvider !== "cloudflare") || isGenerating || isRendering} onChange={(event) => handleFreeUseChange(event.target.checked)} />
+                  <span>{selectedProvider === "cloudflare"
+                    ? "I confirm this account is on Cloudflare Workers Free and generation must stop at the 10,000-Neuron daily allowance."
+                    : "I confirm this account is on the provider's free tier, has no paid API billing enabled, and must stop when free quota is exhausted."}</span>
                 </label>
               )}
               <small className="simple-security-note">Your API key stays in this browser tab's session storage. It is not added to your project, downloaded video, backups or GitHub. Only the selected provider is sent requests. No cross-provider fallback and no paid model IDs.</small>

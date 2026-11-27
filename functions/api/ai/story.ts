@@ -4,7 +4,7 @@ import type { AspectRatio, Language } from "../../../src/types";
 
 const languages: Language[] = ["English", "Hinglish", "Hindi", "Telugu"];
 const ratios: AspectRatio[] = ["9:16", "16:9"];
-const providers = ["gemini", "groq", "openrouter"] as const;
+const providers = ["gemini", "groq", "openrouter", "cloudflare"] as const;
 
 export async function onRequestPost({ request, env }: PagesContext): Promise<Response> {
   const originError = checkSameOrigin(request);
@@ -35,11 +35,25 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
   }
 
   const credentials = resolveAIRequestCredentials(request, env);
-  // Strict single-provider execution. Other connected credentials and the
-  // Cloudflare Workers AI binding are deliberately excluded from this request.
-  credentials.cloudflareAI = undefined;
-  credentials.cloudflareApiToken = undefined;
-  credentials.cloudflareAccountId = undefined;
+  // Strict single-provider execution: only the explicitly selected provider is eligible.
+  if (selected === "cloudflare") {
+    if (request.headers.get("X-SochoZara-Cloudflare-Free-Use") !== "true") {
+      return jsonNoStore({ error: "Confirm Cloudflare Workers Free use before generation.", code: "CLOUDFLARE_FREE_PLAN_CONFIRMATION_REQUIRED" }, 403);
+    }
+    if (!env.AI) {
+      return jsonNoStore({ error: "Cloudflare Workers AI is not attached to this Cloudflare Pages project. Add the AI binding named AI in Pages project settings, then deploy again.", code: "CLOUDFLARE_AI_BINDING_MISSING" }, 503);
+    }
+    credentials.gemini = undefined;
+    credentials.groq = undefined;
+    credentials.openrouter = undefined;
+    credentials.cloudflareAI = env.AI;
+    credentials.cloudflareApiToken = undefined;
+    credentials.cloudflareAccountId = undefined;
+  } else {
+    credentials.cloudflareAI = undefined;
+    credentials.cloudflareApiToken = undefined;
+    credentials.cloudflareAccountId = undefined;
+  }
   if (selected === "gemini") {
     if (request.headers.get("X-SochoZara-Gemini-Free-Use") !== "true") {
       return jsonNoStore({ error: "Confirm that Gemini is on its Free Tier with paid billing disabled.", code: "GEMINI_FREE_TIER_CONFIRMATION_REQUIRED" }, 403);
@@ -52,14 +66,15 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
     }
     credentials.gemini = undefined;
     credentials.openrouter = undefined;
-  } else {
+  } else if (selected === "openrouter") {
     credentials.gemini = undefined;
     credentials.groq = undefined;
   }
 
   const hasProvider = selected === "gemini" ? Boolean(credentials.gemini)
     : selected === "groq" ? Boolean(credentials.groq)
-      : Boolean(credentials.openrouter);
+      : selected === "cloudflare" ? Boolean(credentials.cloudflareAI)
+        : Boolean(credentials.openrouter);
   if (!hasProvider) {
     return jsonNoStore({ error: "The selected AI key is missing from this browser tab. Save the key again and retry.", code: "SELECTED_AI_KEY_MISSING" }, 503);
   }
@@ -80,7 +95,8 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
     const providerHealth = error && typeof error === "object" && "providerHealth" in error
       ? (error as Error & { providerHealth?: unknown }).providerHealth
       : undefined;
-    const result = providerError(error);
+    const providerName = selected === "cloudflare" ? "Cloudflare Workers AI" : selected === "groq" ? "Groq" : selected === "openrouter" ? "OpenRouter" : "Gemini";
+    const result = providerError(error, providerName);
     if (providerHealth) return jsonNoStore({ ...await result.json() as Record<string, unknown>, providerHealth }, result.status);
     return result;
   }

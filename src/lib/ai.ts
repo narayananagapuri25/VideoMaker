@@ -376,6 +376,27 @@ export async function generateStory(
   return { story: payload.story as unknown as GeneratedStory, source, fallbackNotice };
 }
 
+/** Generates one scene-specific still image with the explicitly selected Cloudflare Workers AI provider. */
+export async function generateCloudflareSceneImage(prompt: string): Promise<string> {
+  const response = await fetch("/api/ai/scene-image", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json", ...getSelectedAIHeaders() },
+    body: JSON.stringify({ prompt }),
+    cache: "no-store",
+  });
+  if (!response.ok) throw await readApiError(response);
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error("Cloudflare Workers AI returned an unreadable scene image response.");
+  }
+  if (!isRecord(payload) || typeof payload.imageDataUrl !== "string" || !payload.imageDataUrl.startsWith("data:image/")) {
+    throw new Error("Cloudflare Workers AI did not return a valid scene image.");
+  }
+  return payload.imageDataUrl;
+}
+
 /** Connection check uses the tab-session key when saved, otherwise the Cloudflare Pages secret. */
 export async function testGeminiConnection(): Promise<string> {
   const response = await fetch("/api/ai/connection", {

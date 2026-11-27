@@ -223,7 +223,7 @@ export async function exportMp4(
 ): Promise<Blob> {
   throwIfExportAborted(signal);
   if (!project.scenes.length) throw new Error("Add at least one scene before exporting.");
-  const unverifiedImages = project.scenes.filter((scene) => scene.imageDataUrl && !scene.imageCommercialUseConfirmed);
+  const unverifiedImages = project.scenes.filter((scene) => scene.imageDataUrl && !scene.imageCommercialUseConfirmed && !scene.imageGeneratedByAI);
   if (unverifiedImages.length) throw new Error("Confirm image usage rights before exporting: " + unverifiedImages.map((scene) => scene.title).join(", ") + ".");
   const unverifiedVideo = project.scenes.filter((scene) =>
     (scene.videoDataUrl || (scene.videoClipSource === "pixabay" && scene.videoClipId)) && !scene.videoCommercialUseConfirmed,

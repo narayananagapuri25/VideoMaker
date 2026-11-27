@@ -34,6 +34,7 @@ describe("in-house video generation", () => {
       scene({ id: "image", title: "Artwork", imageDataUrl: "data:image/png;base64,AA==" }),
       scene({ id: "video", title: "Imported video", videoDataUrl: "data:video/mp4;base64,AA==" }),
       scene({ id: "licensed", title: "Confirmed art", imageDataUrl: "data:image/png;base64,AA==", imageCommercialUseConfirmed: true }),
+      scene({ id: "generated", title: "AI artwork", imageDataUrl: "data:image/jpeg;base64,AA==", imageGeneratedByAI: true }),
     ];
     expect(getUnverifiedSceneMedia(scenes)).toEqual(["Artwork", "Imported video"]);
   });
