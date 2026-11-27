@@ -1,15 +1,28 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   clearSecondaryAIKey,
   confirmCloudflareFreeUseOnly,
+  confirmGroqFreeUseOnly,
+  getSecondaryAIHeaders,
   getSecondaryAIProviderHeaders,
   hasCloudflareAIKey,
   hasCloudflareFreeUseOnlyConfirmation,
+  hasGroqApiKey,
+  hasGroqFreeUseOnlyConfirmation,
   hasSecondaryAIKey,
   saveCloudflareAIConnection,
   saveSecondaryAIKey,
   type SecondaryAIProvider,
 } from "../lib/ai-provider-session";
+import { getGeminiSessionHeaders } from "../lib/gemini-session";
+import {
+  AI_PROVIDER_HEALTH_EVENT,
+  getAIProviderHealth,
+  getAIProviderHealthHeader,
+  saveAIProviderHealth,
+  type AIProviderHealthEntry,
+  type AIProviderHealthMap,
+} from "../lib/ai-provider-health";
 
 interface Props {
   onConnectionChange?: () => void;
@@ -31,7 +44,7 @@ const providers: Array<{
     inputLabel: "GROQ API KEY",
     placeholder: "Paste your Groq API key",
     signupUrl: "https://console.groq.com/keys",
-    help: "Fast inference. Used after Gemini when Gemini is unavailable.",
+    help: "Fast free-developer inference. Its live request/token limits are learned from inference response headers.",
   },
   {
     id: "openrouter",
@@ -39,30 +52,119 @@ const providers: Array<{
     inputLabel: "OPENROUTER API KEY",
     placeholder: "Paste your OpenRouter API key",
     signupUrl: "https://openrouter.ai/keys",
-    help: "Routes to an available free model. Free-model daily limits apply.",
+    help: "Automatically routes to a $0 free model. Daily free-request quota is checked without running a generation.",
   },
 ];
 
+const providerNames = {
+  gemini: "Gemini",
+  groq: "Groq",
+  openrouter: "OpenRouter",
+  cloudflare: "Cloudflare Workers AI",
+} as const;
+
+function healthLabel(entry?: AIProviderHealthEntry): string {
+  if (!entry) return "QUOTA UNKNOWN";
+  if (entry.state === "available") return "AVAILABLE";
+  if (entry.state === "exhausted") return "LIMIT REACHED";
+  if (entry.state === "degraded") return "TEMPORARILY UNAVAILABLE";
+  if (entry.state === "blocked") return "CHECK CREDENTIALS";
+  return "QUOTA UNKNOWN";
+}
+
+function healthSummary(entry?: AIProviderHealthEntry): string {
+  if (!entry) return "No recent quota signal yet.";
+  if (entry.remainingRequests !== undefined) {
+    return entry.remainingRequests + " of " + (entry.limitRequests ?? "unknown") + " free requests remaining";
+  }
+  if (entry.remainingTokens !== undefined) {
+    return entry.remainingTokens.toLocaleString() + " of " + (entry.limitTokens ?? "unknown").toLocaleString() + " tokens remaining (latest response)";
+  }
+  return entry.note;
+}
+
 export default function AIProviderConnections({ onConnectionChange }: Props) {
   const [inputs, setInputs] = useState<Record<string, string>>({ groq: "", openrouter: "", cloudflareToken: "", cloudflareAccount: "" });
-  const [saved, setSaved] = useState<Record<string, boolean>>({
-    groq: hasSecondaryAIKey("groq"),
-    openrouter: hasSecondaryAIKey("openrouter"),
-    cloudflare: hasCloudflareAIKey(),
-  });
+  const [groqSaved, setGroqSaved] = useState(() => hasGroqApiKey());
+  const [openrouterSaved, setOpenrouterSaved] = useState(() => hasSecondaryAIKey("openrouter"));
+  const [cloudflareSaved, setCloudflareSaved] = useState(() => hasCloudflareAIKey());
+  const [groqFreeOnly, setGroqFreeOnly] = useState(() => hasGroqFreeUseOnlyConfirmation());
   const [cloudflareFreeOnly, setCloudflareFreeOnly] = useState(() => hasCloudflareFreeUseOnlyConfirmation());
   const [tests, setTests] = useState<Record<string, TestState | undefined>>({});
   const [testing, setTesting] = useState<string | null>(null);
+  const [health, setHealth] = useState<AIProviderHealthMap>(() => getAIProviderHealth());
+  const [refreshingQuota, setRefreshingQuota] = useState(false);
+  const [quotaMessage, setQuotaMessage] = useState("Quota refresh checks provider metadata only; it never generates content.");
+
+  useEffect(() => {
+    const refresh = () => setHealth(getAIProviderHealth());
+    window.addEventListener(AI_PROVIDER_HEALTH_EVENT, refresh);
+    return () => window.removeEventListener(AI_PROVIDER_HEALTH_EVENT, refresh);
+  }, []);
+
+  useEffect(() => {
+    void refreshQuota();
+    // Credentials are intentionally tab-scoped; initial refresh runs once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function refreshQuota() {
+    setRefreshingQuota(true);
+    setQuotaMessage("Checking free-plan availability without generating content…");
+    try {
+      const response = await fetch("/api/ai/quota", {
+        method: "GET",
+        headers: { Accept: "application/json", ...getGeminiSessionHeaders(), ...getSecondaryAIHeaders(), ...getAIProviderHealthHeader() },
+        cache: "no-store",
+      });
+      const payload: unknown = await response.json();
+      if (!response.ok) {
+        const message = typeof payload === "object" && payload !== null && "error" in payload && typeof payload.error === "string"
+          ? payload.error
+          : "Quota refresh failed (HTTP " + response.status + ").";
+        throw new Error(message);
+      }
+      if (typeof payload === "object" && payload !== null && "providerHealth" in payload && typeof payload.providerHealth === "object" && payload.providerHealth !== null) {
+        saveAIProviderHealth(payload.providerHealth as AIProviderHealthMap);
+      }
+      setHealth(getAIProviderHealth());
+      setQuotaMessage(typeof payload === "object" && payload !== null && "message" in payload && typeof payload.message === "string"
+        ? payload.message
+        : "Free availability refreshed.");
+    } catch (error) {
+      setQuotaMessage(error instanceof Error ? error.message : "Could not refresh provider availability.");
+    } finally {
+      setRefreshingQuota(false);
+    }
+  }
 
   function saveProvider(provider: Exclude<SecondaryAIProvider, "cloudflare">) {
     try {
       saveSecondaryAIKey(provider, inputs[provider] || "");
       setInputs((current) => ({ ...current, [provider]: "" }));
-      setSaved((current) => ({ ...current, [provider]: true }));
+      if (provider === "groq") {
+        setGroqSaved(true);
+        setGroqFreeOnly(false);
+      } else {
+        setOpenrouterSaved(true);
+      }
       setTests((current) => ({ ...current, [provider]: undefined }));
+      setHealth(getAIProviderHealth());
       onConnectionChange?.();
     } catch (error) {
       setTests((current) => ({ ...current, [provider]: { status: "error", message: error instanceof Error ? error.message : "Could not save this API key." } }));
+    }
+  }
+
+  function handleGroqFreeUseChange(checked: boolean) {
+    try {
+      confirmGroqFreeUseOnly(checked);
+      setGroqFreeOnly(checked);
+      setTests((current) => ({ ...current, groq: undefined }));
+      setHealth(getAIProviderHealth());
+      onConnectionChange?.();
+    } catch (error) {
+      setTests((current) => ({ ...current, groq: { status: "error", message: error instanceof Error ? error.message : "Could not save Groq free-plan confirmation." } }));
     }
   }
 
@@ -70,7 +172,7 @@ export default function AIProviderConnections({ onConnectionChange }: Props) {
     try {
       saveCloudflareAIConnection(inputs.cloudflareAccount || "", inputs.cloudflareToken || "");
       setInputs((current) => ({ ...current, cloudflareToken: "", cloudflareAccount: "" }));
-      setSaved((current) => ({ ...current, cloudflare: true }));
+      setCloudflareSaved(true);
       setCloudflareFreeOnly(false);
       setTests((current) => ({ ...current, cloudflare: undefined }));
       onConnectionChange?.();
@@ -84,6 +186,7 @@ export default function AIProviderConnections({ onConnectionChange }: Props) {
       confirmCloudflareFreeUseOnly(checked);
       setCloudflareFreeOnly(checked);
       setTests((current) => ({ ...current, cloudflare: undefined }));
+      setHealth(getAIProviderHealth());
       onConnectionChange?.();
     } catch (error) {
       setTests((current) => ({
@@ -95,9 +198,17 @@ export default function AIProviderConnections({ onConnectionChange }: Props) {
 
   function removeProvider(provider: SecondaryAIProvider) {
     clearSecondaryAIKey(provider);
-    if (provider === "cloudflare") setCloudflareFreeOnly(false);
-    setSaved((current) => ({ ...current, [provider]: false }));
+    if (provider === "groq") {
+      setGroqSaved(false);
+      setGroqFreeOnly(false);
+    } else if (provider === "openrouter") {
+      setOpenrouterSaved(false);
+    } else {
+      setCloudflareSaved(false);
+      setCloudflareFreeOnly(false);
+    }
     setTests((current) => ({ ...current, [provider]: undefined }));
+    setHealth(getAIProviderHealth());
     onConnectionChange?.();
   }
 
@@ -121,8 +232,10 @@ export default function AIProviderConnections({ onConnectionChange }: Props) {
         ? payload.message
         : "Provider connection successful.";
       setTests((current) => ({ ...current, [provider]: { status: "success", message } }));
-      setSaved((current) => ({ ...current, [provider]: true }));
+      if (provider === "groq") setGroqSaved(true);
+      if (provider === "openrouter") setOpenrouterSaved(true);
       onConnectionChange?.();
+      if (provider === "openrouter") void refreshQuota();
     } catch (error) {
       setTests((current) => ({ ...current, [provider]: { status: "error", message: error instanceof Error ? error.message : "Provider connection test failed." } }));
     } finally {
@@ -130,62 +243,96 @@ export default function AIProviderConnections({ onConnectionChange }: Props) {
     }
   }
 
+  const connectedCount = Number(hasSecondaryAIKey("groq")) + Number(hasSecondaryAIKey("openrouter")) + Number(cloudflareSaved && cloudflareFreeOnly);
+
   return (
     <section className="ai-providers-section" aria-labelledby="alternate-ai-heading">
       <div className="ai-providers-heading">
-        <div><span className="field-label">MORE FREE-TIER MODELS</span><strong id="alternate-ai-heading">Connect alternate AI providers</strong></div>
-        <span className="ai-provider-count">{Object.values(saved).filter(Boolean).length} CONNECTED</span>
+        <div><span className="field-label">FREE-ONLY SMART ROUTER</span><strong id="alternate-ai-heading">Connect alternate AI providers</strong></div>
+        <span className="ai-provider-count">{connectedCount} READY</span>
       </div>
-      <p className="ai-provider-intro">Save your own API keys for this browser tab. Story generation tries Gemini first, then uses these providers automatically when an earlier provider is unavailable.</p>
-      <div className="ai-provider-grid">
-        {providers.map((provider) => (
-          <article className="ai-provider-card" key={provider.id}>
-            <div className="ai-provider-card-heading"><strong>{provider.name}</strong><span className={saved[provider.id] ? "provider-dot connected" : "provider-dot"} />{saved[provider.id] && <em>KEY SAVED</em>}</div>
-            <label className="field-label" htmlFor={provider.id + "-api-key"}>{provider.inputLabel}</label>
-            <input
-              id={provider.id + "-api-key"}
-              type="password"
-              autoComplete="off"
-              spellCheck={false}
-              value={inputs[provider.id]}
-              onChange={(event) => setInputs((current) => ({ ...current, [provider.id]: event.target.value }))}
-              placeholder={saved[provider.id] ? "Key saved for this tab · paste to replace" : provider.placeholder}
-            />
-            <div className="ai-provider-actions">
-              <button className="button button-primary" disabled={!inputs[provider.id]?.trim()} onClick={() => saveProvider(provider.id)}>Save for this tab</button>
-              <button className="button button-secondary" disabled={testing !== null || !saved[provider.id]} onClick={() => void testProvider(provider.id)}>{testing === provider.id ? "Testing…" : "Test connection"}</button>
-              {saved[provider.id] && <button className="text-button" onClick={() => removeProvider(provider.id)}>Remove</button>}
-            </div>
-            <p className="ai-provider-help">{provider.help} <a href={provider.signupUrl} target="_blank" rel="noreferrer">Get API key ↗</a></p>
-            {tests[provider.id] && (
-              <div className={"gemini-test-result " + tests[provider.id]?.status} role={tests[provider.id]?.status === "error" ? "alert" : "status"}>
-                <span className="gemini-test-icon">{tests[provider.id]?.status === "success" ? "✓" : tests[provider.id]?.status === "error" ? "!" : "…"}</span>
-                <span>{tests[provider.id]?.message}</span>
+      <p className="ai-provider-intro">Add only the free API keys you have. SochoZara checks OpenRouter's live free-request balance, remembers rate-limit signals from other providers, and automatically selects an eligible free route. Paid model IDs and paid fallback routes are disabled.</p>
+
+      <div className="ai-quota-dashboard" aria-live="polite">
+        <div className="ai-quota-dashboard-heading">
+          <strong>FREE AI AVAILABILITY</strong>
+          <button type="button" className="text-button" disabled={refreshingQuota} onClick={() => void refreshQuota()}>{refreshingQuota ? "Checking…" : "↻ Refresh free availability"}</button>
+        </div>
+        <div className="ai-quota-grid">
+          {(["gemini", "groq", "openrouter", "cloudflare"] as const).map((id) => {
+            const entry = health[id];
+            return (
+              <div className="ai-quota-item" key={id}>
+                <div><strong>{providerNames[id]}</strong><span className={"ai-quota-state " + (entry?.state || "unknown")}>{healthLabel(entry)}</span></div>
+                <p>{healthSummary(entry)}</p>
+                {entry?.retryAt && entry.retryAt > Date.now() && <small>Retry after {new Date(entry.retryAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</small>}
               </div>
-            )}
-          </article>
-        ))}
+            );
+          })}
+        </div>
+        <small className="ai-quota-footnote">{quotaMessage} Gemini's API does not expose exact remaining free quota; Groq quota is visible only after a generation response; Cloudflare's daily Neuron balance is account-wide and must be checked in its dashboard.</small>
+      </div>
+
+      <div className="ai-provider-grid">
+        {providers.map((provider) => {
+          const isGroq = provider.id === "groq";
+          const keySaved = isGroq ? groqSaved : openrouterSaved;
+          const isEligible = isGroq ? keySaved && groqFreeOnly : keySaved;
+          return (
+            <article className="ai-provider-card" key={provider.id}>
+              <div className="ai-provider-card-heading"><strong>{provider.name}</strong><span className={isEligible ? "provider-dot connected" : "provider-dot"} />{keySaved && <em>KEY SAVED</em>}</div>
+              <label className="field-label" htmlFor={provider.id + "-api-key"}>{provider.inputLabel}</label>
+              <input
+                id={provider.id + "-api-key"}
+                type="password"
+                autoComplete="off"
+                spellCheck={false}
+                value={inputs[provider.id]}
+                onChange={(event) => setInputs((current) => ({ ...current, [provider.id]: event.target.value }))}
+                placeholder={keySaved ? "Key saved for this tab · paste to replace" : provider.placeholder}
+              />
+              {isGroq && (
+                <label className="rights-confirm ai-cloudflare-free-confirm">
+                  <input type="checkbox" checked={groqFreeOnly} disabled={!groqSaved} onChange={(event) => handleGroqFreeUseChange(event.target.checked)} />
+                  <span>I confirm this API key belongs to my Groq Free Developer plan and no paid API billing is enabled. Never use paid usage for this app.</span>
+                </label>
+              )}
+              <div className="ai-provider-actions">
+                <button className="button button-primary" disabled={!inputs[provider.id]?.trim()} onClick={() => saveProvider(provider.id)}>Save for this tab</button>
+                <button className="button button-secondary" disabled={testing !== null || !isEligible} onClick={() => void testProvider(provider.id)}>{testing === provider.id ? "Testing…" : "Test connection"}</button>
+                {keySaved && <button className="text-button" onClick={() => removeProvider(provider.id)}>Remove</button>}
+              </div>
+              <p className="ai-provider-help">{provider.help} <a href={provider.signupUrl} target="_blank" rel="noreferrer">Get API key ↗</a></p>
+              {tests[provider.id] && (
+                <div className={"gemini-test-result " + tests[provider.id]?.status} role={tests[provider.id]?.status === "error" ? "alert" : "status"}>
+                  <span className="gemini-test-icon">{tests[provider.id]?.status === "success" ? "✓" : tests[provider.id]?.status === "error" ? "!" : "…"}</span>
+                  <span>{tests[provider.id]?.message}</span>
+                </div>
+              )}
+            </article>
+          );
+        })}
         <article className="ai-provider-card">
-          <div className="ai-provider-card-heading"><strong>Cloudflare Workers AI</strong><span className={saved.cloudflare ? "provider-dot connected" : "provider-dot"} />{saved.cloudflare && <em>KEY SAVED</em>}</div>
+          <div className="ai-provider-card-heading"><strong>Cloudflare Workers AI</strong><span className={cloudflareSaved && cloudflareFreeOnly ? "provider-dot connected" : "provider-dot"} />{cloudflareSaved && <em>KEY SAVED</em>}</div>
           <label className="field-label" htmlFor="cloudflare-account-id">CLOUDFLARE ACCOUNT ID</label>
-          <input id="cloudflare-account-id" autoComplete="off" spellCheck={false} value={inputs.cloudflareAccount} onChange={(event) => setInputs((current) => ({ ...current, cloudflareAccount: event.target.value }))} placeholder={saved.cloudflare ? "Account ID saved · paste to replace" : "32-character account ID"} />
+          <input id="cloudflare-account-id" autoComplete="off" spellCheck={false} value={inputs.cloudflareAccount} onChange={(event) => setInputs((current) => ({ ...current, cloudflareAccount: event.target.value }))} placeholder={cloudflareSaved ? "Account ID saved · paste to replace" : "32-character account ID"} />
           <label className="field-label" htmlFor="cloudflare-ai-token">WORKERS AI API TOKEN</label>
-          <input id="cloudflare-ai-token" type="password" autoComplete="off" spellCheck={false} value={inputs.cloudflareToken} onChange={(event) => setInputs((current) => ({ ...current, cloudflareToken: event.target.value }))} placeholder={saved.cloudflare ? "Token saved for this tab · paste to replace" : "Workers AI API token"} />
+          <input id="cloudflare-ai-token" type="password" autoComplete="off" spellCheck={false} value={inputs.cloudflareToken} onChange={(event) => setInputs((current) => ({ ...current, cloudflareToken: event.target.value }))} placeholder={cloudflareSaved ? "Token saved for this tab · paste to replace" : "Workers AI API token"} />
           <label className="rights-confirm ai-cloudflare-free-confirm">
             <input
               type="checkbox"
               checked={cloudflareFreeOnly}
-              disabled={!saved.cloudflare}
+              disabled={!cloudflareSaved}
               onChange={(event) => handleCloudflareFreeUseChange(event.target.checked)}
             />
             <span>I confirm this token belongs to my Cloudflare Workers Free plan. Use only its 10,000-Neuron daily free allocation; do not use Workers Paid overage.</span>
           </label>
           <div className="ai-provider-actions">
             <button className="button button-primary" disabled={!inputs.cloudflareAccount?.trim() || !inputs.cloudflareToken?.trim()} onClick={saveCloudflare}>Save for this tab</button>
-            <button className="button button-secondary" disabled={testing !== null || !saved.cloudflare || !cloudflareFreeOnly} onClick={() => void testProvider("cloudflare")}>{testing === "cloudflare" ? "Testing…" : "Test connection"}</button>
-            {saved.cloudflare && <button className="text-button" onClick={() => removeProvider("cloudflare")}>Remove</button>}
+            <button className="button button-secondary" disabled={testing !== null || !cloudflareSaved || !cloudflareFreeOnly} onClick={() => void testProvider("cloudflare")}>{testing === "cloudflare" ? "Testing…" : "Test connection"}</button>
+            {cloudflareSaved && <button className="text-button" onClick={() => removeProvider("cloudflare")}>Remove</button>}
           </div>
-          <p className="ai-provider-help">Workers AI includes 10,000 Neurons/day at no charge on Workers Free. On Workers Paid, usage beyond that allocation is billed, so VideoMaker keeps this provider disabled until you confirm a Workers Free account. <a href="https://developers.cloudflare.com/workers-ai/platform/pricing/" target="_blank" rel="noreferrer">Free allocation & pricing ↗</a> · <a href="https://developers.cloudflare.com/workers-ai/get-started/rest-api/" target="_blank" rel="noreferrer">Setup guide ↗</a></p>
+          <p className="ai-provider-help">Workers AI Free has 10,000 Neurons/day. VideoMaker never opts into paid Workers overage. Quota is shared with other workloads on this account and is not exposed by the API. <a href="https://developers.cloudflare.com/workers-ai/platform/pricing/" target="_blank" rel="noreferrer">Free allocation & pricing ↗</a> · <a href="https://developers.cloudflare.com/workers-ai/get-started/rest-api/" target="_blank" rel="noreferrer">Setup guide ↗</a></p>
           {tests.cloudflare && (
             <div className={"gemini-test-result " + tests.cloudflare.status} role={tests.cloudflare.status === "error" ? "alert" : "status"}>
               <span className="gemini-test-icon">{tests.cloudflare.status === "success" ? "✓" : tests.cloudflare.status === "error" ? "!" : "…"}</span>
@@ -194,7 +341,7 @@ export default function AIProviderConnections({ onConnectionChange }: Props) {
           )}
         </article>
       </div>
-      <p className="ai-provider-security">Credentials stay in this tab's session storage, are excluded from project backups and are sent only to this app's HTTPS API. Free limits are provider-controlled; fallback respects each provider's rate-limit response and does not bypass account limits.</p>
+      <p className="ai-provider-security">Credentials and quota health stay only in this browser tab's session storage. Keys are sent only to this app's same-origin HTTPS API and are excluded from project backups. Provider rate limits may be shared with other apps using the same account.</p>
     </section>
   );
 }
