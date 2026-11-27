@@ -8,7 +8,12 @@ import {
   type AIProviderHealthMap,
 } from "./ai-provider-health";
 
+export interface WorkersAIBinding {
+  run(model: string, inputs: Record<string, unknown>): Promise<unknown>;
+}
+
 export interface AIProviderCredentials {
+  cloudflareAI?: WorkersAIBinding;
   gemini?: string;
   groq?: string;
   openrouter?: string;
@@ -347,12 +352,36 @@ async function generateCloudflare(
   return parseStory(text);
 }
 
+async function generateCloudflareWithBinding(
+  ai: WorkersAIBinding,
+  prompt: string,
+): Promise<GeneratedStory> {
+  const payload = await ai.run(CLOUDFLARE_MODEL, {
+    messages: storyMessages(prompt),
+    max_tokens: 8_000,
+    temperature: 0.6,
+  });
+  const text = extractChatText(payload);
+  if (!text) throw new Error("Cloudflare Workers AI binding completed without returning story text.");
+  return parseStory(text);
+}
+
+export async function testCloudflareBinding(ai: WorkersAIBinding): Promise<string> {
+  const payload = await ai.run(CLOUDFLARE_MODEL, {
+    messages: [{ role: "user", content: "Reply exactly: SOCHOZARA_CLOUDFLARE_OK" }],
+    max_tokens: 24,
+  });
+  const text = extractChatText(payload);
+  if (!text) throw new Error("The Workers AI binding responded without text. Check its model access.");
+  return "Cloudflare Workers AI binding successful · " + CLOUDFLARE_MODEL + ". The test used a small inference request.";
+}
+
 function configuredProviders(credentials: AIProviderCredentials): AIProvider[] {
   const providers: AIProvider[] = [];
   if (credentials.gemini?.trim()) providers.push("gemini");
   if (credentials.groq?.trim()) providers.push("groq");
   if (credentials.openrouter?.trim()) providers.push("openrouter");
-  if (credentials.cloudflareApiToken?.trim() && credentials.cloudflareAccountId?.trim()) providers.push("cloudflare");
+  if (credentials.cloudflareAI || (credentials.cloudflareApiToken?.trim() && credentials.cloudflareAccountId?.trim())) providers.push("cloudflare");
   return providers;
 }
 
@@ -439,7 +468,7 @@ export async function generateStoryWithAvailableProviders(
     return !isProviderCoolingDown(current);
   });
 
-  const priority: AIProvider[] = ["gemini", "groq", "openrouter", "cloudflare"];
+  const priority: AIProvider[] = ["cloudflare", "gemini", "groq", "openrouter"];
   eligible.sort((left, right) => {
     const a = health[left]?.remainingRequests;
     const b = health[right]?.remainingRequests;
@@ -478,8 +507,10 @@ export async function generateStoryWithAvailableProviders(
         story = result.story;
         mergeHealth(health, provider, result.health || health[provider] || healthEntry("available", "Last request succeeded; exact free quota is available only when the provider reports it.", "last-response"));
       } else {
-        story = await generateCloudflare(credentials.cloudflareApiToken || "", credentials.cloudflareAccountId || "", prompt);
-        health.cloudflare = healthEntry("available", "Last Workers AI request succeeded. Daily Neuron balance is not exposed by this API.", "last-response");
+        story = credentials.cloudflareAI
+          ? await generateCloudflareWithBinding(credentials.cloudflareAI, prompt)
+          : await generateCloudflare(credentials.cloudflareApiToken || "", credentials.cloudflareAccountId || "", prompt);
+        health.cloudflare = healthEntry("available", "Last Workers AI binding request succeeded. Daily Neuron balance is visible in the Cloudflare dashboard.", "last-response");
       }
       const fallbackNotice = attempted.length > 1 || skipped.length > 0
         ? providerName(provider) + " completed the storyboard after unavailable providers were skipped or failed."
@@ -519,14 +550,17 @@ export async function getProviderQuotaSnapshot(
   }
   const now = Date.now();
   for (const provider of ["gemini", "groq", "cloudflare"] as const) {
-    if (!credentials[provider === "cloudflare" ? "cloudflareApiToken" : provider]) {
+    const configured = provider === "cloudflare"
+      ? Boolean(credentials.cloudflareAI || credentials.cloudflareApiToken)
+      : Boolean(credentials[provider]);
+    if (!configured) {
       delete snapshot[provider];
     } else if (!snapshot[provider] || isExpired(snapshot[provider], now)) {
       snapshot[provider] = healthEntry("unknown", provider === "gemini"
         ? "Google does not expose the remaining Gemini free-tier quota to this app."
         : provider === "groq"
           ? "Groq reports request/token quota in inference response headers; no inference was run during this refresh."
-          : "Cloudflare does not expose remaining account-wide daily Neurons through this API.", "app");
+          : "Workers AI binding is configured. Account-wide daily Neuron usage must be checked in the Cloudflare dashboard.", "app");
     }
   }
   return snapshot;
@@ -592,9 +626,10 @@ export async function testSecondaryAIProvider(
     if (!key) throw new Error("Paste your OpenRouter API key before testing.");
     return testOpenAICompatible("openrouter", key);
   }
+  if (credentials.cloudflareAI) return testCloudflareBinding(credentials.cloudflareAI);
   const key = credentials.cloudflareApiToken?.trim();
   const account = credentials.cloudflareAccountId?.trim();
-  if (!key || !account) throw new Error("Enter your Cloudflare account ID and Workers AI API token before testing.");
+  if (!key || !account) throw new Error("The Cloudflare Workers AI binding (AI) is not available to this Pages Function. Check the Pages AI binding in Cloudflare Settings.");
   if (!/^[a-f0-9]{16,64}$/i.test(account)) throw new Error("The Cloudflare account ID must be a hexadecimal ID from your dashboard.");
   return testCloudflare(key, account);
 }
