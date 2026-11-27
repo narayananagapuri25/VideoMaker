@@ -13,7 +13,7 @@ export function getUnverifiedSceneMedia(scenes: Scene[]): string[] {
   return scenes.flatMap((scene) => {
     const unverifiedImage = Boolean(scene.imageDataUrl && !scene.imageCommercialUseConfirmed && !scene.imageGeneratedByAI);
     const hasExternalVideo = Boolean(scene.videoDataUrl || (scene.videoClipSource === "pixabay" && scene.videoClipId));
-    const unverifiedVideo = hasExternalVideo && !scene.videoCommercialUseConfirmed;
+    const unverifiedVideo = hasExternalVideo && !scene.videoGeneratedByAI && !scene.videoCommercialUseConfirmed;
     return unverifiedImage || unverifiedVideo ? [scene.title || "Untitled scene"] : [];
   });
 }
