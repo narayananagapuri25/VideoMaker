@@ -7,6 +7,8 @@ export async function onRequestGet({ request, env }: PagesContext): Promise<Resp
     configured,
     provider: "Gemini",
     source: sessionKey ? "tab-session" : env.GEMINI_API_KEY?.trim() ? "cloudflare-secret" : "none",
+    serverSecretConfigured: Boolean(env.GEMINI_API_KEY?.trim()),
+    workersAIBindingConfigured: Boolean(env.AI),
     storage: sessionKey ? "Current browser tab session" : "Cloudflare encrypted Pages secret",
   });
 }
