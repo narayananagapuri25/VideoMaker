@@ -152,7 +152,7 @@ export default function App() {
     renderAbortRef.current = controller;
     setIsRendering(true);
     setRenderProgress(0);
-    setRenderMessage("Preparing animated scenes…");
+    setRenderMessage("Preparing 1080p cinematic scenes…");
     setIsPlaying(false);
     try {
       const { exportMp4 } = await import("./lib/renderer");
@@ -337,7 +337,7 @@ export default function App() {
         <section className="simple-heading">
           <div className="eyebrow">AI VIDEO CREATOR</div>
           <h1>Turn an idea into a video.</h1>
-          <p>One AI provider. Automatic scenes, motion graphics, narration when supported, and a video you can download.</p>
+          <p>One idea in. AI-directed scenes, voice-over, centered safe-area subtitles, cinematic transitions and a downloadable 1080p video.</p>
         </section>
 
         <div className="simple-layout">
@@ -455,7 +455,7 @@ export default function App() {
             )}
             {exportUrl && !isRendering && (
               <div className="simple-download">
-                <div><strong>Your video is ready</strong><small>{exportType.toUpperCase()} · {project.aspectRatio} · {formatTime(duration)}</small></div>
+                <div><strong>Your video is ready</strong><small>{exportType.toUpperCase()} · 1080p · 30 FPS · {project.aspectRatio} · {formatTime(duration)}</small></div>
                 <a className="button button-download" href={exportUrl} download={safeFileName(project.title) + "." + exportType}>↓ Download {exportType.toUpperCase()}</a>
               </div>
             )}
