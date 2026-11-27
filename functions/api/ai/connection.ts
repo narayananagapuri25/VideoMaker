@@ -31,6 +31,7 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
     const message = await testGeminiConnectionWithApiKey(apiKey);
     return jsonNoStore({ provider: "gemini", message: "Gemini connection successful for this request. " + message });
   } catch (error) {
-    return providerError(error);
+    const providerName = provider === "cloudflare" ? "Cloudflare Workers AI" : provider === "groq" ? "Groq" : provider === "openrouter" ? "OpenRouter" : "Gemini";
+    return providerError(error, providerName);
   }
 }
