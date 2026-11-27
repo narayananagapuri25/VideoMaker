@@ -172,19 +172,22 @@ async function mixWithOriginalAmbientBed(
   narration: AudioBuffer | undefined,
   duration: number,
 ): Promise<AudioBuffer> {
-  const sampleRate = narration?.sampleRate ?? 22_050;
-  const channelCount = narration ? Math.min(2, narration.numberOfChannels) : 1;
+  // Produce a broadly supported AAC input regardless of the source voice
+  // codec. Older mono/22.05 kHz buffers can be rejected by mobile encoders.
+  const sampleRate = 48_000;
+  const channelCount = 2;
   const frameCount = Math.max(1, Math.ceil(duration * sampleRate));
   const audioContext = new AudioContext({ sampleRate });
   try {
     const mixed = audioContext.createBuffer(channelCount, frameCount, sampleRate);
     const voiceChannels = narration
-      ? Array.from({ length: channelCount }, (_, channel) => narration.getChannelData(channel))
+      ? Array.from({ length: narration.numberOfChannels }, (_, channel) => narration.getChannelData(channel))
       : [];
     const roots = [110, 130.81, 98, 146.83];
+
     for (let channel = 0; channel < channelCount; channel += 1) {
       const output = mixed.getChannelData(channel);
-      const voice = voiceChannels[channel];
+      const voice = voiceChannels.length ? voiceChannels[Math.min(channel, voiceChannels.length - 1)] : undefined;
       for (let frame = 0; frame < frameCount; frame += 1) {
         const time = frame / sampleRate;
         const root = roots[Math.floor(time / 8) % roots.length];
@@ -196,7 +199,15 @@ async function mixWithOriginalAmbientBed(
         const fadeIn = Math.min(1, time / 1.6);
         const fadeOut = Math.min(1, Math.max(0, (duration - time) / 2.5));
         const music = pad * slow * fadeIn * fadeOut * (voice ? 0.026 : 0.052);
-        const spoken = voice && frame < voice.length ? voice[frame] * 0.92 : 0;
+
+        let spoken = 0;
+        if (voice && narration) {
+          const sourcePosition = frame * narration.sampleRate / sampleRate;
+          const lower = Math.min(voice.length - 1, Math.floor(sourcePosition));
+          const upper = Math.min(voice.length - 1, lower + 1);
+          const fraction = sourcePosition - lower;
+          spoken = (voice[lower] * (1 - fraction) + voice[upper] * fraction) * 0.92;
+        }
         output[frame] = Math.max(-0.98, Math.min(0.98, spoken + music));
       }
     }
@@ -205,7 +216,6 @@ async function mixWithOriginalAmbientBed(
     await audioContext.close();
   }
 }
-
 export async function exportMp4(
   project: StudioProject,
   onProgress: (progress: ExportProgress) => void,
