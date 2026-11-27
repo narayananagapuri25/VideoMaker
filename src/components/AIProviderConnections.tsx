@@ -234,7 +234,7 @@ export default function AIProviderConnections({ onConnectionChange }: Props) {
         <div><span className="field-label">FREE-ONLY SMART ROUTER</span><strong id="alternate-ai-heading">Connect alternate AI providers</strong></div>
         <span className="ai-provider-count">{connectedCount} READY</span>
       </div>
-      <p className="ai-provider-intro">Add only the free API keys you have. SochoZara checks OpenRouter's live free-request balance, remembers rate-limit signals from other providers, and automatically selects an eligible free route. Paid model IDs and paid fallback routes are disabled.</p>
+      <p className="ai-provider-intro">Cloudflare Workers AI is provided by your existing Pages binding. Add optional Groq or OpenRouter keys only when needed; SochoZara selects an eligible confirmed route and never switches to paid model IDs.</p>
 
       <div className="ai-quota-dashboard" aria-live="polite">
         <div className="ai-quota-dashboard-heading">
@@ -319,7 +319,7 @@ export default function AIProviderConnections({ onConnectionChange }: Props) {
           )}
         </article>
       </div>
-      <p className="ai-provider-security">Credentials and quota health stay only in this browser tab's session storage. Keys are sent only to this app's same-origin HTTPS API and are excluded from project backups. Provider rate limits may be shared with other apps using the same account.</p>
+      <p className="ai-provider-security">Optional Groq/OpenRouter keys and Free-plan confirmations stay in this browser tab's session storage. They are sent only to this app's same-origin HTTPS API and are excluded from project backups. The Cloudflare AI binding and Gemini server key remain server-side in Cloudflare.</p>
     </section>
   );
 }
