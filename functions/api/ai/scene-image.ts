@@ -40,6 +40,6 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
       model: MODEL,
     });
   } catch (error) {
-    return providerError(error);
+    return providerError(error, "Cloudflare Workers AI");
   }
 }
