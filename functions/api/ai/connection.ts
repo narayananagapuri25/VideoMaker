@@ -13,12 +13,14 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
     }
     if (provider === "cloudflare" && request.headers.get("X-SochoZara-Cloudflare-Free-Use") !== "true") {
       return jsonNoStore({
-        error: "Confirm that this API token belongs to a Cloudflare Workers Free account before testing or using its daily free allocation.",
+        error: "Confirm that this Cloudflare account is on the Workers Free plan before using the included 10,000-Neuron daily allocation. The app must not use paid overage.",
         code: "CLOUDFLARE_FREE_PLAN_CONFIRMATION_REQUIRED",
       }, 403);
     }
     if (provider === "groq" || provider === "openrouter" || provider === "cloudflare") {
-      const message = await testSecondaryAIProvider(provider as SecondaryAIProvider, resolveAIRequestCredentials(request, env));
+      const credentials = resolveAIRequestCredentials(request, env);
+      if (provider === "cloudflare") credentials.cloudflareAI = env.AI;
+      const message = await testSecondaryAIProvider(provider as SecondaryAIProvider, credentials);
       return jsonNoStore({ provider, message });
     }
     if (request.headers.get("X-SochoZara-Gemini-Free-Use") !== "true") {
