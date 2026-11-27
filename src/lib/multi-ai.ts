@@ -503,6 +503,8 @@ export async function generateStoryWithAvailableProviders(
           targetDuration: options.targetDuration,
           aspectRatio: options.aspectRatio,
           apiKey: credentials.gemini || "",
+          genre: options.genre,
+          trendContext: options.trendContext,
         });
         story = result.story;
         health.gemini = healthEntry("available", "Last Gemini request succeeded. Exact remaining quota is not exposed by this API.", "last-response");
