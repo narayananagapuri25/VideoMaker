@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { generateCloudflareSceneImage, generateStory } from "./lib/ai";
+import { generateCloudflareNarration, generateCloudflareSceneImage, generateStory } from "./lib/ai";
 import { generateNarration } from "./lib/tts";
 import { loadLatestProject, saveProject } from "./lib/storage";
 import { makeProject } from "./lib/story";
@@ -239,7 +239,25 @@ export default function App() {
       let voiceAudioDataUrl: string | undefined;
       let voiceAudioName: string | undefined;
       let voiceNote = "";
-      if (selectedProvider === "gemini") {
+      if (selectedProvider === "cloudflare") {
+        if (project.language === "English") {
+          try {
+            setNotice("Generating English narration with Cloudflare Aura-1…");
+            const audio = await generateCloudflareNarration(result.story.script, project.language);
+            voiceAudioDataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(String(reader.result));
+              reader.onerror = () => reject(new Error("Could not prepare Cloudflare narration audio."));
+              reader.readAsDataURL(audio);
+            });
+            voiceAudioName = "Cloudflare Workers AI · Aura-1 · Luna";
+          } catch (error) {
+            voiceNote = " English narration was unavailable: " + (error instanceof Error ? error.message : "Aura-1 voice generation failed") + ". No other AI provider was used.";
+          }
+        } else {
+          voiceNote = " Cloudflare's integrated free-tier Aura-1 voice is configured for English only. No unsupported voice or alternate paid provider was called; this video will use the original soundtrack and subtitles.";
+        }
+      } else if (selectedProvider === "gemini") {
         try {
           setNotice("Generating Gemini narration…");
           const narration = await generateNarration(result.story.script, "Kore", project.language);
@@ -359,16 +377,16 @@ export default function App() {
             <div className="simple-provider">
               <label className="field-label" htmlFor="simple-provider-select">CHOOSE YOUR AI</label>
               <select id="simple-provider-select" value={selectedProvider} onChange={(event) => handleProviderChange(event.target.value)}>
+                <option value="cloudflare">Cloudflare Workers AI · Story + FLUX art + English voice</option>
                 <option value="gemini">Google Gemini · Story + narration</option>
                 <option value="groq">Groq · Story generation</option>
                 <option value="openrouter">OpenRouter · Free models · 50 requests/day</option>
-                <option value="cloudflare">Cloudflare Workers AI · 10,000 Neurons/day + FLUX images</option>
               </select>
               {selectedProvider === "cloudflare" ? (
                 <div className="simple-security-note">
                   <strong>Daily free AI allowance</strong>
-                  <p>Uses the Cloudflare Pages AI binding for storyboard generation and FLUX.1 schnell scene artwork. The 10,000-Neuron allowance resets daily at 00:00 UTC. Requires an AI binding named AI on the Cloudflare Pages project.</p>
-                  <p>Scene images are animated locally with camera motion. This creates AI artwork, not AI-generated video clips.</p>
+                  <p>Gemma creates the story, FLUX.1 schnell creates distinct scene artwork, and Aura-1 adds English voice-over. All three use the same 10,000-Neuron daily pool, resetting at 00:00 UTC.</p>
+                  <p>Images are animated with varied camera moves and cross-fades, then rendered as 1080p/30fps video. These are AI-generated stills with in-house motion, not text-to-video clips. Aura-1 voice is English-only in this setup.</p>
                 </div>
               ) : (
                 <>
