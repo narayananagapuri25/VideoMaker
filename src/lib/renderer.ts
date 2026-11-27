@@ -358,7 +358,7 @@ export async function exportMp4(
       }
       onProgress({
         progress: 0.025,
-        message: "This device cannot encode the required MP4 tracks. Using compatible WebM video output…",
+        message: "This device cannot encode the required MP4 video and audio tracks. Switching to compatible WebM output…",
       });
     }
     if (!videoCodec) {
@@ -368,6 +368,10 @@ export async function exportMp4(
     releaseVideos();
     throw error;
   }
+  if (!audioCodec) {
+    releaseVideos();
+    throw new Error("This browser cannot encode the required in-app soundtrack. Update Chrome or try another supported browser/device.");
+  }
   const output = new Output({ format, target: new BufferTarget() });
   const videoSource = new CanvasSource(canvas, {
     codec: videoCodec,
@@ -376,11 +380,8 @@ export async function exportMp4(
   });
   output.addVideoTrack(videoSource, { frameRate: fps });
 
-  let audioSource: AudioBufferSource | undefined;
-  if (audioCodec) {
-    audioSource = new AudioBufferSource({ codec: audioCodec, quality: new Quality({ bitrate: 128_000 }) });
-    output.addAudioTrack(audioSource);
-  }
+  const audioSource = new AudioBufferSource({ codec: audioCodec, quality: new Quality({ bitrate: 128_000 }) });
+  output.addAudioTrack(audioSource);
 
   output.setMetadataTags({ title: project.title || "SochoZara Studio", artist: "SochoZara" });
   const cancelOutput = () => {
@@ -469,18 +470,16 @@ export async function exportMp4(
     }
     activeVideo?.pause();
     videoSource.close();
-    if (audioSource) {
-      onProgress({ progress: 0.94, message: "Creating the original soundtrack in SochoZara’s local audio engine…" });
-      const narrationBuffer = project.voiceAudioDataUrl
-        ? await decodeAudio(project.voiceAudioDataUrl, duration)
-        : undefined;
-      throwIfExportAborted(signal);
-      const soundtrack = await mixWithLocalSoundtrack(narrationBuffer, duration);
-      throwIfExportAborted(signal);
-      await audioSource.add(soundtrack);
-      throwIfExportAborted(signal);
-      audioSource.close();
-    }
+    onProgress({ progress: 0.94, message: "Creating the original soundtrack in SochoZara’s local audio engine…" });
+    const narrationBuffer = project.voiceAudioDataUrl
+      ? await decodeAudio(project.voiceAudioDataUrl, duration)
+      : undefined;
+    throwIfExportAborted(signal);
+    const soundtrack = await mixWithLocalSoundtrack(narrationBuffer, duration);
+    throwIfExportAborted(signal);
+    await audioSource.add(soundtrack);
+    throwIfExportAborted(signal);
+    audioSource.close();
     onProgress({ progress: 0.97, message: usingWebmFallback ? "Finalising WebM video…" : "Finalising MP4…" });
     throwIfExportAborted(signal);
     await output.finalize();
