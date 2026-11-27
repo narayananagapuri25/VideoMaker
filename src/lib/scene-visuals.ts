@@ -14,10 +14,11 @@ export type SceneTheme =
   | "space" | "earth" | "weather" | "ocean" | "city" | "sports"
   | "technology" | "history" | "nature" | "science" | "finance"
   | "entertainment" | "travel" | "food" | "health" | "education"
-  | "mystery" | "biography" | "generic";
+  | "mystery" | "biography" | "energy" | "generic";
 
 export function getSceneTheme(scene: Pick<Scene, "title" | "caption" | "visualPrompt" | "visualPlan">): SceneTheme {
   const subject = (scene.title + " " + scene.caption + " " + scene.visualPrompt + " " + (scene.visualPlan?.subject ?? "")).toLowerCase();
+  if (/\\b(petrol|gasoline|diesel|fuel|petroleum|refinery|oilfield|pipeline|opec|brent|wti|barrel|fuel pump)\\b|crude[- ]oil|oil tanker|fuel price|oil price/.test(subject)) return "energy";
   if (/stock market|share market|stock exchange|trading floor|investor|investment portfolio|initial public offering|\\bipo\\b|\\bnifty\\b|\\bsensex\\b|candlestick|order book|equity market|bull market|bear market|dividend/.test(subject)) return "finance";
   if (/earth|planet|rotation|equator|globe|continent|world/.test(subject)) return "earth";
   if (/space|galaxy|black hole|nebula|moon|mars|orbit|cosmos|astronaut|star/.test(subject)) return "space";
@@ -58,6 +59,7 @@ const PALETTES: Record<SceneTheme, { accent: string; secondary: string; glow: st
   education: { accent: "#73C8F3", secondary: "#EBC678", glow: "83,170,220", deep: "#11283B" },
   mystery: { accent: "#A78BFA", secondary: "#6CD5DE", glow: "138,110,216", deep: "#17162F" },
   biography: { accent: "#E3B87B", secondary: "#D7A1B5", glow: "207,158,99", deep: "#2C2028" },
+  energy: { accent: "#F2AD61", secondary: "#6FD2C4", glow: "218,137,73", deep: "#2C1A17" },
   generic: { accent: "#55DCE8", secondary: "#F5B36A", glow: "63,183,205", deep: "#0B1E32" },
 };
 
@@ -592,6 +594,81 @@ function drawFinanceHero(ctx: CanvasRenderingContext2D, x: number, y: number, un
   ctx.restore();
 }
 
+function drawEnergyHero(ctx: CanvasRenderingContext2D, x: number, y: number, unit: number, time: number, palette: typeof PALETTES[SceneTheme]) {
+  ctx.save();
+  const ground = y + unit * 0.48;
+  ctx.strokeStyle = "rgba(216,173,127,.6)";
+  ctx.lineWidth = Math.max(3, unit * 0.018);
+  ctx.beginPath();
+  ctx.moveTo(x - unit * 0.96, ground);
+  ctx.lineTo(x + unit * 0.96, ground);
+  ctx.stroke();
+
+  // An oil pumpjack silhouette gives fuel and crude-oil stories a relevant
+  // visual anchor instead of the unrelated orbital sphere used by the fallback.
+  ctx.strokeStyle = "#D6A16A";
+  ctx.lineWidth = Math.max(5, unit * 0.035);
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(x - unit * 0.42, ground);
+  ctx.lineTo(x - unit * 0.08, y - unit * 0.13);
+  ctx.lineTo(x + unit * 0.22, ground);
+  ctx.moveTo(x - unit * 0.27, ground - unit * 0.08);
+  ctx.lineTo(x + unit * 0.08, y - unit * 0.03);
+  ctx.moveTo(x + unit * 0.02, ground);
+  ctx.lineTo(x + unit * 0.02, y + unit * 0.06);
+  ctx.stroke();
+
+  const pivotX = x + unit * 0.05;
+  const pivotY = y - unit * 0.16;
+  const swing = Math.sin(time * 0.72) * 0.055;
+  ctx.save();
+  ctx.translate(pivotX, pivotY);
+  ctx.rotate(swing);
+  ctx.strokeStyle = palette.accent;
+  ctx.lineWidth = Math.max(8, unit * 0.052);
+  ctx.beginPath();
+  ctx.moveTo(-unit * 0.73, 0);
+  ctx.lineTo(unit * 0.68, 0);
+  ctx.stroke();
+  ctx.fillStyle = "#E9B67E";
+  ctx.beginPath();
+  ctx.ellipse(-unit * 0.78, unit * 0.03, unit * 0.12, unit * 0.19, -0.25, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = palette.secondary;
+  ctx.beginPath();
+  ctx.arc(unit * 0.67, 0, unit * 0.12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.strokeStyle = "rgba(235,193,145,.9)";
+  ctx.lineWidth = Math.max(3, unit * 0.018);
+  ctx.beginPath();
+  ctx.moveTo(x - unit * 0.73, pivotY);
+  ctx.lineTo(x - unit * 0.73, ground - unit * 0.02);
+  ctx.stroke();
+  ctx.fillStyle = "#D7A16B";
+  ctx.beginPath();
+  ctx.roundRect(x - unit * 0.53, ground - unit * 0.3, unit * 0.25, unit * 0.3, unit * 0.035);
+  ctx.fill();
+  ctx.fillStyle = "#3F2830";
+  ctx.fillRect(x - unit * 0.53, ground - unit * 0.23, unit * 0.25, unit * 0.055);
+  ctx.fillStyle = palette.secondary;
+  ctx.font = "800 " + Math.round(unit * 0.075) + "px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("CRUDE OIL", x - unit * 0.405, ground - unit * 0.11);
+
+  ctx.fillStyle = "rgba(238,184,128,.72)";
+  for (let i = 0; i < 5; i += 1) {
+    const bx = x + unit * (0.38 + i * 0.14);
+    const by = ground - unit * (0.08 + (i % 2) * 0.035);
+    ctx.beginPath();
+    ctx.arc(bx, by, unit * 0.018, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawScience(ctx: CanvasRenderingContext2D, x: number, y: number, unit: number, time: number, palette: typeof PALETTES[SceneTheme]) {
   ctx.save();
   const glow = ctx.createRadialGradient(x, y, 0, x, y, unit * 0.85);
@@ -770,6 +847,10 @@ function drawTextOverlay(
   ctx.save();
   ctx.globalAlpha = intro;
   ctx.translate(-slide, 0);
+  // Canvas text alignment is stateful: the scene artwork may leave it centered
+  // or right-aligned, which previously pushed chapter headings off the left edge.
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
 
   ctx.fillStyle = palette.accent;
   ctx.font = "800 " + Math.round(Math.min(width * 0.026, height * 0.019)) + "px Arial";
@@ -804,7 +885,11 @@ function drawTextOverlay(
     const boxWidth = Math.min(captionMaxWidth, measuredWidth + paddingX * 2);
     const boxHeight = lines.length * lineHeight + paddingY * 2;
     const centerX = width * 0.5;
-    const centerY = height * 0.865;
+    const titleBottom = height * 0.745 + titleLines.length * titleLineHeight;
+    const centerY = Math.min(
+      height * 0.90 - boxHeight / 2,
+      Math.max(height * 0.835, titleBottom + boxHeight / 2 + height * 0.025),
+    );
     const boxX = centerX - boxWidth / 2;
     const boxY = centerY - boxHeight / 2;
     const cueFade = smooth((elapsed - cue.start) / 0.18);
@@ -832,7 +917,7 @@ function drawTextOverlay(
   ctx.restore();
 
   const progress = clamp(projectElapsed / Math.max(0.1, totalDuration), 0, 1);
-  const barY = height * 0.968;
+  const barY = height * 0.958;
   ctx.fillStyle = "rgba(255,255,255,.2)";
   ctx.fillRect(left, barY, right - left, Math.max(3, height * 0.004));
   ctx.fillStyle = palette.accent;
@@ -911,6 +996,7 @@ export function drawSceneFrame(
       case "nature": drawNature(ctx, x, y, unit, time, palette); break;
       case "science": drawScience(ctx, x, y, unit, time, palette); break;
       case "finance": drawFinanceHero(ctx, x, y, unit, time, palette); break;
+      case "energy": drawEnergyHero(ctx, x, y, unit, time, palette); break;
       default: drawGeneric(ctx, x, y, unit, time, palette);
     }
     drawFrameAccents(ctx, width, height, palette, time, sceneIndex);
