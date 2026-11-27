@@ -1,10 +1,11 @@
 export interface WorkersAIBinding {
-  run(model: string, inputs: Record<string, unknown>, options?: { returnRawResponse?: boolean }): Promise<unknown>;
+  run(model: string, inputs: Record<string, unknown>, options?: { returnRawResponse?: boolean; gateway?: { id: string } }): Promise<unknown>;
 }
 
 export interface GeminiEnv {
   GEMINI_API_KEY?: string;
   AI?: WorkersAIBinding;
+  SOCHOZARA_PAID_VIDEO_PIN?: string;
 }
 
 export interface AIRequestCredentials {
