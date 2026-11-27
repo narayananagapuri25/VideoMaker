@@ -27,7 +27,7 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
       prompt,
       steps: 8,
       seed: Math.floor(Math.random() * 2_000_000_000),
-    });
+    }, { rejectIfBusy: true });
     const image = result && typeof result === "object" && "image" in result
       ? (result as { image?: unknown }).image
       : undefined;
