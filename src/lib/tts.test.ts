@@ -15,14 +15,14 @@ import { generateNarration, generateNarrationWithApiKey } from "./tts";
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("Gemini narration", () => {
-  it("uses the supported GenerateContent TTS API and extracts WAV audio", async () => {
+  it("uses the documented stateless Gemini TTS interaction and extracts returned WAV audio", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({
-        candidates: [{
-          content: {
-            parts: [{ inlineData: { data: "AQID", mimeType: "audio/wav" } }],
-          },
+        steps: [{
+          type: "model_output",
+          content: [{ type: "audio", data: "AQID", mime_type: "audio/wav" }],
         }],
+        status: "completed",
       }), { status: 200, headers: { "Content-Type": "application/json" } }),
     );
 
@@ -32,30 +32,27 @@ describe("Gemini narration", () => {
     expect(audio.size).toBe(3);
     expect(fetchMock).toHaveBeenCalledOnce();
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash-tts:generateContent");
+    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/interactions");
     expect(new Headers(init?.headers).get("x-goog-api-key")).toBe("test-api-key");
     const request = JSON.parse(String(init?.body));
-    expect(request.contents[0].parts[0].text).toBe("Hello world");
-    expect(request.contents[0].parts[0].speechMetadata.style).toContain("Indian English pronunciation");
-    expect(request.contents[0].parts[0].speechMetadata.style).toContain("Professional documentary voice-over");
-    expect(request.generationConfig.responseModalities).toEqual(["AUDIO"]);
-    expect(request.generationConfig.speechConfig.voiceConfig.voice).toBe("Kore");
+    expect(request.model).toBe("gemini-3.8-flash-tts");
+    expect(request.store).toBe(false);
+    expect(request.response_format).toEqual({ type: "audio" });
+    expect(request.generation_config.speech_config).toEqual([{ voice: "Kore" }]);
+    expect(request.input[0].type).toBe("user_input");
+    expect(request.input[0].content[0].text).toBe("Hello world");
+    expect(request.input[0].content[0].annotations[0].type).toBe("speech_metadata");
+    expect(request.input[0].content[0].annotations[0].style).toContain("Indian English pronunciation");
+    expect(request.input[0].content[0].annotations[0].style).toContain("Professional documentary narrator");
   });
 
-  it("wraps raw 24 kHz PCM responses in a valid WAV container", async () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
-      candidates: [{
-        content: {
-          parts: [{ inlineData: { data: "AQIDBA==", mimeType: "audio/pcm" } }],
-        },
-      }],
+  it("supports the documented output_audio convenience field", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      output_audio: { data: "AQID", mime_type: "audio/wav" },
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
     const audio = await generateNarrationWithApiKey("Hello world", "test-api-key", "Kore", "English");
     expect(audio.type).toBe("audio/wav");
-    const bytes = new Uint8Array(await audio.arrayBuffer());
-    expect(new TextDecoder().decode(bytes.slice(0, 4))).toBe("RIFF");
-    expect(new DataView(bytes.buffer).getUint32(24, true)).toBe(24_000);
-    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(audio.size).toBe(3);
   });
 
   it("requests narration from the secure same-origin endpoint without a browser API key", async () => {
@@ -93,8 +90,9 @@ describe("Gemini narration", () => {
 
   it("rejects invalid base64 audio returned by the provider", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
-      candidates: [{
-        content: { parts: [{ inlineData: { data: "not@base64", mimeType: "audio/wav" } }] },
+      steps: [{
+        type: "model_output",
+        content: [{ type: "audio", data: "not@base64", mime_type: "audio/wav" }],
       }],
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
     await expect(generateNarrationWithApiKey("Some narration", "test-api-key", "Kore", "English"))
@@ -103,7 +101,7 @@ describe("Gemini narration", () => {
 
   it("rejects an empty audio response rather than creating a silent track", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
-      candidates: [{ content: { parts: [{ text: "No audio" }] } }],
+      steps: [{ type: "model_output", content: [{ type: "text", text: "No audio" }] }],
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
     await expect(generateNarrationWithApiKey("Some narration", "test-api-key", "Kore", "English"))
       .rejects.toThrow(/returned no audio/i);
