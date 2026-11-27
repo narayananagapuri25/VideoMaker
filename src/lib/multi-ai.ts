@@ -1,6 +1,12 @@
 import type { AspectRatio, GeneratedStory, Language } from "../types";
 import { buildStoryPrompt, generateStoryWithApiKey, parseStory } from "./ai";
 import type { AIProvider } from "./ai-provider-session";
+import {
+  isProviderCoolingDown,
+  parseAIProviderHealthHeader,
+  type AIProviderHealthEntry,
+  type AIProviderHealthMap,
+} from "./ai-provider-health";
 
 export interface AIProviderCredentials {
   gemini?: string;
@@ -16,6 +22,7 @@ export interface MultiAIStoryOptions {
   targetDuration: number;
   aspectRatio: AspectRatio;
   credentials: AIProviderCredentials;
+  providerHealth?: AIProviderHealthMap;
 }
 
 export interface MultiAIStoryResult {
@@ -23,6 +30,7 @@ export interface MultiAIStoryResult {
   source: AIProvider;
   attempted: AIProvider[];
   fallbackNotice?: string;
+  providerHealth: AIProviderHealthMap;
 }
 
 const OPENAI_PROVIDER_CONFIG = {
@@ -41,6 +49,29 @@ const OPENAI_PROVIDER_CONFIG = {
 const CLOUDFLARE_MODEL = "@cf/google/gemma-4-26b-a4b-it";
 const REQUEST_TIMEOUT_MS = 120_000;
 const TEST_TIMEOUT_MS = 20_000;
+const HEALTH_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+export interface OpenRouterFreeQuota {
+  state: "available" | "exhausted" | "blocked" | "unknown";
+  remainingRequests?: number;
+  limitRequests?: number;
+  retryAt?: number;
+  note: string;
+}
+
+class ProviderRequestError extends Error {
+  readonly status: number;
+  readonly retryAt?: number;
+  readonly headers: Headers;
+
+  constructor(message: string, status: number, headers: Headers) {
+    super(message);
+    this.name = "ProviderRequestError";
+    this.status = status;
+    this.headers = headers;
+    this.retryAt = retryAtFromHeaders(headers);
+  }
+}
 
 function providerName(provider: AIProvider): string {
   if (provider === "gemini") return "Gemini";
@@ -52,6 +83,44 @@ function providerName(provider: AIProvider): string {
 function compactError(value: unknown): string {
   const message = value instanceof Error ? value.message : String(value);
   return message.replace(/\s+/g, " ").trim().slice(0, 400);
+}
+
+function nextUtcMidnight(now = Date.now()): number {
+  const date = new Date(now);
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1);
+}
+
+function parseDuration(value: string): number | undefined {
+  const clean = value.trim();
+  if (!clean) return undefined;
+  if (/^\d+(?:\.\d+)?$/.test(clean)) return Number(clean) * 1000;
+  const match = clean.match(/(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?\s*(?:(\d+(?:\.\d+)?)\s*s)?/i);
+  if (!match || !match[0].trim()) return undefined;
+  const milliseconds = (Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0)) * 1000;
+  return milliseconds > 0 ? milliseconds : undefined;
+}
+
+function retryAtFromHeaders(headers: Headers): number | undefined {
+  const retryAfter = headers.get("retry-after");
+  if (retryAfter) {
+    const duration = parseDuration(retryAfter);
+    if (duration !== undefined) return Date.now() + duration;
+    const date = Date.parse(retryAfter);
+    if (Number.isFinite(date)) return date;
+  }
+  const reset = headers.get("x-ratelimit-reset-requests") || headers.get("x-ratelimit-reset-tokens");
+  if (reset) {
+    const duration = parseDuration(reset);
+    if (duration !== undefined) return Date.now() + duration;
+  }
+  return undefined;
+}
+
+function retryAtFromMessage(message: string): number | undefined {
+  const match = message.match(/retry\s+in\s+((?:\d+\s*h)?\s*(?:\d+\s*m)?\s*(?:\d+(?:\.\d+)?\s*s)?)/i);
+  if (!match) return undefined;
+  const duration = parseDuration(match[1]);
+  return duration === undefined ? undefined : Date.now() + duration;
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
@@ -68,7 +137,7 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
-async function readError(response: Response): Promise<Error> {
+async function readError(response: Response): Promise<ProviderRequestError> {
   let detail = "";
   try {
     const text = await response.text();
@@ -88,7 +157,11 @@ async function readError(response: Response): Promise<Error> {
   } catch {
     detail = "No error details were returned.";
   }
-  return new Error("HTTP " + response.status + (detail ? " · " + detail.replace(/\s+/g, " ").slice(0, 400) : ""));
+  return new ProviderRequestError(
+    "HTTP " + response.status + (detail ? " · " + detail.replace(/\s+/g, " ").slice(0, 400) : ""),
+    response.status,
+    response.headers,
+  );
 }
 
 function extractChatText(payload: unknown): string {
@@ -132,11 +205,83 @@ function storyMessages(prompt: string) {
   ];
 }
 
+function healthEntry(
+  state: AIProviderHealthEntry["state"],
+  note: string,
+  source: AIProviderHealthEntry["source"],
+  extra: Partial<AIProviderHealthEntry> = {},
+): AIProviderHealthEntry {
+  return { state, note: note.slice(0, 300), source, checkedAt: Date.now(), ...extra };
+}
+
+function responseQuota(provider: "groq" | "openrouter", headers: Headers): AIProviderHealthEntry | undefined {
+  const remainingRequests = Number(headers.get("x-ratelimit-remaining-requests"));
+  const limitRequests = Number(headers.get("x-ratelimit-limit-requests"));
+  const remainingTokens = Number(headers.get("x-ratelimit-remaining-tokens"));
+  const limitTokens = Number(headers.get("x-ratelimit-limit-tokens"));
+  const retryAt = retryAtFromHeaders(headers);
+  const hasRequests = Number.isFinite(remainingRequests) && remainingRequests >= 0;
+  const hasTokens = Number.isFinite(remainingTokens) && remainingTokens >= 0;
+  if (!hasRequests && !hasTokens) return undefined;
+  const state = hasRequests && remainingRequests === 0 ? "exhausted" : "available";
+  return healthEntry(state, provider === "groq"
+    ? "Latest Groq response rate-limit headers."
+    : "Latest OpenRouter inference response headers.", "response-headers", {
+    ...(hasRequests ? { remainingRequests, ...(Number.isFinite(limitRequests) && limitRequests >= 0 ? { limitRequests } : {}) } : {}),
+    ...(hasTokens ? { remainingTokens, ...(Number.isFinite(limitTokens) && limitTokens >= 0 ? { limitTokens } : {}) } : {}),
+    ...(retryAt ? { retryAt } : {}),
+  });
+}
+
+function statusFromError(error: unknown): number | undefined {
+  if (error instanceof ProviderRequestError) return error.status;
+  if (error && typeof error === "object" && "status" in error && typeof error.status === "number") return error.status;
+  const message = error instanceof Error ? error.message : String(error);
+  const match = message.match(/\((4\d\d|5\d\d)\)|HTTP\s+(4\d\d|5\d\d)/i);
+  return match ? Number(match[1] || match[2]) : undefined;
+}
+
+function errorHealth(provider: AIProvider, error: unknown): AIProviderHealthEntry {
+  const status = statusFromError(error);
+  const message = compactError(error);
+  const headers = error instanceof ProviderRequestError ? error.headers : new Headers();
+  let retryAt = error instanceof ProviderRequestError ? error.retryAt : undefined;
+  if (!retryAt) retryAt = retryAtFromMessage(message);
+  if (status === 401 || status === 403) {
+    return healthEntry("blocked", "Authentication or permission denied. Check this provider key and account.", "last-response");
+  }
+  if (status === 429 || /quota|rate.?limit|too many requests/i.test(message)) {
+    if (!retryAt) retryAt = provider === "cloudflare" || provider === "openrouter" ? nextUtcMidnight() : undefined;
+    return healthEntry("exhausted", "Provider limit reached. Automatic fallback is active.", "last-response", retryAt ? { retryAt } : {});
+  }
+  if (status === 503 || status && status >= 500 || /temporarily unavailable|overloaded|high demand/i.test(message)) {
+    return healthEntry("degraded", "Provider is temporarily unavailable. Automatic fallback is active.", "last-response", {
+      retryAt: Date.now() + (status === 503 ? 60_000 : 30_000),
+    });
+  }
+  if (provider === "gemini" && /429/.test(message)) {
+    return healthEntry("exhausted", "Gemini quota exhausted. Automatic fallback is active.", "last-response", retryAt ? { retryAt } : {});
+  }
+  return healthEntry("degraded", "Latest request failed. Automatic fallback is active.", "last-response", {
+    retryAt: Date.now() + 30_000,
+  });
+}
+
+function mergeHealth(target: AIProviderHealthMap, provider: AIProvider, entry: AIProviderHealthEntry | undefined): void {
+  if (entry) target[provider] = entry;
+}
+
+function isExpired(entry: AIProviderHealthEntry | undefined, now = Date.now()): boolean {
+  if (!entry) return false;
+  if (entry.retryAt !== undefined && entry.retryAt <= now) return true;
+  return now - entry.checkedAt > HEALTH_MAX_AGE_MS;
+}
+
 async function generateOpenAICompatible(
   provider: "groq" | "openrouter",
   key: string,
   prompt: string,
-): Promise<GeneratedStory> {
+): Promise<{ story: GeneratedStory; health?: AIProviderHealthEntry }> {
   const config = OPENAI_PROVIDER_CONFIG[provider];
   const response = await fetchWithTimeout(config.endpoint, {
     method: "POST",
@@ -164,7 +309,7 @@ async function generateOpenAICompatible(
   }
   const text = extractChatText(payload);
   if (!text) throw new Error("The provider completed the request without returning story text.");
-  return parseStory(text);
+  return { story: parseStory(text), health: responseQuota(provider, response.headers) };
 }
 
 async function generateCloudflare(
@@ -206,6 +351,49 @@ function configuredProviders(credentials: AIProviderCredentials): AIProvider[] {
   return providers;
 }
 
+export async function getOpenRouterFreeQuota(key: string): Promise<OpenRouterFreeQuota> {
+  const response = await fetchWithTimeout("https://openrouter.ai/api/v1/key", {
+    method: "GET",
+    headers: { Authorization: "Bearer " + key, Accept: "application/json" },
+  }, TEST_TIMEOUT_MS);
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      return { state: "blocked", note: "OpenRouter rejected this API key." };
+    }
+    if (response.status === 429) {
+      return { state: "exhausted", retryAt: nextUtcMidnight(), note: "OpenRouter key quota endpoint is rate-limited; retry after the UTC daily reset." };
+    }
+    return { state: "unknown", note: "OpenRouter quota could not be checked (HTTP " + response.status + ")." };
+  }
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    return { state: "unknown", note: "OpenRouter returned an unreadable quota response." };
+  }
+  if (typeof payload !== "object" || payload === null || !("data" in payload) || typeof payload.data !== "object" || payload.data === null) {
+    return { state: "unknown", note: "OpenRouter did not expose a free-model request counter for this key." };
+  }
+  const data = payload.data as Record<string, unknown>;
+  const freeQuota = data.free_model_daily_requests;
+  if (typeof freeQuota !== "object" || freeQuota === null) {
+    return { state: "unknown", note: "OpenRouter did not expose a free-model request counter for this key." };
+  }
+  const quota = freeQuota as Record<string, unknown>;
+  const remaining = Number(quota.remaining);
+  const limit = Number(quota.limit);
+  if (!Number.isFinite(remaining) || remaining < 0) {
+    return { state: "unknown", note: "OpenRouter returned a free-model quota without a readable remaining count." };
+  }
+  return {
+    state: remaining > 0 ? "available" : "exhausted",
+    remainingRequests: remaining,
+    ...(Number.isFinite(limit) && limit >= 0 ? { limitRequests: limit } : {}),
+    ...(remaining === 0 ? { retryAt: nextUtcMidnight() } : {}),
+    note: "Verified from OpenRouter's free-model daily request counter.",
+  };
+}
+
 export async function generateStoryWithAvailableProviders(
   options: MultiAIStoryOptions,
 ): Promise<MultiAIStoryResult> {
@@ -215,10 +403,46 @@ export async function generateStoryWithAvailableProviders(
   if (!Number.isFinite(options.targetDuration) || options.targetDuration < 10 || options.targetDuration > 600) {
     throw new Error("Choose a video duration between 10 seconds and 10 minutes.");
   }
-  const providers = configuredProviders(options.credentials);
+
+  const credentials = options.credentials;
+  const health: AIProviderHealthMap = { ...(options.providerHealth || {}) };
+  const providers = configuredProviders(credentials);
   if (!providers.length) {
-    throw new Error("Connect at least one AI provider. Add a Gemini, Groq, OpenRouter or Cloudflare Workers AI key.");
+    const error = new Error("Connect at least one confirmed free AI provider. Paid routes are disabled.");
+    (error as Error & { providerHealth?: AIProviderHealthMap }).providerHealth = health;
+    throw error;
   }
+
+  // OpenRouter exposes an account-level free-model counter. Refresh it before
+  // each generation; this GET call does not run or consume a model inference.
+  if (credentials.openrouter?.trim()) {
+    try {
+      const quota = await getOpenRouterFreeQuota(credentials.openrouter);
+      health.openrouter = healthEntry(quota.state, quota.note, "provider-api", {
+        ...(quota.remainingRequests !== undefined ? { remainingRequests: quota.remainingRequests } : {}),
+        ...(quota.limitRequests !== undefined ? { limitRequests: quota.limitRequests } : {}),
+        ...(quota.retryAt !== undefined ? { retryAt: quota.retryAt } : {}),
+      });
+    } catch {
+      health.openrouter = healthEntry("unknown", "OpenRouter free quota is temporarily unavailable; the free-only route remains provider-limited.", "app");
+    }
+  }
+
+  const eligible = providers.filter((provider) => {
+    const current = health[provider];
+    if (!current || isExpired(current)) return true;
+    return !isProviderCoolingDown(current);
+  });
+
+  const priority: AIProvider[] = ["gemini", "groq", "openrouter", "cloudflare"];
+  eligible.sort((left, right) => {
+    const a = health[left]?.remainingRequests;
+    const b = health[right]?.remainingRequests;
+    if (a !== undefined && b !== undefined && a !== b) return b - a;
+    if (a !== undefined && b === undefined) return -1;
+    if (a === undefined && b !== undefined) return 1;
+    return priority.indexOf(left) - priority.indexOf(right);
+  });
 
   const prompt = buildStoryPrompt({
     topic,
@@ -228,10 +452,9 @@ export async function generateStoryWithAvailableProviders(
   });
   const attempted: AIProvider[] = [];
   const failures: string[] = [];
+  const skipped: AIProvider[] = providers.filter((provider) => !eligible.includes(provider));
 
-  // A single request uses one provider. The next provider is contacted only if the
-  // current one fails, is rate-limited, or cannot return a valid storyboard.
-  for (const provider of providers) {
+  for (const provider of eligible) {
     attempted.push(provider);
     try {
       let story: GeneratedStory;
@@ -241,63 +464,113 @@ export async function generateStoryWithAvailableProviders(
           language: options.language,
           targetDuration: options.targetDuration,
           aspectRatio: options.aspectRatio,
-          apiKey: options.credentials.gemini || "",
+          apiKey: credentials.gemini || "",
         });
         story = result.story;
+        health.gemini = healthEntry("available", "Last Gemini request succeeded. Exact remaining quota is not exposed by this API.", "last-response");
       } else if (provider === "groq" || provider === "openrouter") {
-        story = await generateOpenAICompatible(provider, options.credentials[provider] || "", prompt);
+        const result = await generateOpenAICompatible(provider, credentials[provider] || "", prompt);
+        story = result.story;
+        mergeHealth(health, provider, result.health || healthEntry("available", "Last request succeeded; exact free quota is available only when the provider reports it.", "last-response"));
       } else {
-        story = await generateCloudflare(
-          options.credentials.cloudflareApiToken || "",
-          options.credentials.cloudflareAccountId || "",
-          prompt,
-        );
+        story = await generateCloudflare(credentials.cloudflareApiToken || "", credentials.cloudflareAccountId || "", prompt);
+        health.cloudflare = healthEntry("available", "Last Workers AI request succeeded. Daily Neuron balance is not exposed by this API.", "last-response");
       }
-      const fallbackNotice = attempted.length > 1
-        ? "Primary provider unavailable. " + providerName(provider) + " completed the storyboard after " + attempted.slice(0, -1).map(providerName).join(", ") + " failed."
+      const fallbackNotice = attempted.length > 1 || skipped.length > 0
+        ? providerName(provider) + " completed the storyboard after unavailable providers were skipped or failed."
         : undefined;
-      return { story, source: provider, attempted, fallbackNotice };
+      return { story, source: provider, attempted, fallbackNotice, providerHealth: health };
     } catch (error) {
-      failures.push(providerName(provider) + ": " + compactError(error));
+      const detail = compactError(error);
+      failures.push(providerName(provider) + ": " + detail);
+      health[provider] = errorHealth(provider, error);
     }
   }
 
-  throw new Error("No connected AI provider could complete the storyboard. " + failures.join(" | "));
+  const availability = providers.map((provider) => providerName(provider) + ": " + (health[provider]?.note || "availability unknown")).join(" · ");
+  const error = new Error("No connected free AI provider could complete the storyboard. " + failures.join(" | ") + (skipped.length ? " Skipped cooling-down providers: " + skipped.map(providerName).join(", ") + "." : "") + " " + availability);
+  (error as Error & { providerHealth?: AIProviderHealthMap }).providerHealth = health;
+  throw error;
+}
+
+export async function getProviderQuotaSnapshot(
+  credentials: AIProviderCredentials,
+  previous: AIProviderHealthMap = {},
+): Promise<AIProviderHealthMap> {
+  const snapshot: AIProviderHealthMap = { ...previous };
+  if (credentials.openrouter?.trim()) {
+    try {
+      const quota = await getOpenRouterFreeQuota(credentials.openrouter);
+      snapshot.openrouter = healthEntry(quota.state, quota.note, "provider-api", {
+        ...(quota.remainingRequests !== undefined ? { remainingRequests: quota.remainingRequests } : {}),
+        ...(quota.limitRequests !== undefined ? { limitRequests: quota.limitRequests } : {}),
+        ...(quota.retryAt !== undefined ? { retryAt: quota.retryAt } : {}),
+      });
+    } catch {
+      snapshot.openrouter = healthEntry("unknown", "OpenRouter free quota could not be refreshed.", "app");
+    }
+  } else {
+    delete snapshot.openrouter;
+  }
+  const now = Date.now();
+  for (const provider of ["gemini", "groq", "cloudflare"] as const) {
+    if (!credentials[provider === "cloudflare" ? "cloudflareApiToken" : provider]) {
+      delete snapshot[provider];
+    } else if (!snapshot[provider] || isExpired(snapshot[provider], now)) {
+      snapshot[provider] = healthEntry("unknown", provider === "gemini"
+        ? "Google does not expose the remaining Gemini free-tier quota to this app."
+        : provider === "groq"
+          ? "Groq reports request/token quota in inference response headers; no inference was run during this refresh."
+          : "Cloudflare does not expose remaining account-wide daily Neurons through this API.", "app");
+    }
+  }
+  return snapshot;
 }
 
 async function testOpenAICompatible(provider: "groq" | "openrouter", key: string): Promise<string> {
+  if (provider === "openrouter") {
+    const quota = await getOpenRouterFreeQuota(key);
+    if (quota.state === "blocked") throw new Error(quota.note);
+    if (quota.state === "exhausted") return "OpenRouter key is valid, but today's free-model daily request limit is exhausted.";
+    if (quota.remainingRequests !== undefined) return "OpenRouter connection successful · " + quota.remainingRequests + " of " + (quota.limitRequests ?? "unknown") + " free-model requests remain today.";
+    return "OpenRouter key is valid. Free-model quota visibility is unavailable; generation remains restricted to openrouter/free.";
+  }
   const config = OPENAI_PROVIDER_CONFIG[provider];
   const response = await fetchWithTimeout(
-    provider === "groq" ? "https://api.groq.com/openai/v1/models" : "https://openrouter.ai/api/v1/models",
+    "https://api.groq.com/openai/v1/models",
     { method: "GET", headers: { Authorization: "Bearer " + key } },
     TEST_TIMEOUT_MS,
   );
   if (!response.ok) throw await readError(response);
   const payload: unknown = await response.json();
   if (typeof payload !== "object" || payload === null || !("data" in payload) || !Array.isArray(payload.data)) {
-    throw new Error("The provider responded, but its model catalogue was not recognised.");
+    throw new Error("Groq responded, but its model catalogue was not recognised.");
   }
   const models = payload.data as Array<Record<string, unknown>>;
-  const modelAvailable = provider === "groq"
-    ? models.some((model) => model.id === config.model)
-    : models.some((model) => model.id === "openrouter/free" || model.id === "openrouter/free:free");
-  if (provider === "groq" && !modelAvailable) {
+  const modelAvailable = models.some((model) => model.id === config.model);
+  if (!modelAvailable) {
     throw new Error("The configured Groq model is not available to this API key. Check the Groq model catalogue.");
   }
-  return providerName(provider) + " connection successful. " + (modelAvailable ? "The selected model is listed." : "The account can access the model catalogue.");
+  return "Groq connection successful · " + config.model + " is listed. Live request/token capacity will be read from inference response headers.";
 }
 
 async function testCloudflare(apiToken: string, accountId: string): Promise<string> {
   const url = "https://api.cloudflare.com/client/v4/accounts/" + accountId + "/ai/run/" + CLOUDFLARE_MODEL;
   const response = await fetchWithTimeout(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: "Bearer " + apiToken },
-    body: JSON.stringify({ messages: [{ role: "user", content: "Reply exactly: SOCHOZARA_CLOUDFLARE_OK" }], max_tokens: 24 }),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + apiToken,
+    },
+    body: JSON.stringify({
+      messages: [{ role: "user", content: "Reply exactly: SOCHOZARA_CLOUDFLARE_OK" }],
+      max_tokens: 24,
+    }),
   }, TEST_TIMEOUT_MS);
   if (!response.ok) throw await readError(response);
   const payload: unknown = await response.json();
   if (!extractChatText(payload)) throw new Error("Cloudflare accepted the request but returned no text.");
-  return "Cloudflare Workers AI connection successful · " + CLOUDFLARE_MODEL + ".";
+  return "Cloudflare Workers AI connection successful · " + CLOUDFLARE_MODEL + ". One small test uses the confirmed Workers Free daily allocation.";
 }
 
 export async function testSecondaryAIProvider(
@@ -321,6 +594,19 @@ export async function testSecondaryAIProvider(
   return testCloudflare(key, account);
 }
 
+export function parseProviderHealthFromRequest(request: Request): AIProviderHealthMap {
+  return parseAIProviderHealthHeader(request.headers.get("X-SochoZara-AI-Health"));
+}
+
 export function getProviderDisplayName(provider: AIProvider): string {
   return providerName(provider);
+}
+
+export function getProviderRetryAtForError(error: unknown): number | undefined {
+  const status = statusFromError(error);
+  const message = compactError(error);
+  if (error instanceof ProviderRequestError && error.retryAt) return error.retryAt;
+  const inferred = retryAtFromMessage(message);
+  if (inferred) return inferred;
+  return status === 429 ? nextUtcMidnight() : undefined;
 }
