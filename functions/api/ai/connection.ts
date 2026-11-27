@@ -8,6 +8,12 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
   if (originError) return originError;
   const provider = request.headers.get("X-SochoZara-AI-Provider")?.trim();
   try {
+    if (provider === "cloudflare" && request.headers.get("X-SochoZara-Cloudflare-Free-Use") !== "true") {
+      return jsonNoStore({
+        error: "Confirm that this API token belongs to a Cloudflare Workers Free account before testing or using its daily free allocation.",
+        code: "CLOUDFLARE_FREE_PLAN_CONFIRMATION_REQUIRED",
+      }, 403);
+    }
     if (provider === "groq" || provider === "openrouter" || provider === "cloudflare") {
       const message = await testSecondaryAIProvider(provider as SecondaryAIProvider, resolveAIRequestCredentials(request, env));
       return jsonNoStore({ provider, message });
