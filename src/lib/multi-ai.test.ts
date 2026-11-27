@@ -90,6 +90,9 @@ describe("multi-provider AI storyboard fallback", () => {
 
   it("skips unconfigured providers and falls back after a malformed model response", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: {} }), {
+        status: 200, headers: { "Content-Type": "application/json" },
+      }))
       .mockResolvedValueOnce(new Response(JSON.stringify({
         choices: [{ message: { content: "{not valid JSON" } }],
       }), { status: 200, headers: { "Content-Type": "application/json" } }))
@@ -104,10 +107,98 @@ describe("multi-provider AI storyboard fallback", () => {
 
     expect(result.source).toBe("openrouter");
     expect(result.attempted).toEqual(["groq", "openrouter"]);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(String(fetchMock.mock.calls[1][0])).toBe("https://openrouter.ai/api/v1/chat/completions");
-    const request = JSON.parse(String(fetchMock.mock.calls[1][1]?.body));
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(String(fetchMock.mock.calls[0][0])).toBe("https://openrouter.ai/api/v1/key");
+    expect(String(fetchMock.mock.calls[2][0])).toBe("https://openrouter.ai/api/v1/chat/completions");
+    const request = JSON.parse(String(fetchMock.mock.calls[2][1]?.body));
     expect(request.model).toBe("openrouter/free");
+  });
+
+
+  it("skips OpenRouter when its live free daily quota is exhausted", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: { free_model_daily_requests: { limit: 50, remaining: 0, used: 50 } },
+      }), { status: 200, headers: { "Content-Type": "application/json" } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify(validStory) } }],
+      }), { status: 200, headers: { "Content-Type": "application/json" } }));
+
+    const result = await generateStoryWithAvailableProviders(options({
+      groq: "groq-test-key",
+      openrouter: "openrouter-test-key",
+    }));
+
+    expect(result.source).toBe("groq");
+    expect(result.attempted).toEqual(["groq"]);
+    expect(result.providerHealth.openrouter?.state).toBe("exhausted");
+    expect(result.providerHealth.openrouter?.remainingRequests).toBe(0);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[1][0])).toBe("https://api.groq.com/openai/v1/chat/completions");
+  });
+
+  it("prioritises a provider with a verified free request balance over unknown quota", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: { free_model_daily_requests: { limit: 50, remaining: 21, used: 29 } },
+      }), { status: 200, headers: { "Content-Type": "application/json" } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify(validStory) } }],
+      }), { status: 200, headers: { "Content-Type": "application/json" } }));
+
+    const result = await generateStoryWithAvailableProviders(options({
+      gemini: "gemini-test-key",
+      openrouter: "openrouter-test-key",
+    }));
+
+    expect(result.source).toBe("openrouter");
+    expect(result.attempted).toEqual(["openrouter"]);
+    expect(result.providerHealth.openrouter?.remainingRequests).toBe(21);
+    expect(String(fetchMock.mock.calls[1][0])).toBe("https://openrouter.ai/api/v1/chat/completions");
+  });
+
+  it("skips a Gemini provider in cooldown and uses another connected provider", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify(validStory) } }],
+      }), { status: 200, headers: { "Content-Type": "application/json" } }));
+
+    const result = await generateStoryWithAvailableProviders({
+      ...options({ gemini: "gemini-test-key", groq: "groq-test-key" }),
+      providerHealth: {
+        gemini: {
+          state: "exhausted",
+          checkedAt: Date.now(),
+          retryAt: Date.now() + 60_000,
+          note: "Daily free quota used.",
+          source: "last-response",
+        },
+      },
+    });
+
+    expect(result.source).toBe("groq");
+    expect(result.attempted).toEqual(["groq"]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0][0])).toBe("https://api.groq.com/openai/v1/chat/completions");
+  });
+
+
+  it("does not treat missing rate-limit headers as zero remaining capacity", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        data: { free_model_daily_requests: { limit: 50, remaining: 17, used: 33 } },
+      }), { status: 200, headers: { "Content-Type": "application/json" } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify(validStory) } }],
+      }), { status: 200, headers: { "Content-Type": "application/json" } }));
+
+    const result = await generateStoryWithAvailableProviders(options({
+      openrouter: "openrouter-test-key",
+    }));
+
+    expect(result.source).toBe("openrouter");
+    expect(result.providerHealth.openrouter?.remainingRequests).toBe(17);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("fails clearly when no API provider is configured", async () => {

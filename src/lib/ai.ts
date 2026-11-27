@@ -1,6 +1,7 @@
 import type { AspectRatio, GeneratedStory, Language, SceneVisualLayout, SceneVisualPlan } from "../types";
 import { getGeminiSessionHeaders } from "./gemini-session";
 import { getSecondaryAIHeaders, type AIProvider } from "./ai-provider-session";
+import { getAIProviderHealthHeader, saveAIProviderHealth, type AIProviderHealthMap } from "./ai-provider-health";
 
 interface GenerateOptions {
   topic: string;
@@ -338,7 +339,10 @@ async function readApiError(response: Response): Promise<Error> {
   let detail = "The secure AI service returned HTTP " + response.status + ".";
   try {
     const payload: unknown = await response.json();
-    if (isRecord(payload) && typeof payload.error === "string") detail = payload.error;
+    if (isRecord(payload)) {
+      if (typeof payload.error === "string") detail = payload.error;
+      if (isRecord(payload.providerHealth)) saveAIProviderHealth(payload.providerHealth as AIProviderHealthMap);
+    }
   } catch {
     // Keep the status-based error when the gateway did not return JSON.
   }
@@ -351,7 +355,7 @@ export async function generateStory(
 ): Promise<{ story: GeneratedStory; source: AIProvider; fallbackNotice?: string }> {
   const response = await fetch("/api/ai/story", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json", ...getGeminiSessionHeaders(), ...getSecondaryAIHeaders() },
+    headers: { "Content-Type": "application/json", Accept: "application/json", ...getGeminiSessionHeaders(), ...getSecondaryAIHeaders(), ...getAIProviderHealthHeader() },
     body: JSON.stringify(options),
     cache: "no-store",
   });
@@ -362,6 +366,7 @@ export async function generateStory(
   } catch {
     throw new Error("The secure AI service returned an unreadable story response.");
   }
+  if (isRecord(payload) && isRecord(payload.providerHealth)) saveAIProviderHealth(payload.providerHealth as AIProviderHealthMap);
   if (!isRecord(payload) || !isRecord(payload.story) || typeof payload.story.title !== "string" || !Array.isArray(payload.story.scenes)) {
     throw new Error("The secure AI service returned an incomplete video storyboard.");
   }

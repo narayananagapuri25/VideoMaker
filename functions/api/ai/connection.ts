@@ -8,6 +8,9 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
   if (originError) return originError;
   const provider = request.headers.get("X-SochoZara-AI-Provider")?.trim();
   try {
+    if (provider === "groq" && request.headers.get("X-SochoZara-Groq-Free-Use") !== "true") {
+      return jsonNoStore({ error: "Confirm that this Groq account is on its Free Developer plan and has no paid API billing enabled before testing or using it.", code: "GROQ_FREE_PLAN_CONFIRMATION_REQUIRED" }, 403);
+    }
     if (provider === "cloudflare" && request.headers.get("X-SochoZara-Cloudflare-Free-Use") !== "true") {
       return jsonNoStore({
         error: "Confirm that this API token belongs to a Cloudflare Workers Free account before testing or using its daily free allocation.",
@@ -17,6 +20,9 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
     if (provider === "groq" || provider === "openrouter" || provider === "cloudflare") {
       const message = await testSecondaryAIProvider(provider as SecondaryAIProvider, resolveAIRequestCredentials(request, env));
       return jsonNoStore({ provider, message });
+    }
+    if (request.headers.get("X-SochoZara-Gemini-Free-Use") !== "true") {
+      return jsonNoStore({ error: "Confirm that this Gemini key is using the Google AI Studio Free Tier and has no paid billing or usage enabled before testing or generating.", code: "GEMINI_FREE_TIER_CONFIRMATION_REQUIRED" }, 403);
     }
     const apiKey = requireGeminiKey(request, env);
     if (apiKey instanceof Response) return apiKey;

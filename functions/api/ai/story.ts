@@ -1,4 +1,4 @@
-import { generateStoryWithAvailableProviders } from "../../../src/lib/multi-ai";
+import { generateStoryWithAvailableProviders, parseProviderHealthFromRequest } from "../../../src/lib/multi-ai";
 import { checkSameOrigin, jsonNoStore, parseJsonBody, providerError, resolveAIRequestCredentials, type PagesContext } from "./_shared";
 import type { AspectRatio, Language } from "../../../src/types";
 
@@ -29,6 +29,8 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
   }
 
   const credentials = resolveAIRequestCredentials(request, env);
+  if (request.headers.get("X-SochoZara-Gemini-Free-Use") !== "true") credentials.gemini = undefined;
+  if (request.headers.get("X-SochoZara-Groq-Free-Use") !== "true") credentials.groq = undefined;
   if (request.headers.get("X-SochoZara-Cloudflare-Free-Use") !== "true") {
     credentials.cloudflareApiToken = undefined;
     credentials.cloudflareAccountId = undefined;
@@ -51,9 +53,15 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
       aspectRatio: aspectRatio as AspectRatio,
       targetDuration,
       credentials,
+      providerHealth: parseProviderHealthFromRequest(request),
     });
-    return jsonNoStore({ story: result.story, source: result.source, attempted: result.attempted, fallbackNotice: result.fallbackNotice });
+    return jsonNoStore({ story: result.story, source: result.source, attempted: result.attempted, fallbackNotice: result.fallbackNotice, providerHealth: result.providerHealth });
   } catch (error) {
-    return providerError(error);
+    const providerHealth = error && typeof error === "object" && "providerHealth" in error
+      ? (error as Error & { providerHealth?: unknown }).providerHealth
+      : undefined;
+    const result = providerError(error);
+    if (providerHealth) return jsonNoStore({ ...(await result.json() as Record<string, unknown>), providerHealth }, result.status);
+    return result;
   }
 }

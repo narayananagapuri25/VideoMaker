@@ -1,6 +1,7 @@
 import type { Language } from "../types";
 import { MAX_NARRATION_AUDIO_BYTES } from "./media-data";
 import { getGeminiSessionHeaders } from "./gemini-session";
+import { getSecondaryAIHeaders } from "./ai-provider-session";
 
 interface TtsResponse {
   output_audio?: { data?: string; mime_type?: string };
@@ -122,12 +123,17 @@ export async function generateNarrationWithApiKey(
 }
 
 
-/** Requests audio from the same-origin Pages Function, using the optional tab-session key. */
+export interface GeneratedNarration {
+  blob: Blob;
+  provider: string;
+}
+
+/** Requests narration from the same-origin free-only router. */
 export async function generateNarration(
   script: string,
   voice: string,
   language: Language,
-): Promise<Blob> {
+): Promise<GeneratedNarration> {
   const transcript = script.trim();
   if (!transcript) throw new Error("Add narration text before generating speech.");
   if (transcript.length > MAX_TRANSCRIPT_LENGTH) {
@@ -135,7 +141,7 @@ export async function generateNarration(
   }
   const response = await fetch("/api/ai/narration", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "audio/wav, application/json", ...getGeminiSessionHeaders() },
+    headers: { "Content-Type": "application/json", Accept: "audio/mpeg, audio/wav, application/json", ...getGeminiSessionHeaders(), ...getSecondaryAIHeaders() },
     body: JSON.stringify({ script: transcript, voice, language }),
     cache: "no-store",
   });
@@ -158,5 +164,8 @@ export async function generateNarration(
   if (blob.size > MAX_NARRATION_AUDIO_BYTES) {
     throw new Error("Generated narration is larger than 30 MB. Use a shorter script.");
   }
-  return blob;
+  return {
+    blob,
+    provider: response.headers.get("X-SochoZara-TTS-Provider") || "AI Voice",
+  };
 }

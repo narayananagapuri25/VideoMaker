@@ -17,6 +17,9 @@ function context(
   if (body !== undefined) headers.set("Content-Type", "application/json");
   if (body !== undefined) headers.set("Origin", origin);
   if (sessionKey) headers.set("X-SochoZara-Gemini-Key", sessionKey);
+  if ((key || sessionKey) && (path.endsWith("/story") || path.endsWith("/narration"))) {
+    headers.set("X-SochoZara-Gemini-Free-Use", "true");
+  }
   return {
     request: new Request("https://studio.example" + path, {
       method: body === undefined ? "GET" : "POST",
