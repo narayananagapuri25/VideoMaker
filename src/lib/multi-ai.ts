@@ -260,7 +260,7 @@ function errorHealth(provider: AIProvider, error: unknown): AIProviderHealthEntr
   if (status === 401 || status === 403) {
     return healthEntry("blocked", "Authentication or permission denied. Check this provider key and account.", "last-response");
   }
-  if (status === 429 || /quota|rate.?limit|too many requests/i.test(message)) {
+  if (status === 429 || /quota|rate.?limit|too many requests|free allocation|daily limit|neurons?/i.test(message)) {
     if (!retryAt) retryAt = provider === "cloudflare" || provider === "openrouter" ? nextUtcMidnight() : undefined;
     return healthEntry("exhausted", "Provider limit reached. Automatic fallback is active.", "last-response", retryAt ? { retryAt } : {});
   }
