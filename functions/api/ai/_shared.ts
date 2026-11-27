@@ -1,5 +1,10 @@
+export interface WorkersAIBinding {
+  run(model: string, inputs: Record<string, unknown>): Promise<unknown>;
+}
+
 export interface GeminiEnv {
   GEMINI_API_KEY?: string;
+  AI?: WorkersAIBinding;
 }
 
 export interface AIRequestCredentials {
