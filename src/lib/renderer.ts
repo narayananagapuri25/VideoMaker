@@ -264,7 +264,19 @@ export async function exportMp4(
     for (const scene of project.scenes) {
       if (scene.imageDataUrl) images.set(scene.id, await loadImage(scene.imageDataUrl, signal));
       throwIfExportAborted(signal);
-      if (getSceneVideoSrc(scene)) videos.set(scene.id, await loadSceneVideo(scene, signal));
+      if (getSceneVideoSrc(scene)) {
+        try {
+          videos.set(scene.id, await loadSceneVideo(scene, signal));
+        } catch (error) {
+          // Free archive footage is an enhancement, never a reason to lose the complete video export.
+          if (signal?.aborted) throw error;
+          if (scene.videoClipSource !== "nasa") throw error;
+          onProgress({
+            progress: 0.02,
+            message: "A NASA clip is unavailable for “" + scene.title + "”. Using its generated artwork instead…",
+          });
+        }
+      }
       throwIfExportAborted(signal);
     }
   } catch (error) {
