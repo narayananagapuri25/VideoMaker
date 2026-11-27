@@ -27,6 +27,17 @@ export function requireMagicHourKey(request: Request): string | Response {
   return key;
 }
 
+/** Prevent accidental API credit use until the user explicitly attests that the whole balance is free/reward credits. */
+export function requireFreeUseConfirmation(request: Request): Response | null {
+  if (request.headers.get("X-SochoZara-Magic-Hour-Free-Use") !== "true") {
+    return jsonNoStore({
+      error: "Video generation is paused. In the Studio, confirm that this account balance contains only free/reward credits and that you will use the output for personal, non-commercial work.",
+      code: "FREE_CREDITS_CONFIRMATION_REQUIRED",
+    }, 403);
+  }
+  return null;
+}
+
 export async function providerRequest<T>(
   key: string,
   path: string,
