@@ -35,9 +35,10 @@ describe("Gemini narration", () => {
       status: 200,
       headers: { "Content-Type": "audio/wav" },
     }));
-    const audio = await generateNarration("Hello from SochoZara", "Kore", "English");
-    expect(audio.type).toBe("audio/wav");
-    expect(audio.size).toBe(3);
+    const narration = await generateNarration("Hello from SochoZara", "Kore", "English");
+    expect(narration.blob.type).toBe("audio/wav");
+    expect(narration.blob.size).toBe(3);
+    expect(narration.provider).toBe("AI Voice");
     expect(fetchMock).toHaveBeenCalledOnce();
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/ai/narration");
