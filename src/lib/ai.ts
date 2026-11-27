@@ -1,6 +1,7 @@
 import type { AspectRatio, GeneratedStory, Language, SceneVisualLayout, SceneVisualPlan } from "../types";
+import { getSelectedAIHeaders } from "./ai-selection";
 import { getGeminiSessionHeaders } from "./gemini-session";
-import { getSecondaryAIHeaders, type AIProvider } from "./ai-provider-session";
+import type { AIProvider } from "./ai-provider-session";
 import { getAIProviderHealthHeader, saveAIProviderHealth, type AIProviderHealthMap } from "./ai-provider-health";
 
 interface GenerateOptions {
@@ -355,7 +356,7 @@ export async function generateStory(
 ): Promise<{ story: GeneratedStory; source: AIProvider; fallbackNotice?: string }> {
   const response = await fetch("/api/ai/story", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json", ...getGeminiSessionHeaders(), ...getSecondaryAIHeaders(), ...getAIProviderHealthHeader() },
+    headers: { "Content-Type": "application/json", Accept: "application/json", ...getSelectedAIHeaders(), ...getAIProviderHealthHeader() },
     body: JSON.stringify(options),
     cache: "no-store",
   });

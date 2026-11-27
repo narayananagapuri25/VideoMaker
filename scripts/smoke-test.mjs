@@ -57,7 +57,7 @@ try {
     const response = await getOk(path, isCss ? /text\/css/ : /javascript/);
     if (!isCss) {
       const source = await response.text();
-      assert.ok(source.includes("Make something worth watching."), "The application bundle should contain the Studio entry view.");
+      assert.ok(source.includes("Turn an idea into a video."), "The application bundle should contain the Studio entry view.");
     }
   }
 
