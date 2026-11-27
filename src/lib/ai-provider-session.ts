@@ -189,9 +189,10 @@ export function getSecondaryAIProviderHeaders(provider: SecondaryAIProvider): Re
   const headers: Record<string, string> = { "X-SochoZara-AI-Provider": provider };
   if (provider === "groq" && keys.groq) headers["X-SochoZara-Groq-Key"] = keys.groq;
   if (provider === "openrouter" && keys.openrouter) headers["X-SochoZara-OpenRouter-Key"] = keys.openrouter;
-  if (provider === "cloudflare" && keys.cloudflareApiToken && keys.cloudflareAccountId) {
+  if (provider === "cloudflare" && keys.cloudflareApiToken && keys.cloudflareAccountId && hasCloudflareFreeUseOnlyConfirmation()) {
     headers["X-SochoZara-Cloudflare-Token"] = keys.cloudflareApiToken;
     headers["X-SochoZara-Cloudflare-Account"] = keys.cloudflareAccountId;
+    headers["X-SochoZara-Cloudflare-Free-Use"] = "true";
   }
   return headers;
 }
