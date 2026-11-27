@@ -235,7 +235,7 @@ export default function App() {
           const scene = scenes[index];
           setNotice("Creating original FLUX artwork · scene " + (index + 1) + " of " + scenes.length + "…");
           const visualPrompt = [
-            "Premium cinematic documentary still image for an educational video.",
+            "Premium cinematic still image for a professional " + (videoGenre === "auto" ? "genre-appropriate" : videoGenre) + " video. Match the actual scene setting, era, environment, and emotional tone; do not force an educational-documentary look onto unrelated subjects.",
             "Subject and visual direction: " + (scene.visualPrompt || scene.title),
             "Scene title for context only: " + scene.title,
             "Photorealistic, art-directed, rich environmental detail, strong composition, depth and natural lighting.",
