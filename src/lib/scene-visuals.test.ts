@@ -40,6 +40,10 @@ describe("cinematic scene visual themes", () => {
   it("uses the overall topic to classify otherwise generic scene headings", () => {
     expect(getSceneTheme(scene("The golden era", "Abstract cinematic artwork", "Rohit Sharma returns as Mumbai Indians captain for IPL 2027"))).toBe("sports");
   });
+
+  it("does not let a generic planet/orbit image prompt override a cricket topic", () => {
+    expect(getSceneTheme(scene("The breaking news hook", "A glowing planet with orbit rings", "Rohit Sharma returns as Mumbai Indians captain for IPL 2027"))).toBe("sports");
+  });
 });
 
 
