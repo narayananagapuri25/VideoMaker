@@ -822,6 +822,14 @@ function drawTextOverlay(
   ctx.fillStyle = "#F4F8FD";
   ctx.font = "700 " + Math.round(Math.min(width * 0.017, height * 0.013)) + "px Arial";
   ctx.textAlign = "right";
+  if (scene.videoClipSource === "nasa") {
+    ctx.save();
+    ctx.fillStyle = "rgba(240,248,255,.76)";
+    ctx.font = "700 " + Math.round(Math.min(width * 0.014, height * 0.011)) + "px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText("FOOTAGE: NASA", left, height * 0.948);
+    ctx.restore();
+  }
   ctx.fillText(String(sceneIndex + 1).padStart(2, "0") + " / " + String(sceneCount).padStart(2, "0"), right, height * 0.948);
 }
 
