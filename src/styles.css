@@ -592,6 +592,7 @@ select { appearance: auto; }
 .simple-preview-panel .timeline-player { width:100%; }
 .simple-preview-meta { display:flex; justify-content:space-between; gap:10px; padding-top:11px; color:#8093aa; font-size:9px; }
 .simple-download { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:16px; padding:13px; border:1px solid rgba(53,211,154,.25); border-radius:10px; background:rgba(53,211,154,.07); }
+.preview-build-note { margin:0 0 10px; padding:9px 11px; border-left:2px solid var(--accent); border-radius:0 7px 7px 0; background:rgba(255,255,255,.025); color:#9fb1c5; font-size:10px; line-height:1.5; }
 .simple-download strong,.simple-download small { display:block; }
 .simple-download strong { color:#b4f5dc; font-size:11px; }
 .simple-download small { color:#82bba4; font-size:9px; margin-top:4px; }
