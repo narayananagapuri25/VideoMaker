@@ -30,7 +30,7 @@ function sceneTerms(scene: Scene): string[] {
 function queryForScene(scene: Scene): string {
   const context = (scene.topicContext + " " + scene.title + " " + scene.narration).toLowerCase();
   const local = (scene.title + " " + scene.narration + " " + scene.caption).toLowerCase();
-  if (/\\b(cricket|ipl|rohit sharma|mumbai indians|wankhede)\\b/.test(context)) {
+  if (/\b(cricket|ipl|rohit sharma|mumbai indians|wankhede)\b/.test(context)) {
     if (/trophy|champion|title|legacy|golden era|five seasons/.test(local)) return "cricket trophy presentation champions five titles";
     if (/arshdeep|hardik|trade|transfer|roster|squad|joins|bowler/.test(local)) return "cricket fast bowler bowling action stadium";
     if (/20th|twentieth|landmark|season|anniversary/.test(local)) return "cricket stadium crowd floodlights night match";
