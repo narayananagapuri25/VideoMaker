@@ -48,6 +48,7 @@ describe("Pixabay stock search", () => {
         thumbnailUrl: "https://cdn.pixabay.com/video/preview.jpg",
         width: 1920,
         height: 1080,
+        tags: ["earth", "orbit"],
       }],
     }), { status: 200, headers: { "Content-Type": "application/json" } }));
 
