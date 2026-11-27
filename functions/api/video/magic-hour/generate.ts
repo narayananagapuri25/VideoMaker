@@ -6,9 +6,10 @@ import {
   providerRequest,
   readProviderError,
   requireMagicHourKey,
+  requireFreeUseConfirmation,
 } from "./_shared";
 
-const MODELS = ["default", "minimax-h3"] as const;
+const MODELS = ["ltx-2.5", "minimax-h3"] as const;
 const CREDITS_PER_SECOND_AT_480P = 24;
 
 export async function onRequestPost({ request }: { request: Request }): Promise<Response> {
@@ -16,6 +17,8 @@ export async function onRequestPost({ request }: { request: Request }): Promise<
   if (originError) return originError;
   const key = requireMagicHourKey(request);
   if (key instanceof Response) return key;
+  const confirmationError = requireFreeUseConfirmation(request);
+  if (confirmationError) return confirmationError;
   const body = await parseRequestBody(request);
   if (body instanceof Response) return body;
 
@@ -39,9 +42,9 @@ export async function onRequestPost({ request }: { request: Request }): Promise<
 
   const account = await getMagicHourAccount(key);
   if (account instanceof Response) return account;
-  if (account.tier !== "free") {
+  if (account.tier !== "free" || account.subscription !== null) {
     return jsonNoStore({
-      error: "The connected Magic Hour account is not verified as Free. No video job was submitted. Use a Free-tier account to enable free-only generation.",
+      error: "The connected Magic Hour account does not have a verified Free plan without a subscription. No video job was submitted.",
       code: "FREE_TIER_ACCOUNT_REQUIRED",
       tier: account.tier,
     }, 403);
