@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { selectAIProvider } from "./ai-selection";
 import { generateStory, generateStoryWithApiKey, testGeminiConnection, testGeminiConnectionWithApiKey } from "./ai";
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -59,11 +60,13 @@ describe("Gemini connection diagnostics", () => {
   });
 
   it("sends the saved tab-session key only to the same-origin story and connection routes", async () => {
+    const storage = new Map<string, string>([["sochozara.gemini.api-key", "tab-session-test-key"]]);
     vi.stubGlobal("sessionStorage", {
-      getItem: () => "tab-session-test-key",
-      setItem: () => undefined,
-      removeItem: () => undefined,
+      getItem: (name: string) => storage.get(name) ?? null,
+      setItem: (name: string, value: string) => { storage.set(name, value); },
+      removeItem: (name: string) => { storage.delete(name); },
     });
+    selectAIProvider("gemini");
     const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const url = String(input);
       return url.endsWith("/connection")
