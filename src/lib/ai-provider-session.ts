@@ -15,12 +15,14 @@ const STORAGE = {
   cloudflareApiToken: "sochozara.ai.cloudflare-token",
   cloudflareAccountId: "sochozara.ai.cloudflare-account",
   magicHour: "sochozara.video.magichour-key",
+  agnes: "sochozara.video.agnes-key",
 } as const;
 
 const MAX_KEY_LENGTH = 2_048;
 const MAX_ACCOUNT_ID_LENGTH = 128;
 const MAGIC_HOUR_FREE_CREDITS_CONFIRMATION = "sochozara.video.magichour-free-credits-confirmed";
 const CLOUDFLARE_FREE_ONLY_CONFIRMATION = "sochozara.ai.cloudflare-free-only-confirmed";
+const AGNES_FREE_TRIAL_CONFIRMATION = "sochozara.video.agnes-free-trial-confirmed";
 
 function read(name: string): string {
   try {
@@ -47,6 +49,51 @@ function remove(name: string): void {
   } catch {
     // Nothing to clear when session storage is unavailable.
   }
+}
+
+export function saveAgnesApiKey(value: string): void {
+  save(STORAGE.agnes, value, MAX_KEY_LENGTH, "Agnes AI API key");
+  remove(AGNES_FREE_TRIAL_CONFIRMATION);
+}
+
+export function getAgnesApiKey(): string {
+  return read(STORAGE.agnes);
+}
+
+export function hasAgnesApiKey(): boolean {
+  return Boolean(getAgnesApiKey());
+}
+
+export function clearAgnesApiKey(): void {
+  remove(STORAGE.agnes);
+  remove(AGNES_FREE_TRIAL_CONFIRMATION);
+}
+
+export function confirmAgnesFreeTrialOnly(confirmed: boolean): void {
+  try {
+    if (confirmed) globalThis.sessionStorage.setItem(AGNES_FREE_TRIAL_CONFIRMATION, "true");
+    else globalThis.sessionStorage.removeItem(AGNES_FREE_TRIAL_CONFIRMATION);
+  } catch {
+    throw new Error("This browser could not save the Agnes free-trial confirmation for this tab.");
+  }
+}
+
+export function hasAgnesFreeTrialOnlyConfirmation(): boolean {
+  try {
+    return globalThis.sessionStorage.getItem(AGNES_FREE_TRIAL_CONFIRMATION) === "true";
+  } catch {
+    return false;
+  }
+}
+
+/** Agnes keys are sent only after an explicit current $0 Angel User Trial confirmation. */
+export function getAgnesHeaders(): Record<string, string> {
+  const key = getAgnesApiKey();
+  if (!key || !hasAgnesFreeTrialOnlyConfirmation()) return {};
+  return {
+    "X-SochoZara-Agnes-Key": key,
+    "X-SochoZara-Agnes-Free-Trial": "true",
+  };
 }
 
 export function saveMagicHourApiKey(value: string): void {
