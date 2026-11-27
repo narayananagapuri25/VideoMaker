@@ -31,6 +31,7 @@ describe("Cloudflare Aura-1 narration", () => {
     expect(run).toHaveBeenCalledOnce();
     expect(run.mock.calls[0][0]).toBe("@cf/deepgram/aura-1");
     expect(run.mock.calls[0][1]).toMatchObject({ text: "Welcome to this documentary. Let us explore the idea.", speaker: "luna", encoding: "mp3" });
+    expect(run.mock.calls[0][1]).not.toHaveProperty("container");
     expect(run.mock.calls[0][2]).toEqual({ returnRawResponse: true, rejectIfBusy: true });
   });
 

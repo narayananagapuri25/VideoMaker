@@ -35,7 +35,6 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
       text,
       speaker: "luna",
       encoding: "mp3",
-      container: "none",
       bit_rate: 128_000,
     }, { returnRawResponse: true, rejectIfBusy: true });
     if (!(result instanceof Response)) {
