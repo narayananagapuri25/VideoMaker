@@ -11,7 +11,7 @@ export function getSceneVisualMode(scene: Scene): SceneVisualMode {
 /** Only user-supplied/imported assets need a rights confirmation. In-house graphics are original. */
 export function getUnverifiedSceneMedia(scenes: Scene[]): string[] {
   return scenes.flatMap((scene) => {
-    const unverifiedImage = Boolean(scene.imageDataUrl && !scene.imageCommercialUseConfirmed);
+    const unverifiedImage = Boolean(scene.imageDataUrl && !scene.imageCommercialUseConfirmed && !scene.imageGeneratedByAI);
     const hasExternalVideo = Boolean(scene.videoDataUrl || (scene.videoClipSource === "pixabay" && scene.videoClipId));
     const unverifiedVideo = hasExternalVideo && !scene.videoCommercialUseConfirmed;
     return unverifiedImage || unverifiedVideo ? [scene.title || "Untitled scene"] : [];
