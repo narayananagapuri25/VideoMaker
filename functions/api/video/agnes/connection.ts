@@ -33,7 +33,6 @@ export async function onRequestPost({ request }: { request: Request }): Promise<
       resolution: "720P",
       minimumSeconds: 4,
       maximumSeconds: 12,
-      defaultUserVideoRpm: 1,
       trialPrice: "$0 per second · limited-time Angel User Trial offer",
       message: "Agnes API key is valid and Agnes Video 2.5 Flash is listed. This check does not verify your account's billing plan or current trial price; confirm the $0 offer in Agnes Billing and keep the Default / Angel User Trial account type before opting in.",
     });
