@@ -1,5 +1,25 @@
 export type AspectRatio = "9:16" | "16:9";
 export type Language = "Hinglish" | "Hindi" | "English" | "Telugu";
+export type VideoGenre =
+  | "auto" | "documentary" | "explainer" | "news" | "technology" | "business"
+  | "finance" | "sports" | "entertainment" | "history" | "science" | "travel"
+  | "food" | "health" | "education" | "mystery" | "biography" | "nature" | "storytelling";
+
+export interface TrendEditorialContext {
+  source: "Google Trends";
+  region: string;
+  traffic: string;
+  publishedAt: string;
+  relatedNews: Array<{ title: string; source: string }>;
+}
+
+export interface TrendingTopic {
+  title: string;
+  traffic: string;
+  publishedAt: string;
+  link: string;
+  relatedNews: Array<{ title: string; source: string; url: string }>;
+}
 export type VisualProvider = "adobe-firefly" | "pexels" | "other";
 
 export type SceneVisualLayout =
@@ -52,7 +72,7 @@ export interface Scene {
   videoClipStart?: number;
   videoDataUrl?: string;
   /** A known public-source reuse basis; does not represent user-uploaded media consent. */
-  videoRightsBasis?: "nasa-educational";
+  videoRightsBasis?: "nasa-educational" | "pixabay-content-license";
   videoSourceNote?: string;
   videoCommercialUseConfirmed?: boolean;
 }
