@@ -1,3 +1,4 @@
+import { clearAIProviderHealth } from "./ai-provider-health";
 export type SecondaryAIProvider = "groq" | "openrouter" | "cloudflare";
 export type AIProvider = "gemini" | SecondaryAIProvider;
 
@@ -201,6 +202,7 @@ export function getMagicHourHeaders(): Record<string, string> {
 export function saveSecondaryAIKey(provider: SecondaryAIProvider, value: string): void {
   if (provider === "groq") save(STORAGE.groq, value, MAX_KEY_LENGTH, "Groq API key");
   else if (provider === "openrouter") save(STORAGE.openrouter, value, MAX_KEY_LENGTH, "OpenRouter API key");
+  clearAIProviderHealth(provider);
   else throw new Error("Cloudflare requires both an account ID and an API token.");
 }
 
@@ -238,6 +240,7 @@ export function saveCloudflareAIConnection(accountId: string, apiToken: string):
     globalThis.sessionStorage.setItem(STORAGE.cloudflareAccountId, account);
     globalThis.sessionStorage.setItem(STORAGE.cloudflareApiToken, apiToken.trim());
     globalThis.sessionStorage.removeItem(CLOUDFLARE_FREE_ONLY_CONFIRMATION);
+    clearAIProviderHealth("cloudflare");
   } catch {
     throw new Error("This browser could not save the Cloudflare credentials for this tab.");
   }
@@ -265,6 +268,7 @@ export function hasAnySecondaryAIKey(): boolean {
 }
 
 export function clearSecondaryAIKey(provider: SecondaryAIProvider): void {
+  clearAIProviderHealth(provider);
   if (provider === "groq") remove(STORAGE.groq);
   else if (provider === "openrouter") remove(STORAGE.openrouter);
   else {
