@@ -324,7 +324,7 @@ function drawSquadMoves(ctx: CanvasRenderingContext2D, width: number, height: nu
   ctx.restore();
 }
 
-function drawMilestone(ctx: CanvasRenderingContext2D, width: number, height: number, time: number) {
+function drawMilestone(ctx: CanvasRenderingContext2D, width: number, height: number) {
   label(ctx, "A LANDMARK CAMPAIGN", width * 0.5, height * 0.20, width * 0.04, GOLD);
   ctx.save();
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -340,7 +340,7 @@ function drawMilestone(ctx: CanvasRenderingContext2D, width: number, height: num
   drawWickets(ctx, width * 0.5, height * 0.92, width * 0.055);
 }
 
-function drawQuestion(ctx: CanvasRenderingContext2D, width: number, height: number, scene: Scene, time: number) {
+function drawQuestion(ctx: CanvasRenderingContext2D, width: number, height: number, time: number) {
   label(ctx, "THE NEXT CHAPTER", width * 0.5, height * 0.20, width * 0.04, GOLD);
   drawWickets(ctx, width * 0.74, height * 0.75, width * 0.12);
   drawBattingSilhouette(ctx, width * 0.31, height * 0.79, width * 0.14, time);
@@ -373,8 +373,8 @@ export function drawSportsScene(ctx: CanvasRenderingContext2D, width: number, he
     case "captain-return": drawCaptain(ctx, width, height, elapsed, scene); break;
     case "trophy-legacy": drawTrophies(ctx, width, height, scene, elapsed); break;
     case "squad-moves": drawSquadMoves(ctx, width, height, scene, elapsed); break;
-    case "season-milestone": drawMilestone(ctx, width, height, elapsed); break;
-    case "match-question": drawQuestion(ctx, width, height, scene, elapsed); break;
+    case "season-milestone": drawMilestone(ctx, width, height); break;
+    case "match-question": drawQuestion(ctx, width, height, elapsed); break;
     default: drawAction(ctx, width, height, elapsed); break;
   }
 }
