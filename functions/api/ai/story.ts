@@ -31,13 +31,16 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
   const credentials = resolveAIRequestCredentials(request, env);
   if (request.headers.get("X-SochoZara-Gemini-Free-Use") !== "true") credentials.gemini = undefined;
   if (request.headers.get("X-SochoZara-Groq-Free-Use") !== "true") credentials.groq = undefined;
-  if (request.headers.get("X-SochoZara-Cloudflare-Free-Use") !== "true") {
+  if (request.headers.get("X-SochoZara-Cloudflare-Free-Use") === "true") {
+    credentials.cloudflareAI = env.AI;
+  } else {
+    credentials.cloudflareAI = undefined;
     credentials.cloudflareApiToken = undefined;
     credentials.cloudflareAccountId = undefined;
   }
   const hasProvider = Boolean(
     credentials.gemini || credentials.groq || credentials.openrouter ||
-    (credentials.cloudflareApiToken && credentials.cloudflareAccountId)
+    credentials.cloudflareAI || (credentials.cloudflareApiToken && credentials.cloudflareAccountId)
   );
   if (!hasProvider) {
     return jsonNoStore({

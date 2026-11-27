@@ -37,9 +37,10 @@ describe("Cloudflare secure Gemini endpoints", () => {
     expect(missingPayload.configured).toBe(false);
 
     const configured = await getStatus(context("/api/ai/status", undefined, "server-only-test-secret"));
-    const configuredPayload = await configured.json() as { configured: boolean; storage: string };
+    const configuredPayload = await configured.json() as { configured: boolean; storage: string; serverSecretConfigured: boolean };
     expect(configuredPayload.configured).toBe(true);
     expect(configuredPayload.storage).toContain("Cloudflare");
+    expect(configuredPayload.serverSecretConfigured).toBe(true);
     expect(JSON.stringify(configuredPayload)).not.toContain("server-only-test-secret");
   });
 
@@ -105,6 +106,47 @@ describe("Cloudflare secure Gemini endpoints", () => {
     expect(new Headers(init?.headers).get("x-goog-api-key")).toBe("server-only-test-secret");
   });
 
+  it("generates a storyboard through the Cloudflare AI binding without an API token", async () => {
+    const story = {
+      title: "A binding-generated story",
+      script: "A short explanation.",
+      editorialNote: "",
+      scenes: [
+        { title: "One", narration: "One.", caption: "One", visualPrompt: "A scene", duration: 5 },
+        { title: "Two", narration: "Two.", caption: "Two", visualPrompt: "Another scene", duration: 5 },
+      ],
+    };
+    const run = vi.fn(async () => ({ response: JSON.stringify(story) }));
+    const ctx = context("/api/ai/story", {
+      topic: "How does the stock market work?",
+      language: "English",
+      targetDuration: 30,
+      aspectRatio: "9:16",
+    });
+    ctx.request = new Request(ctx.request.url, {
+      method: "POST",
+      headers: {
+        Origin: "https://studio.example",
+        "Content-Type": "application/json",
+        "X-SochoZara-Cloudflare-Free-Use": "true",
+      },
+      body: JSON.stringify({
+        topic: "How does the stock market work?",
+        language: "English",
+        targetDuration: 30,
+        aspectRatio: "9:16",
+      }),
+    });
+    ctx.env = { AI: { run } };
+
+    const response = await generateStory(ctx);
+    expect(response.status).toBe(200);
+    const payload = await response.json() as { story: { title: string }; source: string };
+    expect(payload.story.title).toBe(story.title);
+    expect(payload.source).toBe("cloudflare");
+    expect(run).toHaveBeenCalledOnce();
+  });
+
   it("uses the per-tab key for story generation when no Cloudflare secret exists", async () => {
     const story = {
       title: "A tab-key story",
@@ -127,6 +169,45 @@ describe("Cloudflare secure Gemini endpoints", () => {
     expect(response.status).toBe(200);
     const [, init] = fetchMock.mock.calls[0];
     expect(new Headers(init?.headers).get("x-goog-api-key")).toBe("tab-only-test-secret");
+  });
+
+  it("generates English narration through the Cloudflare AI binding without an API token", async () => {
+    const audioStream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1, 2, 3]));
+        controller.close();
+      },
+    });
+    const run = vi.fn(async () => audioStream);
+    const ctx = context("/api/ai/narration", {
+      script: "A short English narration.",
+      voice: "Kore",
+      language: "English",
+    });
+    ctx.request = new Request(ctx.request.url, {
+      method: "POST",
+      headers: {
+        Origin: "https://studio.example",
+        "Content-Type": "application/json",
+        "X-SochoZara-Cloudflare-Free-Use": "true",
+      },
+      body: JSON.stringify({
+        script: "A short English narration.",
+        voice: "Kore",
+        language: "English",
+      }),
+    });
+    ctx.env = { AI: { run } };
+
+    const response = await generateNarration(ctx);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("X-SochoZara-TTS-Provider")).toContain("Cloudflare Workers AI");
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
+    expect(run).toHaveBeenCalledWith("@cf/deepgram/aura-2-en", {
+      text: "A short English narration.",
+      speaker: "luna",
+      encoding: "mp3",
+    });
   });
 
   it("uses the per-tab key for narration when no Cloudflare secret exists", async () => {

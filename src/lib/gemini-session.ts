@@ -55,10 +55,10 @@ export function clearGeminiSessionKey(): void {
 /** The key is sent only to this app's same-origin Pages Function over HTTPS. */
 export function getGeminiSessionHeaders(): Record<string, string> {
   const key = getGeminiSessionKey();
-  return key ? {
-    "X-SochoZara-Gemini-Key": key,
+  return {
+    ...(key ? { "X-SochoZara-Gemini-Key": key } : {}),
     ...(hasGeminiFreeUseOnlyConfirmation() ? { "X-SochoZara-Gemini-Free-Use": "true" } : {}),
-  } : {};
+  };
 }
 
 export function hasGeminiSessionKey(): boolean {

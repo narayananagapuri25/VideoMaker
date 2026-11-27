@@ -49,6 +49,7 @@ export default function App() {
   const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
   const [geminiSessionKeyInput, setGeminiSessionKeyInput] = useState("");
   const [geminiSessionKeySaved, setGeminiSessionKeySaved] = useState(() => hasGeminiSessionKey());
+  const [geminiServerKeyConfigured, setGeminiServerKeyConfigured] = useState(false);
   const [geminiFreeOnly, setGeminiFreeOnly] = useState(() => hasGeminiFreeUseOnlyConfirmation());
   const [activeSection, setActiveSection] = useState<"studio" | "guide">("studio");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -99,13 +100,15 @@ export default function App() {
       .then(async (response) => {
         if (!response.ok) throw new Error("Gemini server status is unavailable.");
         const payload: unknown = await response.json();
-        if (typeof payload !== "object" || payload === null || !("configured" in payload)) {
+        if (typeof payload !== "object" || payload === null || !("configured" in payload) || !("serverSecretConfigured" in payload)) {
           throw new Error("Gemini server status response is invalid.");
         }
-        // A key may be saved while the initial status request is still in flight.
-        // Re-check session storage at response time so a stale "not configured"
-        // response cannot overwrite the newly saved tab key.
-        if (active) setAiConfigured((hasGeminiSessionKey() && hasGeminiFreeUseOnlyConfirmation()) || hasAnySecondaryAIKey());
+        const serverKeyConfigured = payload.serverSecretConfigured === true;
+        // The server key is never returned to the browser. Only its configured status is exposed.
+        if (active) {
+          setGeminiServerKeyConfigured(serverKeyConfigured);
+          setAiConfigured(((hasGeminiSessionKey() || serverKeyConfigured) && hasGeminiFreeUseOnlyConfirmation()) || hasAnySecondaryAIKey());
+        }
       })
       .catch(() => {
         if (active) setAiConfigured(hasAnySecondaryAIKey() || (hasGeminiSessionKey() && hasGeminiFreeUseOnlyConfirmation()));
@@ -238,7 +241,7 @@ export default function App() {
     clearGeminiSessionKey();
     setGeminiSessionKeySaved(false);
     setGeminiFreeOnly(false);
-    setAiConfigured(hasAnySecondaryAIKey());
+    setAiConfigured(hasAnySecondaryAIKey() || (geminiServerKeyConfigured && hasGeminiFreeUseOnlyConfirmation()));
     setGeminiTestResult(null);
     setNotice("The Gemini key was removed from this tab session.");
     fetch("/api/ai/status", { cache: "no-store" })
@@ -256,7 +259,7 @@ export default function App() {
       confirmGeminiFreeUseOnly(checked);
       setGeminiFreeOnly(checked);
       setGeminiTestResult(null);
-      setAiConfigured(hasAnySecondaryAIKey() || (hasGeminiSessionKey() && checked));
+      setAiConfigured(hasAnySecondaryAIKey() || ((hasGeminiSessionKey() || geminiServerKeyConfigured) && checked));
       setNotice(checked
         ? "Gemini Free Tier confirmation saved for this browser tab. The smart router may now use this key when its quota is available."
         : "Gemini is paused. The smart router will use other confirmed free providers.");
@@ -1011,7 +1014,7 @@ export default function App() {
                     <div><label className="field-label" htmlFor="duration">TARGET LENGTH</label><select id="duration" value={project.targetDuration} onChange={(event) => updateProject({ targetDuration: Number(event.target.value) })}><option value={30}>30 seconds</option><option value={45}>45 seconds</option><option value={60}>60 seconds</option><option value={90}>90 seconds</option><option value={300}>5 minutes</option><option value={480}>8 minutes</option></select></div>
                   </div>
                   <div className="ai-key-box">
-                    <div className="key-title"><span>✦</span><strong>Gemini AI connection</strong><em>YOUR API KEY</em></div>
+                    <div className="key-title"><span>✦</span><strong>Gemini AI connection</strong><em>{geminiServerKeyConfigured ? "SERVER SECRET READY" : "OPTIONAL API KEY"}</em></div>
                     <label className="field-label" htmlFor="gemini-api-key">GOOGLE AI STUDIO API KEY</label>
                     <input
                       id="gemini-api-key"
@@ -1024,19 +1027,19 @@ export default function App() {
                         setGeminiSessionKeyInput(event.target.value);
                         setGeminiTestResult(null);
                       }}
-                      placeholder={geminiSessionKeySaved ? "Key saved for this tab · enter a new key to replace it" : "Paste your Gemini API key"}
+                      placeholder={geminiSessionKeySaved ? "Key saved for this tab · enter a new key to replace it" : geminiServerKeyConfigured ? "Encrypted Cloudflare key ready · optional tab override" : "Paste your Gemini API key"}
                     />
                     <label className="rights-confirm ai-cloudflare-free-confirm">
-                      <input type="checkbox" checked={geminiFreeOnly} disabled={!geminiSessionKeySaved} onChange={(event) => handleGeminiFreeUseChange(event.target.checked)} />
+                      <input type="checkbox" checked={geminiFreeOnly} disabled={!geminiSessionKeySaved && !geminiServerKeyConfigured} onChange={(event) => handleGeminiFreeUseChange(event.target.checked)} />
                       <span>I confirm this Google AI Studio project is using the Free Tier, has no paid API billing enabled, and must never use paid Gemini usage.</span>
                     </label>
                     <div className="gemini-test-row">
                       <span className={aiConfigured ? "clip-status ready" : "clip-status"}>
-                        {aiConfigured === null ? "CHECKING…" : geminiSessionKeySaved ? "GEMINI TAB KEY SAVED" : aiConfigured ? "AI PROVIDER CONFIGURED" : "KEY REQUIRED"}
+                        {aiConfigured === null ? "CHECKING…" : geminiSessionKeySaved ? "GEMINI TAB KEY SAVED" : geminiServerKeyConfigured ? "GEMINI SERVER SECRET READY" : aiConfigured ? "AI PROVIDER CONFIGURED" : "KEY REQUIRED"}
                       </span>
                       <button className="button button-primary" disabled={!geminiSessionKeyInput.trim()} onClick={handleSaveGeminiSessionKey}>Save key for this tab</button>
                       {geminiSessionKeySaved && <button className="text-button" onClick={handleClearGeminiSessionKey}>Remove saved key</button>}
-                      <button type="button" className="button button-secondary" disabled={isTestingGemini || isGenerating || isGeneratingFullVideo || !geminiSessionKeySaved || !geminiFreeOnly} onClick={handleTestGemini}>{isTestingGemini ? <><span className="spinner" /> Testing…</> : "Test Gemini connection"}</button>
+                      <button type="button" className="button button-secondary" disabled={isTestingGemini || isGenerating || isGeneratingFullVideo || (!geminiSessionKeySaved && !geminiServerKeyConfigured) || !geminiFreeOnly} onClick={handleTestGemini}>{isTestingGemini ? <><span className="spinner" /> Testing…</> : "Test Gemini connection"}</button>
                     </div>
                     {geminiTestResult && (
                       <div
@@ -1054,10 +1057,10 @@ export default function App() {
                       </div>
                     )}
                     <small>
-                      The key is saved in this browser tab's session storage, survives refreshes in this tab and is removed when the tab session ends. It is not saved in your video project, IndexedDB or GitHub. For Gemini requests, this app sends it over HTTPS to its same-origin Cloudflare Function, which forwards it to Google. Session storage is not a password vault: scripts running on this site can access it, so use this only in a trusted browser and on a device you control. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Google AI Studio ↗</a>
+                      A server key, when configured, stays encrypted in Cloudflare Pages and is never sent to the browser. An optional tab key is stored only in this browser tab's session storage and is removed when the tab session ends. Neither key is saved in your video project, IndexedDB or GitHub. The app forwards requests through its same-origin HTTPS Cloudflare Function. Confirm Free Tier use only when your Google AI Studio project is actually on the Free Tier with no paid billing enabled. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Google AI Studio ↗</a>
                     </small>
                   </div>
-                  <AIProviderConnections onConnectionChange={() => setAiConfigured((hasGeminiSessionKey() && hasGeminiFreeUseOnlyConfirmation()) || hasAnySecondaryAIKey())} />
+                  <AIProviderConnections onConnectionChange={() => setAiConfigured(((hasGeminiSessionKey() || geminiServerKeyConfigured) && hasGeminiFreeUseOnlyConfirmation()) || hasAnySecondaryAIKey())} />
                   <VideoProviderConnections />
                   <div className="button-row">
                     <button className="button button-primary" disabled={isGenerating} onClick={handleGenerateStory}>{isGenerating ? <><span className="spinner" /> Creating…</> : "✦ Generate story & scenes"}</button>

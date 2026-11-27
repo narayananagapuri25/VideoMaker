@@ -51,6 +51,7 @@ function options(credentials: {
   openrouter?: string;
   cloudflareApiToken?: string;
   cloudflareAccountId?: string;
+  cloudflareAI?: { run(model: string, inputs: Record<string, unknown>): Promise<unknown> };
 }) {
   return {
     topic: "Why do we see lightning before thunder?",
@@ -199,6 +200,22 @@ describe("multi-provider AI storyboard fallback", () => {
     expect(result.source).toBe("openrouter");
     expect(result.providerHealth.openrouter?.remainingRequests).toBe(17);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses the configured Cloudflare Pages AI binding without any browser API token", async () => {
+    const run = vi.fn(async (_model: string, _inputs: Record<string, unknown>) => ({ response: JSON.stringify(validStory) }));
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const result = await generateStoryWithAvailableProviders(options({
+      cloudflareAI: { run },
+    }));
+
+    expect(result.source).toBe("cloudflare");
+    expect(result.attempted).toEqual(["cloudflare"]);
+    expect(result.story.title).toBe("A documentary test");
+    expect(run).toHaveBeenCalledOnce();
+    expect(run.mock.calls[0][0]).toBe("@cf/google/gemma-4-26b-a4b-it");
+    expect(run.mock.calls[0][1]).toMatchObject({ max_tokens: 8_000, temperature: 0.6 });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("fails clearly when no API provider is configured", async () => {

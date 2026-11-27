@@ -13,7 +13,10 @@ export async function onRequestGet({ request, env }: PagesContext): Promise<Resp
   const credentials = resolveAIRequestCredentials(request, env);
   if (request.headers.get("X-SochoZara-Gemini-Free-Use") !== "true") credentials.gemini = undefined;
   if (request.headers.get("X-SochoZara-Groq-Free-Use") !== "true") credentials.groq = undefined;
-  if (request.headers.get("X-SochoZara-Cloudflare-Free-Use") !== "true") {
+  if (request.headers.get("X-SochoZara-Cloudflare-Free-Use") === "true") {
+    credentials.cloudflareAI = env.AI;
+  } else {
+    credentials.cloudflareAI = undefined;
     credentials.cloudflareApiToken = undefined;
     credentials.cloudflareAccountId = undefined;
   }

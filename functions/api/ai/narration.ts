@@ -83,6 +83,48 @@ async function generateCloudflareEnglishNarration(
   });
 }
 
+async function generateCloudflareBindingEnglishNarration(
+  script: string,
+  ai: NonNullable<PagesContext["env"]["AI"]>,
+): Promise<Response> {
+  if (script.length > MAX_CLOUDFLARE_TTS_CHARACTERS) {
+    return jsonNoStore({
+      error: "The Cloudflare free voice fallback is limited to English scripts up to 2,500 characters. Shorten the narration or use an imported voice track.",
+      code: "CLOUDFLARE_TTS_TEXT_TOO_LONG",
+    }, 413);
+  }
+
+  try {
+    const audio = await ai.run(CLOUDFLARE_TTS_MODEL, {
+      text: script,
+      speaker: "luna",
+      encoding: "mp3",
+    });
+    if (!(audio instanceof ReadableStream)) {
+      return jsonNoStore({
+        error: "The Cloudflare Workers AI binding responded without an audio stream.",
+        code: "CLOUDFLARE_TTS_INVALID_RESPONSE",
+      }, 502);
+    }
+    return new Response(audio, {
+      status: 200,
+      headers: {
+        "Content-Type": "audio/mpeg",
+        "Cache-Control": "no-store, max-age=0",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": "inline; filename=sochozara-cloudflare-narration.mp3",
+        "X-SochoZara-TTS-Provider": "Cloudflare Workers AI · Aura-2",
+      },
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Workers AI narration failed.";
+    return jsonNoStore({
+      error: detail.slice(0, 700) + " Check the Workers AI model and daily Neuron allocation. No paid voice provider was contacted.",
+      code: /quota|limit|rate/i.test(detail) ? "CLOUDFLARE_FREE_NEURON_LIMIT" : "CLOUDFLARE_TTS_UPSTREAM",
+    }, /quota|limit|rate/i.test(detail) ? 429 : 502);
+  }
+}
+
 export async function onRequestPost({ request, env }: PagesContext): Promise<Response> {
   const originError = checkSameOrigin(request);
   if (originError) return originError;
@@ -105,7 +147,10 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
 
   const credentials = resolveAIRequestCredentials(request, env);
   if (request.headers.get("X-SochoZara-Gemini-Free-Use") !== "true") credentials.gemini = undefined;
-  if (request.headers.get("X-SochoZara-Cloudflare-Free-Use") !== "true") {
+  if (request.headers.get("X-SochoZara-Cloudflare-Free-Use") === "true") {
+    credentials.cloudflareAI = env.AI;
+  } else {
+    credentials.cloudflareAI = undefined;
     credentials.cloudflareApiToken = undefined;
     credentials.cloudflareAccountId = undefined;
   }
@@ -130,6 +175,11 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
     }
   }
 
+  if (language === "English" && credentials.cloudflareAI) {
+    return generateCloudflareBindingEnglishNarration(script, credentials.cloudflareAI);
+  }
+
+  // Legacy REST-token fallback remains supported for existing sessions.
   // Aura-2 English is the only non-Gemini fallback enabled here. It is only
   // called when the user has explicitly confirmed a Workers Free account.
   // The Workers Free daily cap is hard-enforced by Cloudflare; this app never
