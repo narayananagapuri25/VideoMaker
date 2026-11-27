@@ -1,5 +1,6 @@
 import type { AspectRatio, GeneratedStory, Language, SceneVisualLayout, SceneVisualPlan } from "../types";
 import { getSelectedAIHeaders } from "./ai-selection";
+import { getGeminiSessionHeaders } from "./gemini-session";
 import type { AIProvider } from "./ai-provider-session";
 import { getAIProviderHealthHeader, saveAIProviderHealth, type AIProviderHealthMap } from "./ai-provider-health";
 
