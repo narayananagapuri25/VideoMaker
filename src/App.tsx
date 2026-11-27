@@ -242,8 +242,12 @@ export default function App() {
           setNotice("Creating original FLUX artwork · scene " + (index + 1) + " of " + scenes.length + "…");
           const visualPrompt = [
             "Premium cinematic still image for a professional " + (videoGenre === "auto" ? "genre-appropriate" : videoGenre) + " video. Match the actual scene setting, era, environment, and emotional tone; do not force an educational-documentary look onto unrelated subjects.",
+            "Overall video topic: " + project.topic,
             "Subject and visual direction: " + (scene.visualPrompt || scene.title),
-            "Scene title for context only: " + scene.title,
+            "Scene title and narration for context: " + scene.title + " · " + scene.narration,
+            ...(videoGenre === "sports" || /\b(cricket|ipl|batsman|bowler|wicket|mumbai indians|rohit sharma|wankhede|football|soccer|basketball|tennis)\b/i.test(project.topic)
+              ? ["This is a sports image: visibly depict the actual sport and this scene's action. For cricket, use a real-looking cricket ground, pitch, wickets, batter, bowler, fielders, red ball, pavilion or trophy presentation as appropriate to the narration. Every scene must have a different concrete cricket subject and camera angle. Absolutely no planets, orbit rings, abstract spheres, finance charts, random dashboards or unrelated generic backgrounds."]
+              : []),
             "Photorealistic, art-directed, rich environmental detail, strong composition, depth and natural lighting.",
             "No text, letters, numbers, logos, captions, watermarks, borders, UI or infographic labels.",
           ].join(" ").slice(0, 2_048);
