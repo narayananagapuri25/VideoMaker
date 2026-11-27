@@ -5,6 +5,7 @@ import { loadLatestProject, saveProject } from "./lib/storage";
 import { makeProject } from "./lib/story";
 import { getTimelineDuration } from "./lib/timeline";
 import { attachFreeNasaFootage } from "./lib/nasa-video";
+import { attachFreePixabayFootage } from "./lib/free-footage";
 import { getUnverifiedSceneMedia } from "./lib/video-generation";
 import { getVideoFileExtension } from "./lib/export-format";
 import {
@@ -260,14 +261,30 @@ export default function App() {
 
       let footageNote = "";
       try {
-        const footage = await attachFreeNasaFootage(scenes, setNotice);
-        scenes = footage.scenes;
-        if (footage.attachedTitles.length) {
-          footageNote = " Free NASA moving footage added to " + footage.attachedTitles.join(", ") + ". NASA source credit is embedded; clips are muted. Other scenes keep their AI artwork and local animation.";
+        // Pixabay covers broad genres; NASA is a specialised free archive fallback for relevant science/Earth scenes.
+        // The combined cap keeps every generation to at most three external clips.
+        const pixabayFootage = await attachFreePixabayFootage(scenes, setNotice, 3);
+        scenes = pixabayFootage.scenes;
+        const nasaFootage = await attachFreeNasaFootage(
+          scenes,
+          setNotice,
+          Math.max(0, 3 - pixabayFootage.attachedTitles.length),
+        );
+        scenes = nasaFootage.scenes;
+        const pixabayTitles = pixabayFootage.attachedTitles;
+        const nasaTitles = nasaFootage.attachedTitles;
+        if (pixabayTitles.length || nasaTitles.length) {
+          const credits = [
+            ...(pixabayTitles.length ? ["Pixabay: " + pixabayTitles.join(", ")] : []),
+            ...(nasaTitles.length ? ["NASA: " + nasaTitles.join(", ")] : []),
+          ];
+          footageNote = " Free stock footage added to " + credits.join(" · ") + ". Source credits are embedded; stock clips are muted. Scenes without a strong visual match keep their AI artwork and local animation.";
+        } else {
+          footageNote = " No sufficiently relevant free stock clips were found or configured for these scenes. Every scene keeps its own AI artwork and local animation.";
         }
       } catch {
-        // NASA is an optional, no-key public archive; a temporary outage must not block video creation.
-        footageNote = " The free NASA footage archive was unavailable, so all scenes will use their generated artwork and local animation.";
+        // Free footage libraries are optional; their outages must never block story or video generation.
+        footageNote = " Free footage libraries were temporarily unavailable, so scenes keep their generated artwork and local animation.";
       }
 
       let voiceAudioDataUrl: string | undefined;
