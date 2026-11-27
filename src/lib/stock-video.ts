@@ -8,6 +8,7 @@ export interface StockVideoResult {
   thumbnailUrl: string;
   width: number;
   height: number;
+  tags?: string[];
 }
 
 interface SearchResponse {
