@@ -84,7 +84,13 @@ export function hasMagicHourFreeCreditsOnlyConfirmation(): boolean {
 
 export function getMagicHourHeaders(): Record<string, string> {
   const key = getMagicHourApiKey();
-  return key ? { "X-SochoZara-Magic-Hour-Key": key } : {};
+  if (!key) return {};
+  return {
+    "X-SochoZara-Magic-Hour-Key": key,
+    ...(hasMagicHourFreeCreditsOnlyConfirmation()
+      ? { "X-SochoZara-Magic-Hour-Free-Use": "true" }
+      : {}),
+  };
 }
 
 export function saveSecondaryAIKey(provider: SecondaryAIProvider, value: string): void {
