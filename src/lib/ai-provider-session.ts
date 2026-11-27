@@ -153,7 +153,7 @@ export function hasSecondaryAIKey(provider: SecondaryAIProvider): boolean {
   const keys = getSecondaryAIKeys();
   if (provider === "groq") return Boolean(keys.groq);
   if (provider === "openrouter") return Boolean(keys.openrouter);
-  return Boolean(keys.cloudflareApiToken && keys.cloudflareAccountId);
+  return Boolean(keys.cloudflareApiToken && keys.cloudflareAccountId && hasCloudflareFreeUseOnlyConfirmation());
 }
 
 export function hasAnySecondaryAIKey(): boolean {
