@@ -431,26 +431,9 @@ select { appearance: auto; }
 .video-trim-control small { grid-column: 1 / -1; color: #7f93a9; font-size: 8px; line-height: 1.5; }
 
 
-/* Google Flow generation handoff */
-.google-flow-panel { margin-bottom: 12px; padding: 13px; border: 1px solid rgba(43,213,231,.28); border-radius: 11px; background: linear-gradient(135deg, rgba(23,104,128,.18), rgba(7,17,30,.72)); }
-.google-flow-topline { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.google-flow-topline strong { display: block; margin-top: 4px; color: #eafaff; font-size: 11px; }
-.google-flow-topline small { display: block; margin-top: 5px; color: #8fa9bc; font-size: 8px; line-height: 1.5; }
-.flow-eyebrow { color: #54dce9; font-size: 7px; font-weight: 850; letter-spacing: .13em; }
-.flow-mark { flex: 0 0 auto; padding: 5px 7px; border: 1px solid rgba(43,213,231,.32); border-radius: 6px; color: #7de8f2; font-size: 8px; font-weight: 900; letter-spacing: .12em; }
-.google-flow-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 11px; }
-.google-flow-actions .button { padding: 8px 10px; font-size: 8px; }
-.google-flow-actions .text-button { margin-left: auto; }
-.google-flow-instructions { display: block; margin-top: 9px; color: #8198aa; font-size: 8px; line-height: 1.55; }
-.google-flow-prompt { max-height: 245px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: 10px 0 0; padding: 10px; border: 1px solid rgba(149,173,204,.13); border-radius: 8px; background: rgba(2,8,15,.72); color: #d6e5ef; font: 8px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; }
 .storyboard-header-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 7px; }
-.flow-shotlist-button { padding: 7px 9px; font-size: 8px; }
 @media (max-width: 560px) {
-  .google-flow-actions { align-items: stretch; }
-  .google-flow-actions .button { flex: 1 1 calc(50% - 7px); }
-  .google-flow-actions .text-button { flex: 1 1 100%; margin: 0; text-align: left; }
   .storyboard-header-actions { max-width: 58%; }
-  .flow-shotlist-button { white-space: normal; }
 }
 
 

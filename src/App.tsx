@@ -76,7 +76,6 @@ export default function App() {
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const exportUrlRef = useRef("");
-  const backupInputRef = useRef<HTMLInputElement | null>(null);
   const renderAbortRef = useRef<AbortController | null>(null);
 
   const selectedScene = useMemo(
@@ -973,7 +972,7 @@ export default function App() {
       <main className="main-area">
         <header className="topbar">
           <div className="mobile-brand"><div className="brand-symbol small"><span>?</span><i>▶</i></div><strong>SOCHOZARA STUDIO</strong></div>
-          <div className="topbar-right"><span className="save-indicator"><i />{saveStatus}</span><button className="button button-quiet backup-button" onClick={exportProjectBackup}>↓ Backup</button><label className="button button-quiet file-button backup-button">↑ Import<input ref={backupInputRef} type="file" accept=".json,.sochozara.json,application/json" onChange={importProjectBackup} /></label><button className="button button-quiet" onClick={newProject}>＋ New project</button></div>
+          <div className="topbar-right"><span className="save-indicator"><i />{saveStatus}</span><button className="button button-quiet backup-button" onClick={exportProjectBackup}>↓ Backup</button><label className="button button-quiet file-button backup-button">↑ Import<input type="file" accept=".json,.sochozara.json,application/json" onChange={importProjectBackup} /></label><button className="button button-quiet" onClick={newProject}>＋ New project</button></div>
         </header>
 
         {activeSection === "guide" ? (
@@ -1128,7 +1127,7 @@ export default function App() {
                   <div className="inhouse-generator">
                     <div className="inhouse-generator-heading">
                       <span className="inhouse-generator-mark">✦</span>
-                      <div><strong>IN-HOUSE VIDEO GENERATOR</strong><small>Free · runs on this device · no Flow or paid video API</small></div>
+                      <div><strong>IN-HOUSE VIDEO GENERATOR</strong><small>Free · runs on this device · no external video API required</small></div>
                       <span className="inhouse-free-tag">FREE</span>
                     </div>
                     <p>Enter a question and let the AI director write the story, plan a different visual for every scene, generate English narration and assemble the MP4. Rendering and graphics run free on this device.</p>
