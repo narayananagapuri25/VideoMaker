@@ -29,6 +29,10 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
   }
 
   const credentials = resolveAIRequestCredentials(request, env);
+  if (request.headers.get("X-SochoZara-Cloudflare-Free-Use") !== "true") {
+    credentials.cloudflareApiToken = undefined;
+    credentials.cloudflareAccountId = undefined;
+  }
   const hasProvider = Boolean(
     credentials.gemini || credentials.groq || credentials.openrouter ||
     (credentials.cloudflareApiToken && credentials.cloudflareAccountId)
