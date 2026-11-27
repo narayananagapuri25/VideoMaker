@@ -22,7 +22,7 @@ import { getUnverifiedSceneMedia } from "./lib/video-generation";
 import { isExportAbortError } from "./lib/export-cancel";
 import { getVideoFileExtension } from "./lib/export-format";
 import type { AIProvider } from "./lib/ai-provider-session";
-import { clearGeminiSessionKey, getGeminiSessionHeaders, hasGeminiSessionKey, saveGeminiSessionKey } from "./lib/gemini-session";
+import { clearGeminiSessionKey, confirmGeminiFreeUseOnly, getGeminiSessionHeaders, hasGeminiFreeUseOnlyConfirmation, hasGeminiSessionKey, saveGeminiSessionKey } from "./lib/gemini-session";
 
 const initialProject = () => makeProject("Why do we see lightning before thunder?", "English", "9:16", 45);
 
@@ -49,6 +49,7 @@ export default function App() {
   const [aiConfigured, setAiConfigured] = useState<boolean | null>(null);
   const [geminiSessionKeyInput, setGeminiSessionKeyInput] = useState("");
   const [geminiSessionKeySaved, setGeminiSessionKeySaved] = useState(() => hasGeminiSessionKey());
+  const [geminiFreeOnly, setGeminiFreeOnly] = useState(() => hasGeminiFreeUseOnlyConfirmation());
   const [activeSection, setActiveSection] = useState<"studio" | "guide">("studio");
   const [isGenerating, setIsGenerating] = useState(false);
   const [isGeneratingFullVideo, setIsGeneratingFullVideo] = useState(false);
@@ -104,10 +105,10 @@ export default function App() {
         // A key may be saved while the initial status request is still in flight.
         // Re-check session storage at response time so a stale "not configured"
         // response cannot overwrite the newly saved tab key.
-        if (active) setAiConfigured(hasGeminiSessionKey() || hasAnySecondaryAIKey() || Boolean(payload.configured));
+        if (active) setAiConfigured((hasGeminiSessionKey() && hasGeminiFreeUseOnlyConfirmation()) || hasAnySecondaryAIKey());
       })
       .catch(() => {
-        if (active) setAiConfigured(hasAnySecondaryAIKey() || hasGeminiSessionKey());
+        if (active) setAiConfigured(hasAnySecondaryAIKey() || (hasGeminiSessionKey() && hasGeminiFreeUseOnlyConfirmation()));
       });
     return () => { active = false; };
   }, []);
@@ -224,9 +225,10 @@ export default function App() {
       saveGeminiSessionKey(geminiSessionKeyInput);
       setGeminiSessionKeyInput("");
       setGeminiSessionKeySaved(true);
-      setAiConfigured(true);
+      setGeminiFreeOnly(false);
+      setAiConfigured(hasAnySecondaryAIKey());
       setGeminiTestResult(null);
-      setNotice("Gemini key saved for this browser tab. Test the connection before generating a video.");
+      setNotice("Gemini key saved for this browser tab. Confirm Free Tier usage before testing or using it; alternate free providers remain available.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Could not save the Gemini key for this tab.");
     }
@@ -235,17 +237,32 @@ export default function App() {
   function handleClearGeminiSessionKey() {
     clearGeminiSessionKey();
     setGeminiSessionKeySaved(false);
-    setAiConfigured(null);
+    setGeminiFreeOnly(false);
+    setAiConfigured(hasAnySecondaryAIKey());
     setGeminiTestResult(null);
     setNotice("The Gemini key was removed from this tab session.");
     fetch("/api/ai/status", { cache: "no-store" })
       .then((response) => response.json())
       .then((payload: unknown) => {
         if (typeof payload === "object" && payload !== null && "configured" in payload) {
-          setAiConfigured(hasAnySecondaryAIKey() || hasGeminiSessionKey() || Boolean(payload.configured));
+          setAiConfigured(hasAnySecondaryAIKey());
         }
       })
-      .catch(() => setAiConfigured(hasAnySecondaryAIKey() || hasGeminiSessionKey()));
+      .catch(() => setAiConfigured(hasAnySecondaryAIKey()));
+  }
+
+  function handleGeminiFreeUseChange(checked: boolean) {
+    try {
+      confirmGeminiFreeUseOnly(checked);
+      setGeminiFreeOnly(checked);
+      setGeminiTestResult(null);
+      setAiConfigured(hasAnySecondaryAIKey() || (hasGeminiSessionKey() && checked));
+      setNotice(checked
+        ? "Gemini Free Tier confirmation saved for this browser tab. The smart router may now use this key when its quota is available."
+        : "Gemini is paused. The smart router will use other confirmed free providers.");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Could not save Gemini free-tier confirmation.");
+    }
   }
 
   async function handleTestGemini() {
@@ -401,15 +418,15 @@ export default function App() {
       return;
     }
     setIsGeneratingVoice(true);
-    setNotice("Step 1/1 · Sending your script to the secure Gemini narration service…");
+    setNotice("Step 1/1 · Choosing an available free narration provider…");
     try {
-      const audio = await generateNarration(project.script, ttsVoice, "English");
-      if (audio.size > MAX_NARRATION_AUDIO_BYTES) throw new Error("Generated narration is larger than 30 MB. Use a shorter script.");
-      if (wouldExceedMediaLimit(audio.size, undefined, true)) return;
-      const audioDataUrl = await fileToDataUrl(audio);
-      updateProject({ voiceAudioDataUrl: audioDataUrl, voiceAudioName: "Gemini TTS · " + ttsVoice + ".wav" });
+      const narration = await generateNarration(project.script, ttsVoice, "English");
+      if (narration.blob.size > MAX_NARRATION_AUDIO_BYTES) throw new Error("Generated narration is larger than 30 MB. Use a shorter script.");
+      if (wouldExceedMediaLimit(narration.blob.size, undefined, true)) return;
+      const audioDataUrl = await fileToDataUrl(narration.blob);
+      updateProject({ voiceAudioDataUrl: audioDataUrl, voiceAudioName: narration.provider + " · " + ttsVoice + "." + (narration.blob.type.includes("mpeg") ? "mp3" : "wav") });
       setAiConfigured(true);
-      setNotice("English Gemini narration generated and saved locally. Preview the WAV before exporting.");
+      setNotice(narration.provider + " English narration generated and saved locally. Preview it before exporting.");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "AI narration generation failed.");
     } finally {
@@ -1008,13 +1025,17 @@ export default function App() {
                       }}
                       placeholder={geminiSessionKeySaved ? "Key saved for this tab · enter a new key to replace it" : "Paste your Gemini API key"}
                     />
+                    <label className="rights-confirm ai-cloudflare-free-confirm">
+                      <input type="checkbox" checked={geminiFreeOnly} disabled={!geminiSessionKeySaved} onChange={(event) => handleGeminiFreeUseChange(event.target.checked)} />
+                      <span>I confirm this Google AI Studio project is using the Free Tier, has no paid API billing enabled, and must never use paid Gemini usage.</span>
+                    </label>
                     <div className="gemini-test-row">
                       <span className={aiConfigured ? "clip-status ready" : "clip-status"}>
                         {aiConfigured === null ? "CHECKING…" : geminiSessionKeySaved ? "GEMINI TAB KEY SAVED" : aiConfigured ? "AI PROVIDER CONFIGURED" : "KEY REQUIRED"}
                       </span>
                       <button className="button button-primary" disabled={!geminiSessionKeyInput.trim()} onClick={handleSaveGeminiSessionKey}>Save key for this tab</button>
                       {geminiSessionKeySaved && <button className="text-button" onClick={handleClearGeminiSessionKey}>Remove saved key</button>}
-                      <button type="button" className="button button-secondary" disabled={isTestingGemini || isGenerating || isGeneratingFullVideo} onClick={handleTestGemini}>{isTestingGemini ? <><span className="spinner" /> Testing…</> : "Test Gemini connection"}</button>
+                      <button type="button" className="button button-secondary" disabled={isTestingGemini || isGenerating || isGeneratingFullVideo || !geminiSessionKeySaved || !geminiFreeOnly} onClick={handleTestGemini}>{isTestingGemini ? <><span className="spinner" /> Testing…</> : "Test Gemini connection"}</button>
                     </div>
                     {geminiTestResult && (
                       <div
@@ -1035,7 +1056,7 @@ export default function App() {
                       The key is saved in this browser tab's session storage, survives refreshes in this tab and is removed when the tab session ends. It is not saved in your video project, IndexedDB or GitHub. For Gemini requests, this app sends it over HTTPS to its same-origin Cloudflare Function, which forwards it to Google. Session storage is not a password vault: scripts running on this site can access it, so use this only in a trusted browser and on a device you control. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Google AI Studio ↗</a>
                     </small>
                   </div>
-                  <AIProviderConnections onConnectionChange={() => setAiConfigured(hasGeminiSessionKey() || hasAnySecondaryAIKey())} />
+                  <AIProviderConnections onConnectionChange={() => setAiConfigured((hasGeminiSessionKey() && hasGeminiFreeUseOnlyConfirmation()) || hasAnySecondaryAIKey())} />
                   <VideoProviderConnections />
                   <div className="button-row">
                     <button className="button button-primary" disabled={isGenerating} onClick={handleGenerateStory}>{isGenerating ? <><span className="spinner" /> Creating…</> : "✦ Generate story & scenes"}</button>
@@ -1069,10 +1090,10 @@ export default function App() {
                     <div className="audio-empty"><div className="audio-wave">▂ ▅ ▃ ▆ ▄ ▇</div><strong>No narration audio yet</strong><p>Generate an English narration with Gemini AI below. Device voice is available for a quick local preview, but only generated or imported audio is embedded in the MP4.</p></div>
                   )}
                   <div className="tts-controls">
-                    <div><label className="field-label">GEMINI AI VOICE</label><select value={ttsVoice} onChange={(event) => setTtsVoice(event.target.value)}><option value="Kore">Kore · warm documentary</option><option value="Aoede">Aoede · expressive</option><option value="Puck">Puck · energetic</option><option value="Charon">Charon · deep narrator</option><option value="Fenrir">Fenrir · bold</option><option value="Zephyr">Zephyr · bright</option></select></div>
-                    <button className="button button-primary tts-button" disabled={isGeneratingVoice || !project.script.trim()} onClick={handleGenerateAiVoice}>{isGeneratingVoice ? <><span className="spinner" /> Generating voice…</> : project.voiceAudioDataUrl ? "↻ Regenerate Gemini narration" : "✦ Generate Gemini narration"}</button>
+                    <div><label className="field-label">AUTOMATIC AI VOICE</label><select value={ttsVoice} onChange={(event) => setTtsVoice(event.target.value)}><option value="Kore">Kore · warm documentary</option><option value="Aoede">Aoede · expressive</option><option value="Puck">Puck · energetic</option><option value="Charon">Charon · deep narrator</option><option value="Fenrir">Fenrir · bold</option><option value="Zephyr">Zephyr · bright</option></select></div>
+                    <button className="button button-primary tts-button" disabled={isGeneratingVoice || !project.script.trim()} onClick={handleGenerateAiVoice}>{isGeneratingVoice ? <><span className="spinner" /> Generating voice…</> : project.voiceAudioDataUrl ? "↻ Regenerate AI narration" : "✦ Generate AI narration"}</button>
                   </div>
-                  <small className="tts-disclaimer">Gemini 3.8 Flash TTS · English (India) narration · WAV audio. Generated audio is saved in this browser project and embedded in the MP4. Free-tier use is subject to your Google AI Studio project's quota and data-use terms.</small>
+                  <small className="tts-disclaimer">Gemini TTS is tried first. For English only, confirmed Cloudflare Workers Free can provide a fallback voice when Gemini is unavailable. The app never switches to paid TTS. Audio is saved locally and embedded in the MP4.</small>
                   <div className="button-row audio-actions">
                     <button className="button button-quiet" onClick={listenWithDeviceVoice} disabled={!project.script.trim()}>▶ Device voice preview (not exported)</button>
                     <label className="button button-secondary file-button">↑ Import audio<input type="file" accept="audio/*" onChange={handleAudioUpload} /></label>
