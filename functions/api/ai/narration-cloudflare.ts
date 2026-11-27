@@ -43,7 +43,7 @@ export async function onRequestPost({ request, env }: PagesContext): Promise<Res
     }
     if (!result.ok) {
       const detail = await result.text().catch(() => "No provider details were returned.");
-      return providerError(new Error("Aura-1 HTTP " + result.status + " · " + detail.slice(0, 500)), "Cloudflare Workers AI narration");
+      return providerError(new Error("Aura-1 HTTP (" + result.status + ") · " + detail.slice(0, 500)), "Cloudflare Workers AI narration");
     }
     const audio = await result.arrayBuffer();
     if (!audio.byteLength) throw new Error("Cloudflare Aura returned an empty narration track.");
