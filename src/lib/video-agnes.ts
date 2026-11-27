@@ -7,7 +7,6 @@ export interface AgnesConnection {
   resolution: string;
   minimumSeconds: number;
   maximumSeconds: number;
-  defaultUserVideoRpm: number;
   trialPrice: string;
   message: string;
 }
@@ -89,7 +88,7 @@ function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => globalThis.setTimeout(resolve, milliseconds));
 }
 
-/** Free-promo model only. One clip is intentionally created per project because default-user video RPM is limited. */
+/** Limited-time free-promo model only. One clip per project is a conservative app-side cap. */
 export async function generateAgnesClip(options: {
   prompt: string;
   seconds: number;
