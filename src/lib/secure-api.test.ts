@@ -18,6 +18,7 @@ function context(
   if (body !== undefined) headers.set("Origin", origin);
   if (sessionKey) headers.set("X-SochoZara-Gemini-Key", sessionKey);
   if ((key || sessionKey) && (path.endsWith("/story") || path.endsWith("/narration"))) {
+    headers.set("X-SochoZara-AI-Provider", "gemini");
     headers.set("X-SochoZara-Gemini-Free-Use", "true");
   }
   return {
@@ -60,11 +61,10 @@ describe("Cloudflare secure Gemini endpoints", () => {
       targetDuration: 60,
       aspectRatio: "9:16",
     }));
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(400);
     const payload = await response.json() as { error: string; code: string };
-    expect(payload.code).toBe("AI_PROVIDERS_NOT_CONFIGURED");
-    expect(payload.error).toContain("Gemini");
-    expect(payload.error).toContain("Groq");
+    expect(payload.code).toBe("AI_PROVIDER_REQUIRED");
+    expect(payload.error).toContain("Choose and save one AI provider");
   });
 
   it("rejects cross-origin browser requests", async () => {
@@ -106,7 +106,7 @@ describe("Cloudflare secure Gemini endpoints", () => {
     expect(new Headers(init?.headers).get("x-goog-api-key")).toBe("server-only-test-secret");
   });
 
-  it("generates a storyboard through the Cloudflare AI binding without an API token", async () => {
+  it("does not use Cloudflare Workers AI as an automatic story fallback", async () => {
     const story = {
       title: "A binding-generated story",
       script: "A short explanation.",
@@ -140,11 +140,10 @@ describe("Cloudflare secure Gemini endpoints", () => {
     ctx.env = { AI: { run } };
 
     const response = await generateStory(ctx);
-    expect(response.status).toBe(200);
-    const payload = await response.json() as { story: { title: string }; source: string };
-    expect(payload.story.title).toBe(story.title);
-    expect(payload.source).toBe("cloudflare");
-    expect(run).toHaveBeenCalledOnce();
+    expect(response.status).toBe(400);
+    const payload = await response.json() as { code: string };
+    expect(payload.code).toBe("AI_PROVIDER_REQUIRED");
+    expect(run).not.toHaveBeenCalled();
   });
 
   it("uses the per-tab key for story generation when no Cloudflare secret exists", async () => {
@@ -171,7 +170,7 @@ describe("Cloudflare secure Gemini endpoints", () => {
     expect(new Headers(init?.headers).get("x-goog-api-key")).toBe("tab-only-test-secret");
   });
 
-  it("generates English narration through the Cloudflare AI binding without an API token", async () => {
+  it("does not use Cloudflare Workers AI as an automatic narration fallback", async () => {
     const audioStream = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(new Uint8Array([1, 2, 3]));
@@ -200,14 +199,10 @@ describe("Cloudflare secure Gemini endpoints", () => {
     ctx.env = { AI: { run } };
 
     const response = await generateNarration(ctx);
-    expect(response.status).toBe(200);
-    expect(response.headers.get("X-SochoZara-TTS-Provider")).toContain("Cloudflare Workers AI");
-    expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
-    expect(run).toHaveBeenCalledWith("@cf/deepgram/aura-2-en", {
-      text: "A short English narration.",
-      speaker: "luna",
-      encoding: "mp3",
-    });
+    expect(response.status).toBe(501);
+    const payload = await response.json() as { code: string };
+    expect(payload.code).toBe("SELECTED_PROVIDER_TTS_UNAVAILABLE");
+    expect(run).not.toHaveBeenCalled();
   });
 
   it("uses the per-tab key for narration when no Cloudflare secret exists", async () => {
