@@ -356,7 +356,7 @@ export default function App() {
         <section className="simple-heading">
           <div className="eyebrow">AI VIDEO CREATOR</div>
           <h1>Turn an idea into a video.</h1>
-          <p>One idea in. AI-directed scenes, voice-over, centered safe-area subtitles, cinematic transitions and a downloadable 1080p video.</p>
+          <p>One idea in. AI-directed scenes, original in-app instrumental audio, readable script captions, cinematic transitions and a downloadable 1080p video.</p>
         </section>
 
         <div className="simple-layout">
@@ -422,10 +422,10 @@ export default function App() {
             <div className="simple-provider">
               <label className="field-label" htmlFor="simple-provider-select">CHOOSE YOUR AI</label>
               <select id="simple-provider-select" value={selectedProvider} onChange={(event) => handleProviderChange(event.target.value)}>
-                <option value="cloudflare">Cloudflare Workers AI · Story + optional FLUX art</option>
+                <option value="cloudflare">Cloudflare Workers AI · Story + optional FLUX artwork</option>
                 <option value="gemini">Google Gemini · Story generation</option>
-                <option value="groq">Groq · Story + local soundtrack</option>
-                <option value="openrouter">OpenRouter · Free models · local soundtrack</option>
+                <option value="groq">Groq · Story generation</option>
+                <option value="openrouter">OpenRouter · Free models</option>
               </select>
               {selectedProvider === "cloudflare" ? (
                 <div className="simple-security-note">
