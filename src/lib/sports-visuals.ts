@@ -14,6 +14,7 @@ function sceneText(scene: Scene): string {
 
 export function getSportsVisualKind(scene: Scene, sceneIndex: number): SportsVisualKind {
   const text = sceneText(scene);
+  if (sceneIndex === 0 && /hook|breaking news|opening|announcement/.test(text)) return "stadium-action";
   if (/five titles|five trophies|trophy|champion|championship|legacy|five unforgettable|five seasons|title wins/.test(text)) return "trophy-legacy";
   if (/arshdeep|hardik|trade|transfer|roster|squad|player move|joins|leaves|bowler joins/.test(text)) return "squad-moves";
   if (/20th|twentieth|landmark season|anniversary|milestone/.test(text)) return "season-milestone";
@@ -271,21 +272,30 @@ function drawTrophies(ctx: CanvasRenderingContext2D, width: number, height: numb
 function drawSquadMoves(ctx: CanvasRenderingContext2D, width: number, height: number, scene: Scene, time: number) {
   label(ctx, "THE SQUAD SHIFTS", width * 0.5, height * 0.20, width * 0.043, GOLD);
   const full = sceneText(scene);
-  const players = ["HARDIK PANDYA", "ARSHDEEP SINGH"].filter(name => full.includes(name.toLowerCase()));
-  const leftName = players[0] || "OUTGOING PLAYER";
-  const rightName = players[1] || "INCOMING PLAYER";
-  const cards = [
-    { x: width * 0.27, name: leftName, team: "PUNJAB KINGS", color: "#D7A0A0" },
-    { x: width * 0.73, name: rightName, team: "MUMBAI INDIANS", color: TEAL },
-  ];
-  cards.forEach((card, index) => {
+  const hasHardik = full.includes("hardik pandya");
+  const hasArshdeep = full.includes("arshdeep singh");
+  const cards = hasHardik && hasArshdeep
+    ? [
+        { x: width * 0.27, name: "HARDIK PANDYA", team: "PUNJAB KINGS", color: "#D7A0A0" },
+        { x: width * 0.73, name: "ARSHDEEP SINGH", team: "MUMBAI INDIANS", color: TEAL },
+      ]
+    : hasArshdeep
+      ? [
+          { x: width * 0.27, name: "NEW BOWLING OPTION", team: "MUMBAI INDIANS", color: TEAL },
+          { x: width * 0.73, name: "ARSHDEEP SINGH", team: "JOINS THE SQUAD", color: GOLD },
+        ]
+      : [
+          { x: width * 0.27, name: "SQUAD UPDATE", team: "OUTGOING", color: "#D7A0A0" },
+          { x: width * 0.73, name: "NEW ARRIVAL", team: "INCOMING", color: TEAL },
+        ];
+  cards.forEach((card) => {
     const x = card.x, y = height * 0.53;
     ctx.save();
     ctx.fillStyle = "rgba(6,19,31,.86)";
     ctx.strokeStyle = card.color;
     ctx.lineWidth = Math.max(2, width * 0.003);
     ctx.beginPath(); ctx.roundRect(x - width * 0.20, y - height * 0.15, width * 0.40, height * 0.31, width * 0.025); ctx.fill(); ctx.stroke();
-    // jersey silhouette, without copying either club's trademark kit.
+    // Original jersey-shaped icon, not a copied club logo or kit.
     ctx.fillStyle = card.color;
     ctx.beginPath();
     ctx.moveTo(x - width * 0.065, y - height * 0.10);
@@ -302,10 +312,6 @@ function drawSquadMoves(ctx: CanvasRenderingContext2D, width: number, height: nu
     label(ctx, card.name, x, y + height * 0.205, width * 0.024, WHITE);
     label(ctx, card.team, x, y + height * 0.245, width * 0.018, MUTED);
     ctx.restore();
-    if (!index) {
-      ctx.fillStyle = "rgba(246,190,98,.9)";
-      ctx.beginPath(); ctx.arc(x, y - height * 0.20, width * 0.009, 0, Math.PI * 2); ctx.fill();
-    }
   });
   const midX = width * 0.5, midY = height * 0.54;
   ctx.save();
